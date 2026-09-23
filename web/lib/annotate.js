@@ -1,4 +1,5 @@
 import { AppError } from "./errors.js";
+import { loadImageBitmap } from "./image_ops.js";
 
 export const POSITIONS = [
   "top_left",
@@ -39,7 +40,7 @@ export function pastePos(cw, ch, mw, mh, position, margin = 16) {
 
 export async function addTextWatermark(file, { text, fontSize = 32, color = "rgba(255,255,255,0.7)", position = "bottom_right", margin = 16 } = {}) {
   if (!text) throw new AppError("图片处理失败", "水印文字不能为空");
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await loadImageBitmap(file);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
@@ -48,6 +49,7 @@ export async function addTextWatermark(file, { text, fontSize = 32, color = "rgb
   bitmap.close && bitmap.close();
   ctx.font = `${fontSize}px sans-serif`;
   ctx.fillStyle = color;
+  ctx.textBaseline = "top";
   const m = ctx.measureText(text);
   const tw = m.width;
   const th = fontSize * 1.2;
@@ -60,8 +62,8 @@ export async function addTextWatermark(file, { text, fontSize = 32, color = "rgb
 export async function addImageWatermark(file, markFile, { scale = 0.2, position = "bottom_right", margin = 16, opacity = 0.8 } = {}) {
   if (!(scale >= 0.05 && scale <= 1)) throw new AppError("图片处理失败", "水印缩放比例需在 0.05–1.0 之间");
   if (!(opacity >= 0 && opacity <= 1)) throw new AppError("图片处理失败", "透明度需在 0–1 之间");
-  const base = await createImageBitmap(file);
-  const mark = await createImageBitmap(markFile);
+  const base = await loadImageBitmap(file);
+  const mark = await loadImageBitmap(markFile);
   const canvas = document.createElement("canvas");
   canvas.width = base.width;
   canvas.height = base.height;
