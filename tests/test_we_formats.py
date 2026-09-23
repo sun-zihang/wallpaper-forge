@@ -121,6 +121,24 @@ def test_extract_tex_fallback_raw(tmp_path: Path):
     assert out.read_bytes() == src.read_bytes()
 
 
+def test_extract_tex_overwrite_replaces_same_name(tmp_path: Path):
+    # 构造内嵌 PNG 的 .tex（与现有 embedded 测试同布局）
+    png_sig = b"\x89PNG\r\n\x1a\n" + b"\x00" * 10
+    import struct as _struct
+
+    blob = b"\x00" * 16 + _struct.pack("<I", len(png_sig)) + png_sig + b"\x00" * 8
+    src = tmp_path / "scene.tex"
+    src.write_bytes(blob)
+    first = extract_tex(src, tmp_path / "out" / "scene")
+    assert first.exists()
+    # 默认再抽 → 不覆盖，带 (1)
+    second = extract_tex(src, tmp_path / "out" / "scene")
+    assert second != first and second.exists()
+    # overwrite → 仍写第一个路径
+    third = extract_tex(src, tmp_path / "out" / "scene", overwrite=True)
+    assert third == first
+
+
 def test_mpkg_carves_mp4(tmp_path: Path):
     ftyp = struct.pack(">I", 32) + b"ftypmp42" + b"\x00\x00\x00\x00" + b"mp42mp41"
     moov = struct.pack(">I", 16) + b"moov" + b"\x00" * 8

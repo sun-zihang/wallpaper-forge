@@ -176,7 +176,7 @@ def execute_task(
         src = task.sources[0]
         out_dir = Path(params["out_dir"])
         out_dir.mkdir(parents=True, exist_ok=True)
-        task.outputs = [extract_tex(src, out_dir / src.stem)]
+        task.outputs = [extract_tex(src, out_dir / src.stem, overwrite=True)]
         _tick(1)
     elif kind is TaskKind.UNPACK_MPKG:
         task.outputs = extract_mpkg(

@@ -23,13 +23,17 @@ _KIND_BY_EXT = {
 }
 
 
-def _out_dir_for(src: Path, mode: OutputMode, unified: Path | None) -> Path:
+def _out_dir_for(
+    src: Path, mode: OutputMode, unified: Path | None, *, overwrite: bool = False
+) -> Path:
     stem = src.stem
     if mode is OutputMode.UNIFIED:
         assert unified is not None
         base = unified / stem
     else:
         base = src.parent / "converted" / stem
+    if overwrite and base.exists() and base.is_dir():
+        return base
     n = 1
     cand = base
     while True:

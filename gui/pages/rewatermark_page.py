@@ -26,19 +26,22 @@ _VID = {".mp4", ".webm", ".mov", ".mkv"}
 _ALL = _IMG | _VID
 
 
-def _clean_out(src: Path, ext: str, mode: OutputMode, unified: Path | None) -> Path:
-    """Output path with _clean suffix, never overwriting source."""
+def _clean_out(
+    src: Path, ext: str, mode: OutputMode, unified: Path | None, *, overwrite: bool = False
+) -> Path:
+    """Output path with _clean suffix; overwrite skips exists-renaming."""
     stem = f"{src.stem}_clean"
     if mode is OutputMode.UNIFIED:
         assert unified is not None
         base = unified / f"{stem}.{ext}"
     else:
         base = src.parent / "converted" / f"{stem}.{ext}"
+    if overwrite:
+        return base
     n = 1
     while base.exists() and base.resolve() == src.resolve():
         base = base.with_name(f"{stem} ({n}).{ext}")
         n += 1
-    # also avoid colliding with existing outputs
     if base.exists() and base.resolve() != src.resolve():
         while base.exists():
             base = base.with_name(f"{stem} ({n}).{ext}")

@@ -94,27 +94,30 @@ def extract_embedded(tex_data: bytes) -> tuple[str, bytes] | tuple[None, None]:
     return ext, payload
 
 
-def extract_tex(src: Path, out_base: Path) -> Path:
+def extract_tex(src: Path, out_base: Path, *, overwrite: bool = False) -> Path:
     """Extract embedded media from a .tex file.
 
     out_base is a path without forcing extension; we return the actual written path.
+    overwrite=True writes the base name directly, replacing an existing file.
     """
     data = src.read_bytes()
     ext, payload = extract_embedded(data)
     if ext and payload:
         dst = out_base.with_suffix(ext)
-        n = 1
-        while dst.exists():
-            dst = out_base.with_name(f"{out_base.stem} ({n}){ext}")
-            n += 1
+        if not overwrite:
+            n = 1
+            while dst.exists():
+                dst = out_base.with_name(f"{out_base.stem} ({n}){ext}")
+                n += 1
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(payload)
         return dst
     dst = out_base.with_suffix(".tex")
-    n = 1
-    while dst.exists():
-        dst = out_base.with_name(f"{out_base.stem} ({n}).tex")
-        n += 1
+    if not overwrite:
+        n = 1
+        while dst.exists():
+            dst = out_base.with_name(f"{out_base.stem} ({n}).tex")
+            n += 1
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(data)
     return dst
