@@ -31,3 +31,14 @@ test("garbage raises Chinese", () => {
   data.fill(0x11, 8);
   assert.throws(() => extractMpkg(data), /MPKG|无法/);
 });
+
+test("garbage png carved once", () => {
+  const data = new Uint8Array(64);
+  data.set(new TextEncoder().encode("PKGM0019"), 0);
+  data.fill(0x11, 8);
+  data.set(new TextEncoder().encode("\x89PNG\r\n\x1a\n"), 16);
+  data.set(new TextEncoder().encode("IEND"), 40);
+  const { files } = extractMpkg(data);
+  const pngs = files.filter((f) => f.name.endsWith(".png"));
+  assert.equal(pngs.length, 1);
+});

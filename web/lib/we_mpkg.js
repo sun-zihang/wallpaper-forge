@@ -52,7 +52,7 @@ function extractMp4Blobs(data) {
 
 function includesBytes(hay, needle) {
   if (needle.length > hay.length) return false;
-  outer: for (let i = 0; i <= hay.length - needle.length; i += Math.max(1, needle.length >> 8)) {
+  outer: for (let i = 0; i <= hay.length - needle.length; i++) {
     for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer;
     return true;
   }
@@ -64,23 +64,25 @@ function carveMedia(data) {
   for (const blob of extractMp4Blobs(data)) results.push({ ext: ".mp4", blob });
   const img = extractEmbedded(data);
   if (img.ext && img.ext !== ".mp4" && img.payload) results.push({ ext: img.ext, blob: img.payload });
-  // standalone PNG
-  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  let idx = 0;
-  while (true) {
-    let i = -1;
-    for (let p = idx; p <= data.length - 8; p++) {
-      if (sig.every((b, k) => data[p + k] === b)) { i = p; break; }
+  // standalone PNG (skip when extractEmbedded already pushed the same .png)
+  if (img.ext !== ".png") {
+    const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    let idx = 0;
+    while (true) {
+      let i = -1;
+      for (let p = idx; p <= data.length - 8; p++) {
+        if (sig.every((b, k) => data[p + k] === b)) { i = p; break; }
+      }
+      if (i < 0) break;
+      let iend = -1;
+      for (let p = i; p <= data.length - 4; p++) {
+        if (data[p] === 0x49 && data[p + 1] === 0x45 && data[p + 2] === 0x4e && data[p + 3] === 0x44) { iend = p; break; }
+      }
+      const end = iend !== -1 ? iend + 8 : Math.min(data.length, i + 64 * 1024);
+      if (end <= data.length) results.push({ ext: ".png", blob: data.slice(i, end) });
+      idx = i + 1;
+      if (results.length > 64) break;
     }
-    if (i < 0) break;
-    let iend = -1;
-    for (let p = i; p <= data.length - 4; p++) {
-      if (data[p] === 0x49 && data[p + 1] === 0x45 && data[p + 2] === 0x4e && data[p + 3] === 0x44) { iend = p; break; }
-    }
-    const end = iend !== -1 ? iend + 8 : Math.min(data.length, i + 64 * 1024);
-    if (end <= data.length) results.push({ ext: ".png", blob: data.slice(i, end) });
-    idx = i + 1;
-    if (results.length > 64) break;
   }
   return results;
 }
