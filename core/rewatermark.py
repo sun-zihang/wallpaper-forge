@@ -6,7 +6,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from core.video_ops import run_ffmpeg
+from core.safeio import cleanup_part, needs_part, part_path, replace_part
+from core.video_ops import FFMPEG_FORMATS, run_ffmpeg
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
@@ -60,8 +61,25 @@ def inpaint_image(
     except Exception as e:  # noqa: BLE001
         raise RewatermarkError(f"修复失败：{e}") from e
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if not cv2.imwrite(str(dst), out):
-        raise RewatermarkError(f"保存失败：{dst.name}")
+    same = needs_part(src, dst)
+    if not same:
+        if not cv2.imwrite(str(dst), out):
+            raise RewatermarkError(f"保存失败：{dst.name}")
+        return dst
+    part = part_path(dst)
+    # .part 无已知扩展名，cv2.imwrite 无法选择编码器，改用 imencode 显式指定
+    ext = dst.suffix.lower()
+    if ext not in IMAGE_EXTS:
+        ext = ".png"
+    try:
+        ok, buf = cv2.imencode(ext, out)
+        if not ok:
+            raise RewatermarkError(f"保存失败：{dst.name}")
+        part.write_bytes(buf.tobytes())
+    except BaseException:
+        cleanup_part(part)
+        raise
+    replace_part(part, dst)
     return dst
 
 
@@ -100,6 +118,8 @@ def remove_video_watermark(
         safe.append((l, t, r, b))
 
     dst.parent.mkdir(parents=True, exist_ok=True)
+    same = needs_part(src, dst)
+    target = part_path(dst) if same else dst
     vf = _delogo_filters(safe)
     args = [
         "-i",
@@ -112,8 +132,12 @@ def remove_video_watermark(
         "yuv420p",
         "-c:a",
         "copy",
-        str(dst),
     ]
+    if same:
+        fmt = FFMPEG_FORMATS.get(dst.suffix.lower())
+        if fmt:
+            args += ["-f", fmt]
+    args.append(str(target))
     try:
         from core.video_ops import probe_video_duration
 
@@ -122,14 +146,18 @@ def remove_video_watermark(
             cancel_event=cancel_event,
             progress_cb=progress_cb,
             duration=probe_video_duration(src),
-            cleanup=dst,
+            cleanup=target,
         )
     except Exception as e:  # VideoOpError / FFmpegNotFound
         if "已取消" in str(e):
             raise RewatermarkError("已取消") from e
         raise RewatermarkError(f"视频处理失败：{e}") from e
-    if not dst.is_file() or dst.stat().st_size == 0:
+    if not target.is_file() or target.stat().st_size == 0:
+        if same:
+            cleanup_part(target)
         raise RewatermarkError("视频处理失败：输出为空")
+    if same:
+        replace_part(target, dst)
     return dst
 
 

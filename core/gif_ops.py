@@ -5,6 +5,8 @@ from pathlib import Path
 
 from PIL import Image, ImageSequence
 
+from core.safeio import cleanup_part, needs_part, part_path, replace_part
+
 
 class GifOpError(Exception):
     pass
@@ -60,21 +62,42 @@ def merge_gif(
         if cancel_event is not None and cancel_event.is_set():
             raise GifOpError("已取消")
         try:
-            im = Image.open(p)
-            im.load()
-            frames.append(im.convert("RGBA"))
+            # with 关闭源文件句柄：同路径 replace 目标时 Windows 上句柄未关会拒绝访问
+            with Image.open(p) as im:
+                im.load()
+                frames.append(im.convert("RGBA"))
         except Exception as e:
             raise GifOpError(f"无法读取图片: {p.name}（{e}）") from e
         _ = i  # loop counter for cancel granularity
     if reverse:
         frames = list(reversed(frames))
     dst.parent.mkdir(parents=True, exist_ok=True)
-    frames[0].save(
-        dst,
-        save_all=True,
-        append_images=frames[1:],
-        duration=duration_ms,
-        loop=loop,
-        optimize=False,
-    )
+    same = any(needs_part(p, dst) for p in sources)
+    if not same:
+        frames[0].save(
+            dst,
+            save_all=True,
+            append_images=frames[1:],
+            duration=duration_ms,
+            loop=loop,
+            optimize=False,
+        )
+        return dst
+    part = part_path(dst)
+    # .part 无已知扩展名，PIL 无法推断格式，显式指定（同 Task 2 image_ops）
+    fmt = Image.registered_extensions().get(dst.suffix.lower())
+    try:
+        frames[0].save(
+            part,
+            format=fmt,
+            save_all=True,
+            append_images=frames[1:],
+            duration=duration_ms,
+            loop=loop,
+            optimize=False,
+        )
+    except BaseException:
+        cleanup_part(part)
+        raise
+    replace_part(part, dst)
     return dst

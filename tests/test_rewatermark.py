@@ -10,6 +10,7 @@ from core.rewatermark import (
     inpaint_image,
     validate_boxes,
 )
+from core.safeio import part_path
 
 
 @pytest.fixture
@@ -51,3 +52,11 @@ def test_inpaint_changes_region(watermarked_png, tmp_path):
     assert px != orig
     # outside region roughly unchanged
     assert after.getpixel((5, 5)) == before.getpixel((5, 5))
+
+
+def test_inpaint_inplace(tmp_path: Path):
+    src = tmp_path / "wm.png"
+    Image.new("RGB", (32, 32), (200, 200, 200)).save(src)
+    out = inpaint_image(src, src, [(2, 2, 10, 10)])
+    assert out == src
+    assert not part_path(src).exists()

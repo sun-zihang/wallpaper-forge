@@ -7,8 +7,11 @@ from pathlib import Path
 from typing import Callable
 
 from core.ffmpeg_finder import find_ffmpeg
+from core.safeio import cleanup_part, needs_part, part_path, replace_part
 
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv"}
+# ffmpeg 需在输出为 .part（无法从扩展名推断容器）时显式 -f
+FFMPEG_FORMATS = {".mp4": "mp4", ".webm": "webm", ".mov": "mov", ".mkv": "matroska"}
 
 
 class VideoOpError(Exception):
@@ -182,14 +185,23 @@ def convert_video(
         args += ["-an"]
     if ext in {".mp4", ".mov"}:
         args += ["-pix_fmt", "yuv420p"]
-    args.append(str(dst))
+    same = needs_part(src, dst)
+    target = part_path(dst) if same else dst
+    if same:
+        args += ["-f", FFMPEG_FORMATS[ext]]
+    args.append(str(target))
     run_ffmpeg(
         args,
         cancel_event=cancel_event,
         progress_cb=progress_cb,
         duration=probe_video_duration(src),
-        cleanup=dst,
+        cleanup=target,
     )
+    if same:
+        # run_ffmpeg 失败时已 cleanup；成功才 replace
+        if not target.is_file():
+            raise VideoOpError(f"输出为空: {dst.name}")
+        replace_part(target, dst)
     return dst
 
 
@@ -285,25 +297,37 @@ def trim_video(
     if start < 0 or end <= start:
         raise VideoOpError("片段范围无效：结束时间必须大于开始时间且非负")
     dst.parent.mkdir(parents=True, exist_ok=True)
+    same = needs_part(src, dst)
+    target = part_path(dst) if same else dst
+    args = [
+        "-ss",
+        str(start),
+        "-to",
+        str(end),
+        "-i",
+        str(src),
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+    ]
+    if same:
+        fmt = FFMPEG_FORMATS.get(dst.suffix.lower())
+        if fmt:
+            args += ["-f", fmt]
+    args.append(str(target))
     run_ffmpeg(
-        [
-            "-ss",
-            str(start),
-            "-to",
-            str(end),
-            "-i",
-            str(src),
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            str(dst),
-        ],
+        args,
         cancel_event=cancel_event,
         progress_cb=progress_cb,
         duration=max(0.01, end - start),
-        cleanup=dst,
+        cleanup=target,
     )
+    if same:
+        # run_ffmpeg 失败时已 cleanup；成功才 replace
+        if not target.is_file():
+            raise VideoOpError(f"输出为空: {dst.name}")
+        replace_part(target, dst)
     return dst
