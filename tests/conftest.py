@@ -1,6 +1,28 @@
-import pytest
+import os
 from pathlib import Path
+
+import pytest
 from PIL import Image
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    previous_platform = os.environ.get("QT_QPA_PLATFORM")
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+    QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        try:
+            app = QtWidgets.QApplication([])
+        except Exception as exc:
+            pytest.skip(f"Qt offscreen platform is unavailable: {exc}")
+    if app.platformName() != "offscreen":
+        pytest.skip(f"Qt offscreen platform is unavailable: {app.platformName()}")
+    yield app
+    if previous_platform is None:
+        os.environ.pop("QT_QPA_PLATFORM", None)
+    else:
+        os.environ["QT_QPA_PLATFORM"] = previous_platform
 
 
 @pytest.fixture
