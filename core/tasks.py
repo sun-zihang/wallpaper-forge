@@ -22,6 +22,8 @@ class TaskKind(enum.Enum):
     UNPACK_PKG = "unpack_pkg"
     UNPACK_TEX = "unpack_tex"
     UNPACK_MPKG = "unpack_mpkg"
+    INPAINT_IMAGE = "inpaint_image"
+    REMOVE_VIDEO_WATERMARK = "remove_video_watermark"
 
 
 @dataclass
