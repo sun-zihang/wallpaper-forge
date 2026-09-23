@@ -85,7 +85,8 @@ export async function runFFmpeg({ args, outPath, onProgress, cancelToken }) {
       code = await ff.exec(args);
     } catch (e) {
       if (cancelToken && cancelToken.cancelled) throw cancelledError();
-      throw e instanceof AppError ? e : new AppError("视频处理失败", String((e && e.message) || e));
+      const detail = `${String((e && e.message) || e)}：${logTail.slice(-200)}`;
+      throw e instanceof AppError ? e : new AppError("视频处理失败", detail);
     }
     if (cancelToken && cancelToken.cancelled) throw cancelledError();
     if (code !== 0 && code != null) {

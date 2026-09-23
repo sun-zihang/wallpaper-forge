@@ -82,16 +82,16 @@ export function mountVideo(root) {
         return;
       }
     }
-    for (const f of files) {
-      const sec = await probeVideoDuration(f);
-      if (sec != null && sec > MAX_VIDEO_SECONDS) {
-        err.textContent = friendlyError(durationTooLongError());
-        return;
-      }
-    }
     running = true;
     $("start").disabled = true;
     try {
+      for (const f of files) {
+        const sec = await probeVideoDuration(f);
+        if (sec != null && sec > MAX_VIDEO_SECONDS) {
+          err.textContent = friendlyError(durationTooLongError());
+          return;
+        }
+      }
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
       try {
         await ensureFFmpeg((msg) => setStatusMsg(msg));

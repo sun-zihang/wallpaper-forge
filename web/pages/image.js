@@ -47,7 +47,7 @@ export function mountImage(root) {
   }
 
   $("start").addEventListener("click", async () => {
-    if (running) return;
+    if (running || zipping) return;
     err.textContent = "";
     const files = [...$("files").files];
     if (!files.length) {
