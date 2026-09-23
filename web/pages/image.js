@@ -62,23 +62,29 @@ export function mountImage(root) {
         jobs.setStatus(i, "done");
       } catch (e) {
         const msg = friendlyError(e);
-        jobs.setStatus(i, msg === "已取消" ? "cancelled" : "failed", msg);
-        if (msg === "已取消") break;
+        const cancelled = msg.includes("已取消");
+        jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+        if (cancelled) break;
       }
     }
     jobs.finish();
   });
 
   $("zip").addEventListener("click", async () => {
+    err.textContent = "";
     if (!outputs.length) {
       err.textContent = "还没有可下载的输出";
       return;
     }
-    await ensureJszip();
-    const zip = new globalThis.JSZip();
-    for (const o of outputs) zip.file(o.filename, o.blob);
-    const blob = await zip.generateAsync({ type: "blob" });
-    downloadBlob(blob, "images.zip");
+    try {
+      await ensureJszip();
+      const zip = new globalThis.JSZip();
+      for (const o of outputs) zip.file(o.filename, o.blob);
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, "images.zip");
+    } catch (e) {
+      err.textContent = friendlyError(e);
+    }
   });
 
   async function firstBitmap() {
@@ -129,11 +135,16 @@ export function mountImage(root) {
       bitmap.close && bitmap.close();
       $("markfile").click();
       $("markfile").onchange = async () => {
-        const mark = $("markfile").files[0];
-        if (!mark) return;
-        const { blob, filename } = await addImageWatermark(file, mark, { scale: 0.2, opacity: 0.8, position: "bottom_right" });
-        outputs.push({ blob, filename });
-        downloadBlob(blob, filename);
+        err.textContent = "";
+        try {
+          const mark = $("markfile").files[0];
+          if (!mark) return;
+          const { blob, filename } = await addImageWatermark(file, mark, { scale: 0.2, opacity: 0.8, position: "bottom_right" });
+          outputs.push({ blob, filename });
+          downloadBlob(blob, filename);
+        } catch (e) {
+          err.textContent = friendlyError(e);
+        }
       };
     } catch (e) {
       err.textContent = friendlyError(e);
