@@ -38,16 +38,25 @@ class Task:
     error: str | None = None
 
 
-def _unique_force(path: Path, taken: set[Path], protected: Path | None) -> Path:
+def _unique_force(
+    path: Path,
+    taken: set[Path],
+    protected: Path | None,
+    *,
+    overwrite: bool = False,
+) -> Path:
     n = 0
     while True:
         if n == 0:
             cand = path
         else:
             cand = path.with_name(f"{path.stem} ({n}){path.suffix}")
-        ok = not cand.exists() and cand.resolve() not in taken
-        if protected is not None and cand.resolve() == protected:
-            ok = False
+        if overwrite:
+            ok = cand.resolve() not in taken
+        else:
+            ok = not cand.exists() and cand.resolve() not in taken
+            if protected is not None and cand.resolve() == protected:
+                ok = False
         if ok:
             taken.add(cand.resolve())
             return cand
@@ -60,6 +69,8 @@ def resolve_outputs(
     output_mode: OutputMode,
     unified_dir: Path | None,
     op_subdir: str = "converted",
+    *,
+    overwrite: bool = False,
 ) -> list[Path]:
     ext = ext.lstrip(".").lower()
     taken: set[Path] = set()
@@ -71,5 +82,18 @@ def resolve_outputs(
             base = unified_dir / f"{src.stem}.{ext}"
         else:
             base = src.parent / op_subdir / f"{src.stem}.{ext}"
-        outs.append(_unique_force(base, taken, src.resolve()))
+        outs.append(_unique_force(base, taken, src.resolve(), overwrite=overwrite))
     return outs
+
+
+def would_overwrite_sources(
+    sources: list[Path],
+    outputs: list[Path],
+) -> list[tuple[Path, Path]]:
+    src_res = {s.resolve(): s for s in sources}
+    pairs: list[tuple[Path, Path]] = []
+    for o in outputs:
+        key = o.resolve()
+        if key in src_res:
+            pairs.append((src_res[key], o))
+    return pairs
