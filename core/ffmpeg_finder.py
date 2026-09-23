@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import shutil
 import sys
@@ -27,15 +28,10 @@ def _candidates() -> list[Path]:
     which = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
     if which:
         found.append(Path(which))
-    try:
-        import imageio_ffmpeg
-
-        found.append(Path(imageio_ffmpeg.get_ffmpeg_exe()))
-    except Exception:
-        pass
     return found
 
 
+@functools.lru_cache(maxsize=1)
 def find_ffmpeg() -> Path:
     for p in _candidates():
         if p and p.is_file():

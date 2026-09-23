@@ -54,17 +54,17 @@ iscc build/installer.iss
 
 ## 下载
 
-最新版：**[v0.4.0](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.4.0)**（安装包约 115MB）
+最新版：**[v0.5.0](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.5.0)**（安装包更小，含细粒度进度/取消优化）
 
 国内若 GitHub 较慢，优先用镜像直链（任选其一，粘贴到浏览器）：
 
 | 来源 | 直链 |
 |------|------|
-| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.4.0/WallpaperConverter-Setup-0.4.0.exe |
-| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.4.0/WallpaperConverter-Setup-0.4.0.exe |
-| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.4.0/WallpaperConverter-Setup-0.4.0.exe |
-| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.4.0/WallpaperConverter-Setup-0.4.0.exe |
-| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.4.0/WallpaperConverter-Setup-0.4.0.exe |
+| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.5.0/WallpaperConverter-Setup-0.5.0.exe |
+| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.5.0/WallpaperConverter-Setup-0.5.0.exe |
+| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.5.0/WallpaperConverter-Setup-0.5.0.exe |
+| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.5.0/WallpaperConverter-Setup-0.5.0.exe |
+| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.5.0/WallpaperConverter-Setup-0.5.0.exe |
 
 应用内「检查更新 → 立即更新」同样按上表顺序优先走镜像；全部失败时会在提示框里列出可复制的镜像链接。
 

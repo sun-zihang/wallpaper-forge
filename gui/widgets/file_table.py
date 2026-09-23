@@ -41,6 +41,7 @@ class FileTable(QWidget):
         super().__init__()
         self.accept_exts = set(accept_exts or (_IMAGE_EXTS | _VIDEO_EXTS))
         self.setAcceptDrops(True)
+        self._row_by_key: dict[str, int] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -59,33 +60,42 @@ class FileTable(QWidget):
         self.table.doubleClicked.connect(self._open_output)
         layout.addWidget(self.table, 1)
 
+    @staticmethod
+    def _key(p: Path) -> str:
+        try:
+            return str(p.resolve())
+        except OSError:
+            return str(p)
+
     def set_accept_exts(self, exts: set[str]) -> None:
         self.accept_exts = set(exts)
 
     def add_paths(self, paths: list[Path]) -> None:
-        existing = self._all_paths()
+        existing = set(self._row_by_key)
         added = False
-        for raw in paths:
-            p = Path(raw)
-            if p.is_dir():
-                for child in sorted(p.rglob("*")):
-                    if child.is_file() and child.suffix.lower() in self.accept_exts:
-                        added = self._append(child, existing) or added
-            elif p.is_file() and p.suffix.lower() in self.accept_exts:
-                added = self._append(p, existing) or added
+        self.table.setUpdatesEnabled(False)
+        try:
+            for raw in paths:
+                p = Path(raw)
+                if p.is_dir():
+                    for child in sorted(p.rglob("*")):
+                        if child.is_file() and child.suffix.lower() in self.accept_exts:
+                            added = self._append(child, existing) or added
+                elif p.is_file() and p.suffix.lower() in self.accept_exts:
+                    added = self._append(p, existing) or added
+        finally:
+            self.table.setUpdatesEnabled(True)
         if added:
             self.files_changed.emit()
 
-    def _append(self, p: Path, existing: set[Path]) -> bool:
-        try:
-            rp = p.resolve()
-        except OSError:
+    def _append(self, p: Path, existing: set[str]) -> bool:
+        key = self._key(p)
+        if key in existing:
             return False
-        if rp in existing:
-            return False
-        existing.add(rp)
+        existing.add(key)
         row = self.table.rowCount()
         self.table.insertRow(row)
+        self._row_by_key[key] = row
         try:
             size_kb = p.stat().st_size / 1024
         except OSError:
@@ -99,17 +109,6 @@ class FileTable(QWidget):
         status.setForeground(QColor("#aaaaaa"))
         self.table.setItem(row, 3, status)
         return True
-
-    def _all_paths(self) -> set[Path]:
-        out: set[Path] = set()
-        for r in range(self.table.rowCount()):
-            item = self.table.item(r, 0)
-            if item:
-                try:
-                    out.add(Path(item.text()).resolve())
-                except OSError:
-                    pass
-        return out
 
     def selected_or_all(self) -> list[Path]:
         rows = sorted({i.row() for i in self.table.selectedIndexes()})
@@ -130,25 +129,22 @@ class FileTable(QWidget):
 
     def clear(self) -> None:
         self.table.setRowCount(0)
+        self._row_by_key.clear()
         self.files_changed.emit()
 
     def set_status_for_path(self, path: Path, status: str, detail: str = "") -> None:
-        try:
-            target = path.resolve()
-        except OSError:
-            target = path
-        for r in range(self.table.rowCount()):
-            item = self.table.item(r, 0)
-            if not item:
-                continue
-            try:
-                if Path(item.text()).resolve() == target:
+        key = self._key(path)
+        row = self._row_by_key.get(key)
+        if row is None:
+            # fallback linear scan (path text may differ from resolve key)
+            for r in range(self.table.rowCount()):
+                item = self.table.item(r, 0)
+                if item and item.text() == str(path):
                     self._write_status(r, status, detail)
                     return
-            except OSError:
-                if Path(item.text()) == path:
-                    self._write_status(r, status, detail)
-                    return
+            return
+        if 0 <= row < self.table.rowCount():
+            self._write_status(row, status, detail)
 
     def _write_status(self, row: int, status: str, detail: str = "") -> None:
         item = self.table.item(row, 3)
@@ -164,8 +160,12 @@ class FileTable(QWidget):
         item.setForeground(QColor(_STATUS_COLORS.get(status, "#aaaaaa")))
 
     def reset_statuses(self) -> None:
-        for r in range(self.table.rowCount()):
-            self._write_status(r, "pending")
+        self.table.setUpdatesEnabled(False)
+        try:
+            for r in range(self.table.rowCount()):
+                self._write_status(r, "pending")
+        finally:
+            self.table.setUpdatesEnabled(True)
 
     def _open_output(self) -> None:
         rows = {i.row() for i in self.table.selectedIndexes()}

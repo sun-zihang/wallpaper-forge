@@ -85,6 +85,7 @@ def remove_video_watermark(
     frame_width: int,
     frame_height: int,
     cancel_event: threading.Event | None = None,
+    progress_cb=None,
 ) -> Path:
     cleaned = validate_boxes(boxes, frame_width, frame_height)
     # Ensure delogo boxes stay inside the frame (delogo cannot touch borders)
@@ -114,7 +115,15 @@ def remove_video_watermark(
         str(dst),
     ]
     try:
-        run_ffmpeg(args, cancel_event=cancel_event)
+        from core.video_ops import probe_video_duration
+
+        run_ffmpeg(
+            args,
+            cancel_event=cancel_event,
+            progress_cb=progress_cb,
+            duration=probe_video_duration(src),
+            cleanup=dst,
+        )
     except Exception as e:  # VideoOpError / FFmpegNotFound
         if "已取消" in str(e):
             raise RewatermarkError("已取消") from e
@@ -125,36 +134,21 @@ def remove_video_watermark(
 
 
 def probe_video_size(src: Path) -> tuple[int, int]:
+    import re
     import subprocess
 
     from core.ffmpeg_finder import find_ffmpeg
 
     ff = find_ffmpeg()
     r = subprocess.run(
-        [
-            str(ff),
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=width,height",
-            "-of",
-            "csv=p=0",
-            str(src),
-        ],
+        [str(ff), "-hide_banner", "-i", str(src)],
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
+        timeout=30,
     )
-    # ffprobe-style won't work with ffmpeg binary; use ffmpeg -i parse instead
-    line = (r.stdout or "") + (r.stderr or "")
-    # fallback: run ffmpeg -i and parse
-    r2 = subprocess.run([str(ff), "-i", str(src)], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    text = r2.stderr or ""
-    import re
-
+    text = (r.stderr or "") + (r.stdout or "")
     m = re.search(r"(\d{2,5})x(\d{2,5})", text)
     if not m:
         raise RewatermarkError("无法读取视频分辨率")

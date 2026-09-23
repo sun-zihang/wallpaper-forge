@@ -55,6 +55,8 @@ class BoxSelectDialog(QDialog):
         layout.addWidget(buttons)
 
         self._geom = (0, 0, 1.0)  # ox, oy, scale
+        self._scaled_cache: QPixmap | None = None
+        self._scaled_key: tuple[int, int] | None = None
         self._redraw()
 
     def _layout_metrics(self) -> tuple[int, int, float, int, int]:
@@ -67,6 +69,15 @@ class BoxSelectDialog(QDialog):
         ox = (cw - nw) // 2
         oy = (ch - nh) // 2
         return ox, oy, scale, nw, nh
+
+    def _scaled_pixmap(self, nw: int, nh: int) -> QPixmap:
+        key = (nw, nh)
+        if self._scaled_cache is None or self._scaled_key != key:
+            self._scaled_cache = self._pix.scaled(
+                nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self._scaled_key = key
+        return self._scaled_cache
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -151,7 +162,7 @@ class BoxSelectDialog(QDialog):
         canvas = QP(self.canvas.size())
         canvas.fill(QColor("#111111"))
         painter = QPainter(canvas)
-        scaled = self._pix.scaled(nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled = self._scaled_pixmap(nw, nh)
         painter.drawPixmap(ox, oy, scaled)
 
         pen = QPen(QColor("#3b82f6"), 2)

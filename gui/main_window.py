@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -144,6 +146,36 @@ class MainWindow(QMainWindow):
             self.status_label.setText("就绪（未找到 ffmpeg：视频功能不可用）")
         else:
             self.status_label.setText("就绪")
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
+        running_pages = [
+            p
+            for p in (
+                self.image_page,
+                self.video_page,
+                self.gif_page,
+                self.unpack_page,
+                self.rewatermark_page,
+            )
+            if p.thread.isRunning()
+        ]
+        if running_pages:
+            ret = QMessageBox.question(
+                self,
+                "确认退出",
+                "仍有任务正在处理，退出将取消未完成的任务。\n确定要退出吗？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if ret != QMessageBox.Yes:
+                event.ignore()
+                return
+            for p in running_pages:
+                p.thread.cancel()
+            for p in running_pages:
+                if not p.thread.wait(3000):
+                    p.thread.wait(1000)
+        event.accept()
 
 
 def run(version: str) -> None:

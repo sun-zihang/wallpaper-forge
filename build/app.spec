@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-import os
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -13,6 +12,26 @@ if ffmpeg.is_file():
 
 hidden = collect_submodules("PIL")
 
+# Drop Qt Quick/Qml/Pdf/OpenGL software backend and duplicate ffmpeg DLLs
+# pulled in by opencv/imageio (we ship vendor/ffmpeg ourselves).
+_DROP_SUBSTR = (
+    "imageio_ffmpeg",
+    "opencv_videoio_ffmpeg",
+    "opengl32sw",
+    "Qt6Quick",
+    "Qt6Qml",
+    "Qt6Pdf",
+    "Qt6OpenGL",
+    "Qt63D",
+    "d3dcompiler",
+)
+
+
+def _keep(name: str) -> bool:
+    n = name.lower()
+    return not any(s.lower() in n for s in _DROP_SUBSTR)
+
+
 a = Analysis(
     [str(ROOT / "main.py")],
     pathex=[str(ROOT)],
@@ -22,9 +41,23 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter"],
+    excludes=[
+        "tkinter",
+        "PySide6.QtQuick",
+        "PySide6.QtQml",
+        "PySide6.QtPdf",
+        "PySide6.QtQuickWidgets",
+        "PySide6.Qt3DCore",
+        "imageio_ffmpeg",
+        "imageio",
+    ],
     noarchive=False,
 )
+
+# Post-filter collected binaries/datas before PYZ/COLLECT.
+a.binaries = [(n, p, f) for n, p, f in a.binaries if _keep(n)]
+a.datas = [(n, p, f) for n, p, f in a.datas if _keep(n)]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -33,6 +66,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="WallpaperConverter",
+    icon=str(ROOT / "assets" / "app.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

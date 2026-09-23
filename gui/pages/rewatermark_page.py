@@ -16,7 +16,6 @@ from core.ffmpeg_finder import ffmpeg_available
 from core.rewatermark import (
     RewatermarkError,
     extract_preview_frame,
-    probe_video_size,
 )
 from core.tasks import OutputMode, Task, TaskKind
 from gui.dialogs_boxselect import BoxSelectDialog
@@ -172,22 +171,13 @@ class RewatermarkPage(BasePage):
         for p in paths:
             boxes = self._boxes[p]
             if p.suffix.lower() in _VID:
-                try:
-                    w, h = probe_video_size(p)
-                except Exception as e:  # noqa: BLE001
-                    QMessageBox.warning(self, "错误", f"{p.name}: {e}")
-                    return
+                # frame size probed inside worker (never block UI thread)
                 out = _clean_out(p, "mp4", mode, self.unified_dir)
                 batch.append(
                     Task(
                         sources=[p],
                         kind=TaskKind.REMOVE_VIDEO_WATERMARK,
-                        params={
-                            "boxes": boxes,
-                            "frame_width": w,
-                            "frame_height": h,
-                            "out": out,
-                        },
+                        params={"boxes": boxes, "out": out},
                         output_mode=mode,
                         unified_dir=self.unified_dir,
                         outputs=[out],

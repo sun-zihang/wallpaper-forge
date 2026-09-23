@@ -1,6 +1,15 @@
 from pathlib import Path
 
+import pytest
+
 from core.ffmpeg_finder import FFmpegNotFound, ffmpeg_available, find_ffmpeg
+
+
+@pytest.fixture(autouse=True)
+def _clear_ffmpeg_cache():
+    find_ffmpeg.cache_clear()
+    yield
+    find_ffmpeg.cache_clear()
 
 
 def test_env_var_wins(tmp_path: Path, monkeypatch):

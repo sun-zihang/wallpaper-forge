@@ -87,9 +87,12 @@ class BasePage(QWidget):
 
         self.thread = BatchThread(self)
         self.thread.progress.connect(self._on_progress)
+        self.thread.progress_pct.connect(self._on_progress_pct)
         self.thread.task_finished.connect(self._on_task)
         self.thread.batch_finished.connect(self._on_batch_done)
         self.thread.status_text.connect(self._on_status)
+        self._last_ok = 0
+        self._last_failed = 0
 
     def finish_layout(self, mid: QWidget) -> None:
         self.root.addWidget(mid, 1)
@@ -155,8 +158,15 @@ class BasePage(QWidget):
         self.thread.cancel()
 
     def _on_progress(self, i: int, total: int, name: str) -> None:
+        # coarse per-file step; fine-grained percent comes from progress_pct
         if total > 0:
-            self.progress.setValue(int(i * 100 / total))
+            coarse = int((i - 1) * 100 / total)
+            if coarse > self.progress.value():
+                self.progress.setValue(coarse)
+
+    def _on_progress_pct(self, pct: int) -> None:
+        if 0 <= pct <= 100:
+            self.progress.setValue(pct)
 
     def _on_status(self, text: str) -> None:
         win = self.window()
@@ -176,8 +186,15 @@ class BasePage(QWidget):
             self.table.set_status_for_path(Path(src), status, error)
 
     def _on_batch_done(self, ok: int, failed: int) -> None:
+        self._last_ok = ok
+        self._last_failed = failed
         self.start_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
+        if failed and not ok:
+            # everything cancelled: leave bar as-is, no success dialog
+            self.progress.setValue(0)
+            self._on_status("已取消")
+            return
         self.progress.setValue(100)
         msg = f"成功 {ok} 个" + (f"，失败/取消 {failed} 个" if failed else "")
         if failed:

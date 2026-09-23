@@ -81,6 +81,18 @@ class ImagePage(BasePage):
         layout.addWidget(self.table, 1)
         self.finish_layout(mid)
 
+    def apply_settings(self, settings: dict) -> None:
+        super().apply_settings(settings)
+        try:
+            q = int(settings.get("default_quality", 90))
+        except (TypeError, ValueError):
+            q = 90
+        q = max(1, min(100, q))
+        self.quality.blockSignals(True)
+        self.quality.setValue(q)
+        self.quality.blockSignals(False)
+        self.quality_label.setText(str(q))
+
     def start_batch(self) -> None:
         paths = self.table.selected_or_all()
         paths = [p for p in paths if p.suffix.lower() in _IMAGE_EXTS]

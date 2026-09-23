@@ -59,6 +59,8 @@ class CropDialog(QDialog):
         layout.addWidget(buttons)
 
         self._scale = 1.0
+        self._scaled_cache: QPixmap | None = None
+        self._scaled_key: tuple[int, int] | None = None
         self._redraw()
 
     def _fit(self, w: int, h: int) -> tuple[QPixmap, float, int, int]:
@@ -67,7 +69,13 @@ class CropDialog(QDialog):
         scale = max(scale, 0.01)
         nw = max(1, int(self._pix.width() * scale))
         nh = max(1, int(self._pix.height() * scale))
-        scaled = self._pix.scaled(nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        key = (nw, nh)
+        if self._scaled_cache is not None and self._scaled_key == key:
+            scaled = self._scaled_cache
+        else:
+            scaled = self._pix.scaled(nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._scaled_cache = scaled
+            self._scaled_key = key
         return scaled, scale, nw, nh
 
     def resizeEvent(self, event) -> None:

@@ -117,6 +117,14 @@ class VideoPage(BasePage):
         layout.addWidget(self.table, 1)
         self.finish_layout(mid)
 
+    def apply_settings(self, settings: dict) -> None:
+        super().apply_settings(settings)
+        try:
+            fps = int(settings.get("default_gif_fps", 15))
+        except (TypeError, ValueError):
+            fps = 15
+        self.gif_fps.setValue(max(1, min(50, fps)))
+
     def _sync_mode(self) -> None:
         kind = self.mode.currentData()
         show_convert = kind == "convert"

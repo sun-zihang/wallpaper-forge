@@ -8,6 +8,7 @@ from gui.workers import TaskRunner
 
 class BatchThread(QThread):
     progress = Signal(int, int, str)
+    progress_pct = Signal(int)
     task_finished = Signal(object)
     batch_finished = Signal(int, int)
     status_text = Signal(str)
@@ -16,6 +17,7 @@ class BatchThread(QThread):
         super().__init__(parent)
         self.runner = TaskRunner()
         self.runner.progress.connect(self.progress)
+        self.runner.progress_pct.connect(self.progress_pct)
         self.runner.task_finished.connect(self.task_finished)
         self.runner.batch_finished.connect(self.batch_finished)
         self.runner.status_text.connect(self.status_text)
