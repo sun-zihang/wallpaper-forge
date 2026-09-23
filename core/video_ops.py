@@ -198,8 +198,9 @@ def convert_video(
         cleanup=target,
     )
     if same:
-        # run_ffmpeg 失败时已 cleanup；成功才 replace
-        if not target.is_file():
+        # run_ffmpeg 失败时已 cleanup；成功才 replace（0 字节视为失败，避免覆盖源文件）
+        if not target.is_file() or target.stat().st_size == 0:
+            cleanup_part(target)
             raise VideoOpError(f"输出为空: {dst.name}")
         replace_part(target, dst)
     return dst
@@ -326,8 +327,9 @@ def trim_video(
         cleanup=target,
     )
     if same:
-        # run_ffmpeg 失败时已 cleanup；成功才 replace
-        if not target.is_file():
+        # run_ffmpeg 失败时已 cleanup；成功才 replace（0 字节视为失败，避免覆盖源文件）
+        if not target.is_file() or target.stat().st_size == 0:
+            cleanup_part(target)
             raise VideoOpError(f"输出为空: {dst.name}")
         replace_part(target, dst)
     return dst

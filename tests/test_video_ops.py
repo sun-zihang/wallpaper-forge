@@ -1,10 +1,17 @@
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from core.ffmpeg_finder import FFmpegNotFound, find_ffmpeg
 from core.safeio import part_path
-from core.video_ops import convert_video, extract_frames, trim_video, video_to_gif
+from core.video_ops import (
+    VideoOpError,
+    convert_video,
+    extract_frames,
+    trim_video,
+    video_to_gif,
+)
 
 
 @pytest.fixture
@@ -75,4 +82,27 @@ def test_trim_inplace_uses_part(tiny_mp4, tmp_path):
     shutil.copy(tiny_mp4, src)
     out = trim_video(src, src, 0, 0.4)
     assert out == src
+    assert not part_path(src).exists()
+
+
+def test_inplace_rejects_empty_ffmpeg_output(tmp_path, monkeypatch):
+    # ffmpeg "成功" 但只写出 0 字节 .part：不得 replace 覆盖源文件
+    src = tmp_path / "clip.mp4"
+    payload = b"\x00" * 32
+    src.write_bytes(payload)
+
+    def fake_run_ffmpeg(args, **kwargs):
+        Path(args[-1]).write_bytes(b"")
+
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", fake_run_ffmpeg)
+    monkeypatch.setattr("core.video_ops.probe_video_duration", lambda p: None)
+
+    with pytest.raises(VideoOpError, match="输出为空"):
+        convert_video(src, src, keep_audio=False)
+    assert src.read_bytes() == payload
+    assert not part_path(src).exists()
+
+    with pytest.raises(VideoOpError, match="输出为空"):
+        trim_video(src, src, 0, 0.4)
+    assert src.read_bytes() == payload
     assert not part_path(src).exists()
