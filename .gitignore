@@ -9,12 +9,10 @@ env/
 .idea/
 .vscode/
 logs/
-dist/WallpaperConverter/
+dist/
 build/app/
-build/installer/
-*.exe
+build/Output/
 *.msi
-!build/installer.iss
-!build/app.spec
 .DS_Store
 Thumbs.db
+vendor/_dl/

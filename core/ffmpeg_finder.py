@@ -14,7 +14,11 @@ def _candidates() -> list[Path]:
     found: list[Path] = []
     if getattr(sys, "frozen", False):
         app_dir = Path(sys.executable).parent
-        found += [app_dir / "ffmpeg.exe", app_dir / "bin" / "ffmpeg.exe"]
+        found += [
+            app_dir / "ffmpeg.exe",
+            app_dir / "bin" / "ffmpeg.exe",
+            app_dir / "_internal" / "ffmpeg.exe",
+        ]
     env = os.environ.get("WALLPAPER_FORGE_FFMPEG")
     if env:
         found.append(Path(env))
