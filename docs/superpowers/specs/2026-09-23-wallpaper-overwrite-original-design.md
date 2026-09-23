@@ -38,7 +38,7 @@
   - `overwrite=False`：行为与现状完全一致（查 `exists()`、拒绝 `protected`、批内 `taken`）。
   - `overwrite=True`：**不**因磁盘已存在而改名，**不**把 `protected`（源）当拒绝条件（允许 `cand == protected`）；批内 `taken` 去重**仍生效**——同一批两个源算出同一输出时，后者仍加 ` (n)`，避免批内互踩。
 - 新增纯函数 `would_overwrite_sources(sources: Sequence[Path], outputs: Sequence[Path]) -> list[tuple[Path, Path]]`：按 `resolve()` 逐对比较，返回 `output == source` 的配对；供 UI 计算确认框中的受影响文件数。
-- `Task` 不新增顶层字段；`params["overwrite"]: bool` 由各页在构造 Task 时写入，worker 读取。
+- `Task` 不新增字段、**不**塞 `params["overwrite"]`：写入层只看「`dst.resolve()` 是否等于输入路径」自判是否走 temp+replace，与 UI 勾选解耦（勾选只影响路径解析结果）。
 
 ### 2. 同路径写盘安全（`core/` 写入层）
 
@@ -69,16 +69,16 @@
 
 ### 6. 各页接线
 
-每页 `start_batch` 统一做两件事：① `resolve` 时传 `overwrite=self.overwrite_check.isChecked()` 并写入 `Task.params["overwrite"]`；② `_submit` 前调 `_confirm_overwrite(...)`。
+每页 `start_batch` 统一做两件事：① `resolve` 时传 `overwrite=self.overwrite_check.isChecked()`（路径层生效，不进 `Task.params`）；② `_submit` 前调 `_confirm_overwrite(...)`。
 
 | 页面 | 改动 |
 | --- | --- |
-| 图片 `image_page.py` | 三处 `resolve_outputs(..., overwrite=...)`；`Task.params["overwrite"]`；裁剪/水印入口同样读勾选并 `_confirm_overwrite` |
-| GIF `gif_page.py` | 拆帧/合帧 `resolve_outputs` + params + `_confirm_overwrite` |
-| 视频 `video_page.py` | 三处 `resolve_outputs` + params + `_confirm_overwrite` |
-| 解包 `unpack_page.py` | `_out_dir_for(..., overwrite=...)` + params + `_confirm_overwrite(paths, out_dirs)` |
-| 去水印 `rewatermark_page.py` | `_clean_out(..., overwrite=...)` + params + `_confirm_overwrite` |
-| worker `gui/workers.py` | 不读 `overwrite` 决定路径（路径已定）；写入层按「dst 是否等于输入」自行选 temp+replace，与 params 解耦 |
+| 图片 `image_page.py` | 三处 `resolve_outputs(..., overwrite=...)`；裁剪/水印入口同样读勾选并 `_confirm_overwrite` |
+| GIF `gif_page.py` | 合帧 `resolve_outputs(..., overwrite=...)` + `_confirm_overwrite`（拆帧写目录内文件，已天然覆盖同名帧，无需改路径算法） |
+| 视频 `video_page.py` | convert/gif/trim 三处 `resolve_outputs(..., overwrite=...)` + `_confirm_overwrite`（frames 目录同拆帧） |
+| 解包 `unpack_page.py` | `_out_dir_for(..., overwrite=...)` + `_confirm_overwrite(paths, out_dirs)` |
+| 去水印 `rewatermark_page.py` | `_clean_out(..., overwrite=...)` + `_confirm_overwrite` |
+| worker `gui/workers.py` | **零改动**：路径已在页面算好；写入层按「dst 是否等于输入」自选 temp+replace |
 
 ### 7. 错误处理
 
