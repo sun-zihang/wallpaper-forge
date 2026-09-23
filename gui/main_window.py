@@ -21,6 +21,8 @@ from gui.styles import DARK_QSS
 class MainWindow(QMainWindow):
     def __init__(self, version: str):
         super().__init__()
+        self._version = version
+        self._manual_check = False
         self.setWindowTitle(f"Wallpaper Converter {version} — 壁纸格式转换")
         self.resize(1100, 720)
 
@@ -66,6 +68,50 @@ class MainWindow(QMainWindow):
 
         self._apply_settings()
         self._refresh_ffmpeg()
+        self._init_updates()
+
+    def _init_updates(self) -> None:
+        from PySide6.QtCore import QTimer
+
+        from gui.settings_store import load_settings
+        from gui.update_service import UpdateService
+
+        self.update_service = UpdateService(self._version, self)
+        self.update_service.update_available.connect(self._on_update_available)
+        self.update_service.no_update.connect(self._on_no_update)
+        self.update_service.check_failed.connect(self._on_update_check_failed)
+        self.settings_page.manual_update_check.connect(self._manual_update_check)
+        if load_settings().get("auto_check_update", True):
+            QTimer.singleShot(2000, self.update_service.check_async)
+
+    def _manual_update_check(self) -> None:
+        self._manual_check = True
+        self.status_label.setText("正在检查更新…")
+        self.update_service.check_async()
+
+    def _on_update_available(self, info) -> None:
+        from gui.update_dialog import UpdateDialog
+
+        self.status_label.setText(f"发现新版本 {info.tag}")
+        dlg = UpdateDialog(info, self)
+        dlg.exec()
+        self._manual_check = False
+
+    def _on_no_update(self) -> None:
+        if self._manual_check:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.information(self, "检查更新", "当前已是最新版本。")
+            self.status_label.setText("当前已是最新版本")
+        self._manual_check = False
+
+    def _on_update_check_failed(self, message: str) -> None:
+        if self._manual_check:
+            from PySide6.QtWidgets import QMessageBox
+
+            QMessageBox.warning(self, "检查更新", message)
+        self.status_label.setText("检查更新失败（可稍后在设置中重试）")
+        self._manual_check = False
 
     def _apply_settings(self) -> None:
         from gui.settings_store import load_settings

@@ -2,25 +2,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from core.ffmpeg_finder import FFmpegNotFound, ffmpeg_available, find_ffmpeg
+from core.ffmpeg_finder import FFmpegNotFound, find_ffmpeg
 from gui.settings_store import load_settings, save_settings
 
 
 class SettingsPage(QWidget):
+    manual_update_check = Signal()
+
     def __init__(self, on_changed=None):
         super().__init__()
         self._on_changed = on_changed
@@ -72,6 +74,16 @@ class SettingsPage(QWidget):
         self.recheck.clicked.connect(self._recheck)
         frow.addWidget(self.recheck)
 
+        upd_box = QGroupBox("更新")
+        urow = QHBoxLayout(upd_box)
+        self.auto_check = QCheckBox("启动时自动检查更新")
+        urow.addWidget(self.auto_check)
+        self.check_btn = QPushButton("检查更新")
+        self.check_btn.setObjectName("secondary")
+        self.check_btn.clicked.connect(self.manual_update_check.emit)
+        urow.addWidget(self.check_btn)
+        urow.addStretch(1)
+
         about = QLabel(
             "Wallpaper Converter\n"
             "图片/视频壁纸批量格式转换工具\n"
@@ -84,6 +96,7 @@ class SettingsPage(QWidget):
 
         root.addWidget(out_box)
         root.addWidget(ff_box)
+        root.addWidget(upd_box)
         root.addWidget(about)
         root.addStretch(1)
         root.addWidget(save_btn, alignment=Qt.AlignRight)
@@ -99,6 +112,7 @@ class SettingsPage(QWidget):
             self.dir_label.setText(str(self._unified_dir))
         self.quality.setValue(int(s.get("default_quality", 90)))
         self.gif_fps.setValue(int(s.get("default_gif_fps", 15)))
+        self.auto_check.setChecked(bool(s.get("auto_check_update", True)))
         self.refresh_ffmpeg()
 
     def _pick(self) -> None:
@@ -114,6 +128,7 @@ class SettingsPage(QWidget):
                 "unified_dir": str(self._unified_dir or ""),
                 "default_quality": self.quality.value(),
                 "default_gif_fps": self.gif_fps.value(),
+                "auto_check_update": self.auto_check.isChecked(),
             }
         )
         if self._on_changed:

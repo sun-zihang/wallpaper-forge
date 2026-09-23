@@ -8,6 +8,7 @@ _DEFAULTS = {
     "unified_dir": "",
     "default_quality": 90,
     "default_gif_fps": 15,
+    "auto_check_update": True,
 }
 
 
