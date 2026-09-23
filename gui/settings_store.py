@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+_DEFAULTS = {
+    "output_mode": "beside",
+    "unified_dir": "",
+    "default_quality": 90,
+    "default_gif_fps": 15,
+}
+
+
+def _settings_path() -> Path:
+    base = Path.home() / "AppData" / "Roaming" / "WallpaperConverter"
+    base.mkdir(parents=True, exist_ok=True)
+    return base / "settings.json"
+
+
+def load_settings() -> dict:
+    p = _settings_path()
+    data = dict(_DEFAULTS)
+    if p.is_file():
+        try:
+            loaded = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data.update({k: loaded[k] for k in _DEFAULTS if k in loaded})
+        except (json.JSONDecodeError, OSError):
+            pass
+    return data
+
+
+def save_settings(settings: dict) -> None:
+    data = dict(_DEFAULTS)
+    data.update({k: settings[k] for k in _DEFAULTS if k in settings})
+    _settings_path().write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
