@@ -5,7 +5,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from core.updater import ReleaseInfo
+from core.updater import ReleaseInfo, manual_download_links
 from gui.update_service import DownloadWorker, UpdateService
 
 
@@ -33,7 +34,8 @@ class UpdateDialog(QDialog):
         label = QLabel(
             f"发现新版本 <b>{info.tag}</b>（当前 {self.parent_version()}）。\n"
             f"{info.name}\n\n"
-            "点击「立即更新」将下载安装包并退出本程序开始安装。"
+            "点击「立即更新」将优先走国内镜像下载安装包，失败自动回退官方源；"
+            "下载完成后退出本程序并开始安装。"
         )
         label.setTextFormat(Qt.RichText)
         label.setWordWrap(True)
@@ -95,4 +97,21 @@ class UpdateDialog(QDialog):
     def _on_failed(self, message: str) -> None:
         self.bar.hide()
         self.update_btn.setEnabled(True)
-        QMessageBox.warning(self, "下载失败", f"{message}\n\n可打开发布页手动下载：\n{self.info.html_url}")
+        links = manual_download_links(self.info.download_url)
+        numbered = "\n".join(f"  {i}. {u}" for i, u in enumerate(links, 1))
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("下载失败")
+        box.setText(message)
+        box.setInformativeText(
+            "自动下载未完成。可复制下方任一镜像直链到浏览器手动下载，"
+            "或打开发布页：\n\n"
+            f"{numbered}\n\n"
+            f"发布页：{self.info.html_url}"
+        )
+        box.setDetailedText("\n".join(links))
+        mirror_btn = box.addButton("浏览器打开镜像", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Close)
+        box.exec()
+        if box.clickedButton() is mirror_btn and links:
+            QDesktopServices.openUrl(QUrl(links[0]))

@@ -59,6 +59,16 @@ def mirror_candidates(url: str) -> list[str]:
     return [tpl.format(url=url) for tpl in _URL_MIRRORS]
 
 
+def setup_asset_url(tag: str) -> str:
+    ver = tag.lstrip("vV")
+    return f"https://github.com/{REPO}/releases/download/{tag}/WallpaperConverter-Setup-{ver}.exe"
+
+
+def manual_download_links(download_url: str) -> list[str]:
+    """Mirror-first direct links for copy/paste into a browser."""
+    return mirror_candidates(download_url)
+
+
 def parse_latest_release(payload: str | dict) -> ReleaseInfo:
     data = json.loads(payload) if isinstance(payload, str) else payload
     if not isinstance(data, dict):

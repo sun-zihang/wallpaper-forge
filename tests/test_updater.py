@@ -3,9 +3,11 @@ import pytest
 from core.updater import (
     UpdateError,
     is_newer,
+    manual_download_links,
     mirror_candidates,
     parse_latest_release,
     parse_version,
+    setup_asset_url,
 )
 
 
@@ -30,6 +32,20 @@ def test_mirror_candidates_order():
     assert c[-1] == url
     assert all(url in x or x == url for x in c)
     assert c[0] != url
+
+
+def test_setup_asset_url():
+    url = setup_asset_url("v0.4.0")
+    assert url.endswith("WallpaperConverter-Setup-0.4.0.exe")
+    assert "sun-zihang/wallpaper-forge" in url
+
+
+def test_manual_download_links_mirror_first():
+    url = setup_asset_url("v0.4.0")
+    links = manual_download_links(url)
+    assert links[0] != url
+    assert links[-1] == url
+    assert all(url in x or x == url for x in links)
 
 
 def test_parse_latest_release_finds_setup_asset():
