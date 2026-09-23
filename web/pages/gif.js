@@ -33,6 +33,7 @@ export function mountGif(root) {
   const token = { cancelled: false };
   const outputs = [];
   let splitFiles = [];
+  let running = false;
 
   function syncMode() {
     const split = $("mode").value === "split";
@@ -48,6 +49,7 @@ export function mountGif(root) {
   syncMode();
 
   $("start").addEventListener("click", async () => {
+    if (running) return;
     const err = $("err");
     err.textContent = "";
     token.cancelled = false;
@@ -56,59 +58,69 @@ export function mountGif(root) {
       err.textContent = $("mode").value === "split" ? "请先添加 GIF 文件" : "请先添加图片序列";
       return;
     }
-    if ($("mode").value === "split") {
-      jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
-      splitFiles = [];
-      for (let i = 0; i < files.length; i++) {
-        if (jobs.cancelled) {
-          jobs.setStatus(i, "cancelled", "已取消");
-          continue;
+    running = true;
+    $("start").disabled = true;
+    $("zip").disabled = true;
+    try {
+      if ($("mode").value === "split") {
+        jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
+        splitFiles = [];
+        for (let i = 0; i < files.length; i++) {
+          if (jobs.cancelled) {
+            jobs.setStatus(i, "cancelled", "已取消");
+            continue;
+          }
+          jobs.setStatus(i, "running");
+          try {
+            const { files: parts } = await splitGif(files[i], {
+              step: Number($("step").value),
+              token,
+            });
+            splitFiles.push(...parts);
+            jobs.setStatus(i, "done");
+          } catch (e) {
+            const msg = friendlyError(e);
+            const cancelled = msg.includes("已取消");
+            jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+            if (cancelled) continue;
+          }
         }
-        jobs.setStatus(i, "running");
-        try {
-          const { files: parts } = await splitGif(files[i], {
-            step: Number($("step").value),
-            token,
-          });
-          splitFiles.push(...parts);
-          jobs.setStatus(i, "done");
-        } catch (e) {
-          const msg = friendlyError(e);
-          const cancelled = msg.includes("已取消");
-          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
-          if (cancelled) continue;
-        }
+        jobs.finish();
+        return;
+      }
+      // merge
+      const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+      if (ordered.length < 1) {
+        err.textContent = "请先添加图片序列（按文件名排序）";
+        return;
+      }
+      jobs.submit([{ id: 0, name: ordered[0].name }]);
+      jobs.setStatus(0, "running");
+      try {
+        const { blob, filename } = await mergeGif(ordered, {
+          durationMs: Number($("dur").value),
+          loop: $("loop").checked ? 0 : 1,
+          reverse: $("rev").checked,
+          token,
+        });
+        outputs.push({ blob, filename });
+        jobs.setStatus(0, "done");
+        downloadBlob(blob, filename);
+      } catch (e) {
+        const msg = friendlyError(e);
+        const cancelled = msg.includes("已取消");
+        jobs.setStatus(0, cancelled ? "cancelled" : "failed", msg);
       }
       jobs.finish();
-      return;
+    } finally {
+      running = false;
+      $("start").disabled = false;
+      $("zip").disabled = false;
     }
-    // merge
-    const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
-    if (ordered.length < 1) {
-      err.textContent = "请先添加图片序列（按文件名排序）";
-      return;
-    }
-    jobs.submit([{ id: 0, name: ordered[0].name }]);
-    jobs.setStatus(0, "running");
-    try {
-      const { blob, filename } = await mergeGif(ordered, {
-        durationMs: Number($("dur").value),
-        loop: $("loop").checked ? 0 : 1,
-        reverse: $("rev").checked,
-        token,
-      });
-      outputs.push({ blob, filename });
-      jobs.setStatus(0, "done");
-      downloadBlob(blob, filename);
-    } catch (e) {
-      const msg = friendlyError(e);
-      const cancelled = msg.includes("已取消");
-      jobs.setStatus(0, cancelled ? "cancelled" : "failed", msg);
-    }
-    jobs.finish();
   });
 
   $("zip").addEventListener("click", async () => {
+    if (running) return;
     try {
       if (!splitFiles.length) {
         $("err").textContent = "还没有拆帧结果";
