@@ -221,8 +221,6 @@ class BasePage(QWidget):
         self.thread.submit(batch)
 
     def _confirm_overwrite(self, sources: list[Path], outs: list[Path]) -> bool:
-        from PySide6.QtWidgets import QMessageBox
-
         from core.tasks import would_overwrite_sources
 
         if not self.overwrite_check.isChecked():

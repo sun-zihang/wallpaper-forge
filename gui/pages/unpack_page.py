@@ -24,7 +24,12 @@ _KIND_BY_EXT = {
 
 
 def _out_dir_for(
-    src: Path, mode: OutputMode, unified: Path | None, *, overwrite: bool = False
+    src: Path,
+    mode: OutputMode,
+    unified: Path | None,
+    *,
+    overwrite: bool = False,
+    taken: set[Path] | None = None,
 ) -> Path:
     stem = src.stem
     if mode is OutputMode.UNIFIED:
@@ -32,13 +37,22 @@ def _out_dir_for(
         base = unified / stem
     else:
         base = src.parent / "converted" / stem
-    if overwrite and base.exists() and base.is_dir():
+    if taken is None:
+        taken = set()
+    if overwrite and base.exists() and base.is_dir() and base.resolve() not in taken:
+        taken.add(base.resolve())
         return base
     n = 1
     cand = base
     while True:
-        conflict = cand.exists() and (not cand.is_dir() or any(cand.iterdir()))
+        if overwrite:
+            conflict = cand.resolve() in taken or (cand.exists() and not cand.is_dir())
+        else:
+            conflict = cand.resolve() in taken or (
+                cand.exists() and (not cand.is_dir() or any(cand.iterdir()))
+            )
         if not conflict:
+            taken.add(cand.resolve())
             return cand
         cand = base.with_name(f"{stem} ({n})")
         n += 1
@@ -79,9 +93,10 @@ class UnpackPage(BasePage):
         ow = self.overwrite_check.isChecked()
         batch: list[Task] = []
         out_dirs: list[Path] = []
+        taken: set[Path] = set()
         for p in paths:
             kind = _KIND_BY_EXT[p.suffix.lower()]
-            out_dir = _out_dir_for(p, mode, self.unified_dir, overwrite=ow)
+            out_dir = _out_dir_for(p, mode, self.unified_dir, overwrite=ow, taken=taken)
             out_dirs.append(out_dir)
             # Pre-create parent so resolve side effects stay consistent
             out_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -95,6 +110,7 @@ class UnpackPage(BasePage):
                     outputs=[],
                 )
             )
+        # out_dirs are directories, so resolve-equality with file sources is structurally impossible (can never fire; correct per design).
         if not self._confirm_overwrite(paths, out_dirs):
             return
         self._submit(batch)

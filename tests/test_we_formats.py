@@ -169,3 +169,21 @@ def test_mpkg_via_pkg_layout(tmp_path: Path):
     assert (tmp_path / "converted" / "w" / "preview.png").exists() or any(
         p.suffix == ".png" for p in outs
     )
+
+
+def test_mpkg_post_process_overwrites_existing_extract(tmp_path: Path):
+    # finding 2: _post_process must overwrite=True so a reused non-empty
+    # out_dir gets same-name replacement, not "scene (1).png"
+    png = b"\x89PNG\r\n\x1a\n" + b"IEND" + b"\x00" * 4
+    tex = b"\x00" * 16 + struct.pack("<I", len(png)) + png + b"\x00" * 8
+    pkg = _build_pkg({"scene.tex": tex}, magic=b"PKGM0014")
+    src = tmp_path / "w.mpkg"
+    src.write_bytes(pkg)
+    out_dir = tmp_path / "converted" / "w"
+    first = extract_mpkg(src, out_dir)
+    assert any(p.name == "scene.png" for p in first)
+    assert (out_dir / "scene.png").exists()
+    second = extract_mpkg(src, out_dir)
+    assert any(p.name == "scene.png" for p in second)
+    assert (out_dir / "scene.png").exists()
+    assert not (out_dir / "scene (1).png").exists()

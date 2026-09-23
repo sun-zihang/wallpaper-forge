@@ -145,7 +145,7 @@ def _post_process(files: list[Path], out_dir: Path) -> list[Path]:
             from core.we_tex import extract_tex
 
             try:
-                out.append(extract_tex(p, p.with_suffix("")))
+                out.append(extract_tex(p, p.with_suffix(""), overwrite=True))
             except Exception:
                 out.append(p)
         else:
