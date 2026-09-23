@@ -28,7 +28,13 @@ async function render() {
       return;
     }
     if (lazy[hash]) {
-      const mount = await lazy[hash]();
+      let mount;
+      try {
+        mount = await lazy[hash]();
+      } catch {
+        location.hash = "#/";
+        return;
+      }
       mount(root);
       return;
     }
