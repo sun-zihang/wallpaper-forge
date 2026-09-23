@@ -5,6 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from core.image_ops import ImageOpError, _open_rgba
+from core.safeio import staged_dst
 
 _POSITIONS = {
     "top_left",
@@ -54,7 +55,9 @@ def crop_image(src: Path, dst: Path, box: tuple[int, int, int, int]) -> Path:
         )
     out = im.crop((left, top, right, bottom))
     dst.parent.mkdir(parents=True, exist_ok=True)
-    out.save(dst)
+    fmt = Image.registered_extensions().get(dst.suffix.lower())
+    with staged_dst(src, dst) as target:
+        out.save(target, format=fmt)
     return dst
 
 
@@ -80,7 +83,9 @@ def add_text_watermark(
     draw.text((x - bbox[0], y - bbox[1]), text, font=font, fill=color)
     out = Image.alpha_composite(base, layer)
     dst.parent.mkdir(parents=True, exist_ok=True)
-    out.save(dst)
+    fmt = Image.registered_extensions().get(dst.suffix.lower())
+    with staged_dst(src, dst) as target:
+        out.save(target, format=fmt)
     return dst
 
 
@@ -111,5 +116,7 @@ def add_image_watermark(
     layer.paste(mark_im, (x, y), mark_im)
     out = Image.alpha_composite(base, layer)
     dst.parent.mkdir(parents=True, exist_ok=True)
-    out.save(dst)
+    fmt = Image.registered_extensions().get(dst.suffix.lower())
+    with staged_dst(src, dst) as target:
+        out.save(target, format=fmt)
     return dst

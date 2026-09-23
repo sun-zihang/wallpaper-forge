@@ -4,6 +4,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from core.safeio import staged_dst
+
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 _QUALITY_EXTS = {".jpg", ".jpeg", ".webp"}
 
@@ -44,8 +46,12 @@ def convert_image(
         save_kw["optimize"] = True
     if ext in {".jpg", ".jpeg"} and im.mode in {"RGBA", "P", "LA"}:
         im = im.convert("RGB")
+    fmt = Image.registered_extensions().get(ext)
     try:
-        im.save(dst, **save_kw)
+        with staged_dst(src, dst) as target:
+            im.save(target, format=fmt, **save_kw)
+    except ImageOpError:
+        raise
     except Exception as e:
         raise ImageOpError(f"保存失败: {dst.name}（{e}）") from e
     return dst
