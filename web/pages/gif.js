@@ -1,7 +1,7 @@
 // web/pages/gif.js
 import { mergeGif, splitGif } from "../lib/gif_ops.js";
 import { createJobList } from "../lib/joblist.js";
-import { downloadBlob, stem } from "../lib/download.js";
+import { downloadBlob } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
 export function mountGif(root) {
@@ -31,7 +31,6 @@ export function mountGif(root) {
     },
   });
   const token = { cancelled: false };
-  const outputs = [];
   let splitFiles = [];
   let running = false;
 
@@ -90,10 +89,6 @@ export function mountGif(root) {
       }
       // merge
       const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
-      if (ordered.length < 1) {
-        err.textContent = "请先添加图片序列（按文件名排序）";
-        return;
-      }
       jobs.submit([{ id: 0, name: ordered[0].name }]);
       jobs.setStatus(0, "running");
       try {
@@ -103,7 +98,6 @@ export function mountGif(root) {
           reverse: $("rev").checked,
           token,
         });
-        outputs.push({ blob, filename });
         jobs.setStatus(0, "done");
         downloadBlob(blob, filename);
       } catch (e) {

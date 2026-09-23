@@ -18,7 +18,10 @@ export function setStatus(text) {
   if (el) el.textContent = text;
 }
 
+let renderToken = 0;
+
 async function render() {
+  const my = ++renderToken;
   const hash = location.hash.replace(/^#/, "") || "/";
   const root = document.getElementById("app");
   root.innerHTML = "";
@@ -32,9 +35,10 @@ async function render() {
       try {
         mount = await lazy[hash]();
       } catch {
-        location.hash = "#/";
+        if (my === renderToken) location.hash = "#/";
         return;
       }
+      if (my !== renderToken) return;
       mount(root);
       return;
     }

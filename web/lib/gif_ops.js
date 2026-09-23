@@ -14,33 +14,35 @@ function throwIfCancelled(token) {
   if (token && token.cancelled) throw new AppError("GIF 处理失败", "已取消");
 }
 
-function loadScriptOnce(src, check) {
-  if (check()) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new AppError("GIF 处理失败", `无法加载依赖: ${src}`));
-    document.head.appendChild(s);
-  });
+export const GIFUCT_ESM_URL = "https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm";
+
+const modulePromises = new Map();
+
+export function ensureGifuct() {
+  if (!modulePromises.has(GIFUCT_ESM_URL)) {
+    const p = import(GIFUCT_ESM_URL).catch(() => {
+      modulePromises.delete(GIFUCT_ESM_URL);
+      throw new AppError("GIF 处理失败", `无法加载依赖: ${GIFUCT_ESM_URL}`);
+    });
+    modulePromises.set(GIFUCT_ESM_URL, p);
+  }
+  return modulePromises.get(GIFUCT_ESM_URL);
 }
 
-export async function ensureGifuct() {
-  await loadScriptOnce(
-    "https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/dist/gifuct-js.min.js",
-    () => typeof globalThis.gifuct !== "undefined"
-  );
-  if (typeof globalThis.gifuct === "undefined") {
+export function decompressFramePatch(lib, parsed, frame) {
+  const patch = lib.decompressFrame(frame, parsed.gct, true);
+  return patch && patch.patch ? patch : null;
+}
+
+export async function loadGifFrames(file, { token, gifuct } = {}) {
+  const lib = gifuct || (await ensureGifuct());
+  if (typeof lib.parseGIF !== "function" || typeof lib.decompressFrame !== "function") {
     throw new AppError("GIF 处理失败", "gifuct 加载失败");
   }
-}
-
-export async function loadGifFrames(file) {
-  await ensureGifuct();
   const buf = await file.arrayBuffer();
   let parsed;
   try {
-    parsed = globalThis.gifuct.parseGIF(buf);
+    parsed = lib.parseGIF(buf);
   } catch (e) {
     throw new AppError("GIF 处理失败", `无法读取 GIF: ${file.name}（${e}）`);
   }
@@ -48,9 +50,9 @@ export async function loadGifFrames(file) {
   let width = 0;
   let height = 0;
   for (const frame of parsed.frames) {
-    throwIfCancelled();
-    const patch = parsed.decompressFrame(frame, true);
-    if (!patch || !patch.patch) continue;
+    throwIfCancelled(token);
+    const patch = decompressFramePatch(lib, parsed, frame);
+    if (!patch) continue;
     width = width || parsed.lsd.width;
     height = height || parsed.lsd.height;
     const canvas = document.createElement("canvas");
@@ -68,7 +70,7 @@ export async function loadGifFrames(file) {
 
 export async function splitGif(file, { step = 1, token } = {}) {
   if (step < 1) throw new AppError("GIF 处理失败", "抽稀步长至少为 1");
-  const { frames } = await loadGifFrames(file);
+  const { frames } = await loadGifFrames(file, { token });
   const base = (file.name || "a.gif").replace(/\.gif$/i, "");
   const files = [];
   let kept = 0;

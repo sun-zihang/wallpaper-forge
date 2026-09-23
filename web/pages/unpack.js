@@ -84,7 +84,7 @@ export function mountUnpack(root) {
         const s = document.createElement("script");
         s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
         s.onload = res;
-        s.onerror = () => rej(new AppError("解包失败", "JSZip 加载失败"));
+        s.onerror = () => rej(new AppError("PKG 解包失败", "JSZip 加载失败"));
         document.head.appendChild(s);
       });
       const zip = new globalThis.JSZip();

@@ -4,6 +4,7 @@ import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../l
 import { createJobList } from "../lib/joblist.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
+import { setStatus } from "../app.js";
 
 export function mountVideo(root) {
   root.innerHTML = `
@@ -85,8 +86,8 @@ export function mountVideo(root) {
     running = true;
     $("start").disabled = true;
     try {
-      for (const f of files) {
-        const sec = await probeVideoDuration(f);
+      const durations = await Promise.all(files.map((f) => probeVideoDuration(f)));
+      for (const sec of durations) {
         if (sec != null && sec > MAX_VIDEO_SECONDS) {
           err.textContent = friendlyError(durationTooLongError());
           return;
@@ -94,7 +95,7 @@ export function mountVideo(root) {
       }
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
       try {
-        await ensureFFmpeg((msg) => setStatusMsg(msg));
+        await ensureFFmpeg((msg) => setStatus(msg));
       } catch (e) {
         err.textContent = friendlyError(e);
         jobs.finish();
@@ -169,8 +170,10 @@ export function mountVideo(root) {
       }
     } else {
       const out = `${base}_trim.mp4`;
+      const t0 = Math.max(0, Number($("t0").value) || 0);
+      const t1 = Math.max(t0 + 0.1, Number($("t1").value) || t0 + 0.1);
       const args = [
-        "-ss", String($("t0").value), "-to", String($("t1").value), "-i", inName,
+        "-ss", String(t0), "-i", inName, "-t", String(t1 - t0),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out,
       ];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
@@ -192,11 +195,6 @@ async function listFiles(ff, re) {
   } catch {
     return [];
   }
-}
-
-function setStatusMsg(msg) {
-  const el = document.getElementById("status");
-  if (el && msg) el.textContent = msg;
 }
 
 async function ensureJszipV() {

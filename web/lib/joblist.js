@@ -52,7 +52,7 @@ export function createJobList(container, { onCancel } = {}) {
     },
     submit(jobs) {
       this.reset();
-      cancelBtn.disabled = false;
+      cancelBtn.disabled = !jobs.length;
       for (const job of jobs) {
         const tr = document.createElement("tr");
         tr.innerHTML = `<td></td><td class="st-pending"></td>`;
