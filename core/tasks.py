@@ -19,6 +19,9 @@ class TaskKind(enum.Enum):
     VIDEO_TRIM = "video_trim"
     GIF_SPLIT = "gif_split"
     GIF_MERGE = "gif_merge"
+    UNPACK_PKG = "unpack_pkg"
+    UNPACK_TEX = "unpack_tex"
+    UNPACK_MPKG = "unpack_mpkg"
 
 
 @dataclass

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from gui.pages.gif_page import GifPage
 from gui.pages.image_page import ImagePage
 from gui.pages.settings_page import SettingsPage
+from gui.pages.unpack_page import UnpackPage
 from gui.pages.video_page import VideoPage
 from gui.styles import DARK_QSS
 
@@ -38,18 +39,20 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget()
         self.nav.setFixedWidth(160)
         self.nav.setProperty("class", "nav")
-        for label in ("图片转换", "视频转换", "GIF 工具", "设置"):
+        for label in ("图片转换", "视频转换", "GIF 工具", "解包", "设置"):
             QListWidgetItem(label, self.nav)
 
         self.stack = QStackedWidget()
         self.image_page = ImagePage()
         self.video_page = VideoPage()
         self.gif_page = GifPage()
+        self.unpack_page = UnpackPage()
         self.settings_page = SettingsPage(on_changed=self._apply_settings)
         for page in (
             self.image_page,
             self.video_page,
             self.gif_page,
+            self.unpack_page,
             self.settings_page,
         ):
             self.stack.addWidget(page)
@@ -117,7 +120,7 @@ class MainWindow(QMainWindow):
         from gui.settings_store import load_settings
 
         s = load_settings()
-        for page in (self.image_page, self.video_page, self.gif_page):
+        for page in (self.image_page, self.video_page, self.gif_page, self.unpack_page):
             page.apply_settings(s)
         self._refresh_ffmpeg()
 

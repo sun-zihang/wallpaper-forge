@@ -11,6 +11,9 @@ from core.ffmpeg_finder import FFmpegNotFound
 from core.gif_ops import GifOpError
 from core.tasks import Task, TaskKind
 from core.video_ops import VideoOpError
+from core.we_mpkg import WeMpkgError, extract_mpkg
+from core.we_pkg import WePkgError, extract_pkg
+from core.we_tex import WeTexError, extract_tex
 
 _ERROR_MAP = [
     (FileNotFoundError, "文件不存在"),
@@ -19,6 +22,9 @@ _ERROR_MAP = [
     (ImageOpError, "图片处理失败"),
     (GifOpError, "GIF 处理失败"),
     (VideoOpError, "视频处理失败"),
+    (WePkgError, "PKG 解包失败"),
+    (WeTexError, "TEX 解析失败"),
+    (WeMpkgError, "MPKG 解包失败"),
     (ValueError, "参数无效"),
     (OSError, "磁盘或文件系统错误"),
 ]
@@ -101,6 +107,23 @@ def execute_task(task: Task) -> None:
             duration_ms=int(params.get("duration_ms", 100)),
             loop=int(params.get("loop", 0)),
             reverse=bool(params.get("reverse", False)),
+        )
+    elif kind is TaskKind.UNPACK_PKG:
+        task.outputs = extract_pkg(
+            task.sources[0],
+            Path(params["out_dir"]),
+            cancel_event=cancel_event,
+        )
+    elif kind is TaskKind.UNPACK_TEX:
+        src = task.sources[0]
+        out_dir = Path(params["out_dir"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        task.outputs = [extract_tex(src, out_dir / src.stem)]
+    elif kind is TaskKind.UNPACK_MPKG:
+        task.outputs = extract_mpkg(
+            task.sources[0],
+            Path(params["out_dir"]),
+            cancel_event=cancel_event,
         )
     else:
         raise RuntimeError(f"未接入的任务类型: {kind}")
