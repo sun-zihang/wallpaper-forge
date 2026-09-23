@@ -165,7 +165,10 @@ class VideoPage(BasePage):
 
         if mode == "convert":
             ext = _OUT[self.fmt.currentText()]
-            outs = resolve_outputs(paths, ext, out_mode, self.unified_dir)
+            ow = self.overwrite_check.isChecked()
+            outs = resolve_outputs(paths, ext, out_mode, self.unified_dir, overwrite=ow)
+            if not self._confirm_overwrite(paths, outs):
+                return
             task = Task(
                 sources=paths,
                 kind=TaskKind.VIDEO_CONVERT,
@@ -176,7 +179,10 @@ class VideoPage(BasePage):
             )
             self._submit([task])
         elif mode == "gif":
-            outs = resolve_outputs(paths, ".gif", out_mode, self.unified_dir)
+            ow = self.overwrite_check.isChecked()
+            outs = resolve_outputs(paths, ".gif", out_mode, self.unified_dir, overwrite=ow)
+            if not self._confirm_overwrite(paths, outs):
+                return
             dur = self.gif_dur.value() or None
             task = Task(
                 sources=paths,
@@ -219,7 +225,10 @@ class VideoPage(BasePage):
             if len(paths) > 1:
                 QMessageBox.information(self, "提示", "片段截取一次请选择一个视频")
                 return
-            outs = resolve_outputs(paths, ".mp4", out_mode, self.unified_dir)
+            ow = self.overwrite_check.isChecked()
+            outs = resolve_outputs(paths, ".mp4", out_mode, self.unified_dir, overwrite=ow)
+            if not self._confirm_overwrite(paths, outs):
+                return
             task = Task(
                 sources=paths,
                 kind=TaskKind.VIDEO_TRIM,

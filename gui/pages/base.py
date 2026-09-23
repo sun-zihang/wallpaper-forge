@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Signal, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -50,6 +51,8 @@ class BasePage(QWidget):
         self.pick_out_btn = QPushButton("选择输出目录…")
         self.pick_out_btn.setObjectName("secondary")
         self.pick_out_btn.hide()
+        self.overwrite_check = QCheckBox("覆盖原文件")
+        self.overwrite_check.setToolTip("勾选后允许覆盖源文件与已存在的输出；覆盖源文件前会再确认一次")
         self.start_btn = QPushButton("开始转换")
         self.cancel_btn = QPushButton("取消")
         self.cancel_btn.setObjectName("secondary")
@@ -65,6 +68,7 @@ class BasePage(QWidget):
         bottom.addWidget(self.output_mode)
         bottom.addWidget(self.pick_out_btn)
         bottom.addWidget(self.unified_edit)
+        bottom.addWidget(self.overwrite_check)
         bottom.addStretch(1)
         bottom.addWidget(self.open_out_btn)
         bottom.addWidget(self.cancel_btn)
@@ -215,6 +219,26 @@ class BasePage(QWidget):
         self.cancel_btn.setEnabled(True)
         self.last_outputs = []
         self.thread.submit(batch)
+
+    def _confirm_overwrite(self, sources: list[Path], outs: list[Path]) -> bool:
+        from PySide6.QtWidgets import QMessageBox
+
+        from core.tasks import would_overwrite_sources
+
+        if not self.overwrite_check.isChecked():
+            return True
+        pairs = would_overwrite_sources(list(sources), list(outs))
+        if not pairs:
+            return True
+        n = len(pairs)
+        ret = QMessageBox.question(
+            self,
+            "确认覆盖",
+            f"将直接覆盖 {n} 个源文件，此操作不可恢复。\n继续？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        return ret == QMessageBox.Yes
 
     def start_batch(self) -> None:
         raise NotImplementedError

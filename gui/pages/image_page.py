@@ -105,7 +105,9 @@ class ImagePage(BasePage):
         mode = self.output_mode_value()
         if mode is OutputMode.UNIFIED and self.unified_dir is None:
             return
-        outs = resolve_outputs(paths, ext, mode, self.unified_dir)
+        outs = resolve_outputs(paths, ext, mode, self.unified_dir, overwrite=self.overwrite_check.isChecked())
+        if not self._confirm_overwrite(paths, outs):
+            return
         task = Task(
             sources=paths,
             kind=TaskKind.IMAGE_CONVERT,
@@ -133,7 +135,9 @@ class ImagePage(BasePage):
         mode = self.output_mode_value()
         if mode is OutputMode.UNIFIED and self.unified_dir is None:
             return
-        outs = resolve_outputs([src], src.suffix.lstrip("."), mode, self.unified_dir, op_subdir="converted")
+        outs = resolve_outputs([src], src.suffix.lstrip("."), mode, self.unified_dir, op_subdir="converted", overwrite=self.overwrite_check.isChecked())
+        if not self._confirm_overwrite([src], outs):
+            return
         # avoid identical in-place: resolve_outputs handles collision
         task = Task(
             sources=[src],
@@ -160,8 +164,14 @@ class ImagePage(BasePage):
         if mode is OutputMode.UNIFIED and self.unified_dir is None:
             return
         outs = resolve_outputs(
-            [p for p in paths], paths[0].suffix.lstrip("."), mode, self.unified_dir
+            [p for p in paths],
+            paths[0].suffix.lstrip("."),
+            mode,
+            self.unified_dir,
+            overwrite=self.overwrite_check.isChecked(),
         )
+        if not self._confirm_overwrite(paths, outs):
+            return
         task = Task(
             sources=paths,
             kind=TaskKind.IMAGE_EDIT,

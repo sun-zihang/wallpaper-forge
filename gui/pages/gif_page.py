@@ -124,7 +124,12 @@ class GifPage(BasePage):
                 return
             # merge all into one gif named after first frame stem
             base_src = imgs[0]
-            outs = resolve_outputs([base_src], ".gif", out_mode, self.unified_dir)
+            outs = resolve_outputs(
+                [base_src], ".gif", out_mode, self.unified_dir,
+                overwrite=self.overwrite_check.isChecked(),
+            )
+            if not self._confirm_overwrite(imgs, outs):
+                return
             task = Task(
                 sources=imgs,
                 kind=TaskKind.GIF_MERGE,

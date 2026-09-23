@@ -76,10 +76,13 @@ class UnpackPage(BasePage):
         if mode is OutputMode.UNIFIED and self.unified_dir is None:
             return
 
+        ow = self.overwrite_check.isChecked()
         batch: list[Task] = []
+        out_dirs: list[Path] = []
         for p in paths:
             kind = _KIND_BY_EXT[p.suffix.lower()]
-            out_dir = _out_dir_for(p, mode, self.unified_dir)
+            out_dir = _out_dir_for(p, mode, self.unified_dir, overwrite=ow)
+            out_dirs.append(out_dir)
             # Pre-create parent so resolve side effects stay consistent
             out_dir.parent.mkdir(parents=True, exist_ok=True)
             batch.append(
@@ -92,4 +95,6 @@ class UnpackPage(BasePage):
                     outputs=[],
                 )
             )
+        if not self._confirm_overwrite(paths, out_dirs):
+            return
         self._submit(batch)

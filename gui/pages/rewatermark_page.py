@@ -171,11 +171,12 @@ class RewatermarkPage(BasePage):
             return
 
         batch: list[Task] = []
+        ow = self.overwrite_check.isChecked()
         for p in paths:
             boxes = self._boxes[p]
             if p.suffix.lower() in _VID:
                 # frame size probed inside worker (never block UI thread)
-                out = _clean_out(p, "mp4", mode, self.unified_dir)
+                out = _clean_out(p, "mp4", mode, self.unified_dir, overwrite=ow)
                 batch.append(
                     Task(
                         sources=[p],
@@ -187,7 +188,7 @@ class RewatermarkPage(BasePage):
                     )
                 )
             else:
-                out = _clean_out(p, "png", mode, self.unified_dir)
+                out = _clean_out(p, "png", mode, self.unified_dir, overwrite=ow)
                 batch.append(
                     Task(
                         sources=[p],
@@ -198,4 +199,7 @@ class RewatermarkPage(BasePage):
                         outputs=[out],
                     )
                 )
+        outs = [t.outputs[0] for t in batch]
+        if not self._confirm_overwrite(paths, outs):
+            return
         self._submit(batch)
