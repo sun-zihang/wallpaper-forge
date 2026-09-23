@@ -1,4 +1,5 @@
 import { AppError } from "./errors.js";
+import { encodeAnimatedGif } from "./gif_ops.js";
 
 export const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 export const OUT_FORMATS = ["PNG", "JPG", "WebP", "BMP", "GIF"];
@@ -53,16 +54,23 @@ function drawScaled(bitmap, maxWidth) {
 
 export async function convertImage(file, { format, maxWidth = 0, quality = 90 } = {}) {
   const ext = outputExtFor(format || "PNG");
+  if (ext === ".bmp") {
+    throw new AppError("图片处理失败", "BMP 格式网页版暂不支持，请使用桌面版");
+  }
   const bitmap = await loadImageBitmap(file);
   // GIF animation is flattened to first frame (same as desktop convert of .gif source)
   const canvas = drawScaled(bitmap, maxWidth);
   bitmap.close && bitmap.close();
+  const outName = (file.name || "image").replace(/\.[^.]+$/, "") + ext;
+  if (ext === ".gif") {
+    const blob = encodeAnimatedGif([canvas], { durationMs: 100 });
+    return { blob, filename: outName, width: canvas.width, height: canvas.height };
+  }
   const mime = MIME[ext];
   const q = Math.max(1, Math.min(100, quality));
   const opts = qualityExts().has(ext) ? { type: mime, quality: q / 100 } : { type: mime };
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new AppError("图片处理失败", "保存失败"))), opts.type, opts.quality);
   });
-  const outName = (file.name || "image").replace(/\.[^.]+$/, "") + ext;
   return { blob, filename: outName, width: canvas.width, height: canvas.height };
 }

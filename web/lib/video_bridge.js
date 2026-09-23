@@ -50,19 +50,54 @@ export async function ensureFFmpeg(onStatus) {
 export async function runFFmpeg({ args, outPath, onProgress, cancelToken }) {
   const ff = await ensureFFmpeg((s) => onProgress && onProgress(-1, s));
   if (cancelToken && cancelToken.cancelled) throw new AppError("视频处理失败", "已取消");
-  const off = ff.on?.("progress", ({ progress }) => {
+  const cancelledError = () => new AppError("视频处理失败", "已取消");
+  const progressHandler = ({ progress }) => {
     if (onProgress && progress != null) onProgress(Math.max(0, Math.min(100, Math.round(progress * 100))), null);
-  });
+  };
+  let logTail = "";
+  const logHandler = ({ message }) => {
+    if (typeof message === "string" && message) {
+      logTail = (logTail + message + "\n").slice(-200);
+    }
+  };
+  const unsubProgress = ff.on?.("progress", progressHandler);
+  const unsubLog = ff.on?.("log", logHandler);
+  let pollTimer = null;
+  let terminating = false;
   try {
-    const code = await ff.exec(args);
-    if (cancelToken && cancelToken.cancelled) throw new AppError("视频处理失败", "已取消");
+    if (cancelToken) {
+      pollTimer = setInterval(() => {
+        if (!cancelToken.cancelled || terminating) return;
+        terminating = true;
+        clearInterval(pollTimer);
+        pollTimer = null;
+        (async () => {
+          try {
+            await ff.terminate();
+          } catch { /* best effort */ }
+          ffmpeg = null;
+          loadPromise = null;
+        })();
+      }, 200);
+    }
+    let code;
+    try {
+      code = await ff.exec(args);
+    } catch (e) {
+      if (cancelToken && cancelToken.cancelled) throw cancelledError();
+      throw e instanceof AppError ? e : new AppError("视频处理失败", String((e && e.message) || e));
+    }
+    if (cancelToken && cancelToken.cancelled) throw cancelledError();
     if (code !== 0 && code != null) {
-      throw new AppError("视频处理失败", `FFmpeg 编码失败（code ${code}）`);
+      throw new AppError("视频处理失败", `FFmpeg 编码失败（code ${code}）：${logTail.slice(-200)}`);
     }
     if (onProgress) onProgress(100, null);
   } finally {
-    if (typeof off === "function") off();
-    else if (ff.off) ff.off("progress", () => {});
+    if (pollTimer != null) clearInterval(pollTimer);
+    if (typeof unsubProgress === "function") unsubProgress();
+    else if (typeof ff.off === "function") ff.off("progress", progressHandler);
+    if (typeof unsubLog === "function") unsubLog();
+    else if (typeof ff.off === "function") ff.off("log", logHandler);
   }
 }
 

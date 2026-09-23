@@ -20,45 +20,60 @@ export function mountUnpack(root) {
   const $ = (id) => root.querySelector(`#${id}`);
   const jobs = createJobList(root.querySelector("#jobs"), { onCancel() {} });
   let allFiles = [];
+  let running = false;
+  let zipping = false;
 
   $("start").addEventListener("click", async () => {
+    if (running) return;
     $("err").textContent = "";
     const files = [...$("files").files];
     if (!files.length) {
       $("err").textContent = "请先添加 .pkg / .tex / .mpkg 文件";
       return;
     }
-    jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
-    allFiles = [];
-    for (let i = 0; i < files.length; i++) {
-      if (jobs.cancelled) {
-        jobs.setStatus(i, "cancelled", "已取消");
-        continue;
+    running = true;
+    $("start").disabled = true;
+    $("dl").disabled = true;
+    try {
+      jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
+      allFiles = [];
+      for (let i = 0; i < files.length; i++) {
+        if (jobs.cancelled) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          continue;
+        }
+        const f = files[i];
+        const kind = detectKind(f.name);
+        if (!kind) {
+          jobs.setStatus(i, "failed", "不支持的文件类型");
+          continue;
+        }
+        jobs.setStatus(i, "running");
+        try {
+          const buf = new Uint8Array(await f.arrayBuffer());
+          const base = stem(f.name);
+          let result;
+          if (kind === "pkg") result = extractPkg(buf);
+          else if (kind === "tex") result = { files: [extractTex(buf, base)] };
+          else result = extractMpkg(buf);
+          for (const item of result.files) allFiles.push(item);
+          jobs.setStatus(i, "done");
+        } catch (e) {
+          jobs.setStatus(i, "failed", friendlyError(e));
+        }
       }
-      const f = files[i];
-      const kind = detectKind(f.name);
-      if (!kind) {
-        jobs.setStatus(i, "failed", "不支持的文件类型");
-        continue;
-      }
-      jobs.setStatus(i, "running");
-      try {
-        const buf = new Uint8Array(await f.arrayBuffer());
-        const base = stem(f.name);
-        let result;
-        if (kind === "pkg") result = extractPkg(buf);
-        else if (kind === "tex") result = { files: [extractTex(buf, base)] };
-        else result = extractMpkg(buf);
-        for (const item of result.files) allFiles.push(item);
-        jobs.setStatus(i, "done");
-      } catch (e) {
-        jobs.setStatus(i, "failed", friendlyError(e));
-      }
+      jobs.finish();
+    } finally {
+      running = false;
+      $("start").disabled = false;
+      $("dl").disabled = false;
     }
-    jobs.finish();
   });
 
   $("dl").addEventListener("click", async () => {
+    if (running || zipping) return;
+    zipping = true;
+    $("dl").disabled = true;
     try {
       if (!allFiles.length) {
         $("err").textContent = "还没有解包结果";
@@ -77,6 +92,9 @@ export function mountUnpack(root) {
       downloadBlob(await zip.generateAsync({ type: "blob" }), "unpacked.zip");
     } catch (e) {
       $("err").textContent = friendlyError(e);
+    } finally {
+      zipping = false;
+      $("dl").disabled = false;
     }
   });
 }

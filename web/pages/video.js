@@ -1,5 +1,5 @@
 // web/pages/video.js
-import { assertVideoLimits, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "../lib/video_limits.js";
+import { assertVideoLimits, probeVideoDuration, durationTooLongError, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "../lib/video_limits.js";
 import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../lib/video_bridge.js";
 import { createJobList } from "../lib/joblist.js";
 import { downloadBlob, stem } from "../lib/download.js";
@@ -79,6 +79,13 @@ export function mountVideo(root) {
         assertVideoLimits(f);
       } catch (e) {
         err.textContent = friendlyError(e);
+        return;
+      }
+    }
+    for (const f of files) {
+      const sec = await probeVideoDuration(f);
+      if (sec != null && sec > MAX_VIDEO_SECONDS) {
+        err.textContent = friendlyError(durationTooLongError());
         return;
       }
     }
@@ -198,7 +205,7 @@ async function ensureJszipV() {
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
     s.onload = res;
-    s.onerror = rej;
+    s.onerror = () => rej(new AppError("视频处理失败", "JSZip 加载失败"));
     document.head.appendChild(s);
   });
 }

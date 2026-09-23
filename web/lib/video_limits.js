@@ -14,3 +14,43 @@ export function assertVideoLimits(fileLike) {
     throw new AppError("视频处理失败", `时长超过 ${MAX_VIDEO_SECONDS} 秒上限，请使用桌面版`);
   }
 }
+
+export function durationTooLongError() {
+  return new AppError("视频处理失败", `时长超过 ${MAX_VIDEO_SECONDS} 秒上限，请使用桌面版`);
+}
+
+/** Probe duration via DOM <video> metadata. Resolves seconds if finite, else null (~5s timeout). */
+export function probeVideoDuration(file) {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined" || typeof URL === "undefined" || !URL.createObjectURL) {
+      resolve(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    let settled = false;
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      v.onloadedmetadata = null;
+      v.onerror = null;
+      try {
+        v.removeAttribute("src");
+        v.load();
+      } catch { /* ignore */ }
+      try {
+        URL.revokeObjectURL(url);
+      } catch { /* ignore */ }
+      resolve(val);
+    };
+    const timer = setTimeout(() => finish(null), 5000);
+    v.onloadedmetadata = () => {
+      const d = v.duration;
+      finish(typeof d === "number" && Number.isFinite(d) && d > 0 ? d : null);
+    };
+    v.onerror = () => finish(null);
+    v.src = url;
+  });
+}

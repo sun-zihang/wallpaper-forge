@@ -1,5 +1,5 @@
 // web/pages/image.js
-import { OUT_FORMATS, convertImage } from "../lib/image_ops.js";
+import { OUT_FORMATS, convertImage, loadImageBitmap } from "../lib/image_ops.js";
 import { addImageWatermark, addTextWatermark, cropCanvas } from "../lib/annotate.js";
 import { createJobList } from "../lib/joblist.js";
 import { downloadBlob, stem } from "../lib/download.js";
@@ -31,6 +31,8 @@ export function mountImage(root) {
   const err = root.querySelector("#err");
   const $ = (id) => root.querySelector(`#${id}`);
   const outputs = [];
+  let running = false;
+  let zipping = false;
 
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
   $("scale").addEventListener("change", () => {
@@ -45,6 +47,7 @@ export function mountImage(root) {
   }
 
   $("start").addEventListener("click", async () => {
+    if (running) return;
     err.textContent = "";
     const files = [...$("files").files];
     if (!files.length) {
@@ -54,28 +57,43 @@ export function mountImage(root) {
     const fmt = $("fmt").value;
     const quality = Number($("q").value);
     const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
-    jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
-    for (let i = 0; i < files.length; i++) {
-      jobs.setStatus(i, "running");
-      try {
-        await runOne(files[i], { format: fmt, quality, maxWidth });
-        jobs.setStatus(i, "done");
-      } catch (e) {
-        const msg = friendlyError(e);
-        const cancelled = msg.includes("已取消");
-        jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
-        if (cancelled) break;
+    running = true;
+    $("start").disabled = true;
+    $("zip").disabled = true;
+    try {
+      jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
+      for (let i = 0; i < files.length; i++) {
+        jobs.setStatus(i, "running");
+        try {
+          await runOne(files[i], { format: fmt, quality, maxWidth });
+          jobs.setStatus(i, "done");
+        } catch (e) {
+          const msg = friendlyError(e);
+          const cancelled = msg.includes("已取消");
+          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+          if (cancelled) {
+            for (let j = i + 1; j < files.length; j++) jobs.setStatus(j, "cancelled", "已取消");
+            break;
+          }
+        }
       }
+      jobs.finish();
+    } finally {
+      running = false;
+      $("start").disabled = false;
+      $("zip").disabled = false;
     }
-    jobs.finish();
   });
 
   $("zip").addEventListener("click", async () => {
+    if (running || zipping) return;
     err.textContent = "";
     if (!outputs.length) {
       err.textContent = "还没有可下载的输出";
       return;
     }
+    zipping = true;
+    $("zip").disabled = true;
     try {
       await ensureJszip();
       const zip = new globalThis.JSZip();
@@ -84,13 +102,16 @@ export function mountImage(root) {
       downloadBlob(blob, "images.zip");
     } catch (e) {
       err.textContent = friendlyError(e);
+    } finally {
+      zipping = false;
+      $("zip").disabled = false;
     }
   });
 
   async function firstBitmap() {
     const f = $("files").files[0];
     if (!f) throw new AppError("图片处理失败", "请先添加图片文件");
-    return { file: f, bitmap: await createImageBitmap(f) };
+    return { file: f, bitmap: await loadImageBitmap(f) };
   }
 
   $("crop").addEventListener("click", async () => {
