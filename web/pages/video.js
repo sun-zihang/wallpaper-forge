@@ -130,6 +130,9 @@ export function mountVideo(root) {
           : ["-i", inName, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
       downloadBlob(await readFileToBlob(ff, out), `${base}.${ext}`);
+      try {
+        await ff.deleteFile(out);
+      } catch { /* ignore */ }
     } else if (mode === "gif") {
       const out = `${base}.gif`;
       const args = [
@@ -140,6 +143,9 @@ export function mountVideo(root) {
       ];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
       downloadBlob(await readFileToBlob(ff, out), out);
+      try {
+        await ff.deleteFile(out);
+      } catch { /* ignore */ }
     } else if (mode === "frames") {
       const pattern = `frame_%04d.png`;
       const args = ["-i", inName, "-vf", `fps=1/${$("every").value}`, pattern];
@@ -149,6 +155,11 @@ export function mountVideo(root) {
       const zip = new globalThis.JSZip();
       for (const n of names) zip.file(n, await readFileToBlob(ff, n));
       downloadBlob(await zip.generateAsync({ type: "blob" }), `${base}_frames.zip`);
+      for (const n of names) {
+        try {
+          await ff.deleteFile(n);
+        } catch { /* ignore */ }
+      }
     } else {
       const out = `${base}_trim.mp4`;
       const args = [
@@ -157,6 +168,9 @@ export function mountVideo(root) {
       ];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
       downloadBlob(await readFileToBlob(ff, out), out);
+      try {
+        await ff.deleteFile(out);
+      } catch { /* ignore */ }
     }
     try {
       await ff.deleteFile(inName);
