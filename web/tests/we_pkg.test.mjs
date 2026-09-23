@@ -1,0 +1,55 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readPkgIndex, extractPkg } from "../lib/we_pkg.js";
+
+function buildPkg(files, magic = "PKGV0005") {
+  const enc = new TextEncoder();
+  const names = Object.keys(files);
+  const header = enc.encode(magic);
+  const blobs = names.map((n) => files[n]);
+  const pre = 4 + header.length + 4 + names.reduce((s, n) => s + 4 + enc.encode(n).length + 8, 0);
+  const parts = [];
+  const pushU32 = (v) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, v, true);
+    parts.push(b);
+  };
+  pushU32(header.length);
+  parts.push(header);
+  pushU32(names.length);
+  let off = 0;
+  names.forEach((n, i) => {
+    const nb = enc.encode(n);
+    pushU32(nb.length);
+    parts.push(nb);
+    pushU32(off);
+    pushU32(blobs[i].length);
+    off += blobs[i].length;
+  });
+  const indexLen = parts.reduce((s, p) => s + p.length, 0);
+  assert.equal(indexLen, pre);
+  parts.push(...blobs);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const part of parts) {
+    out.set(part, p);
+    p += part.length;
+  }
+  return out;
+}
+
+test("read index", () => {
+  const pkg = buildPkg({ "a.txt": new TextEncoder().encode("hello") });
+  const { magic, entries } = readPkgIndex(pkg);
+  assert.ok(magic.startsWith("PKGV"));
+  assert.equal(entries[0].name, "a.txt");
+  assert.equal(entries[0].length, 5);
+});
+
+test("extract payload", () => {
+  const pkg = buildPkg({ "a.txt": new TextEncoder().encode("hello") });
+  const { files } = extractPkg(pkg);
+  assert.equal(new TextDecoder().decode(files[0].blob), "hello");
+  assert.equal(files[0].name, "a.txt");
+});
