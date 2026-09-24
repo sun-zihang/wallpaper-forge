@@ -191,6 +191,8 @@ def test_preview_opens_resizable_dialog_with_name_and_size(qapp, png_64):
 
 
 def test_gif_preview_uses_animated_movie(qapp, gif_2f):
+    from PySide6.QtGui import QMovie
+
     from gui.widgets.file_table import ImagePreviewDialog
 
     dialog = ImagePreviewDialog(gif_2f)
@@ -198,11 +200,20 @@ def test_gif_preview_uses_animated_movie(qapp, gif_2f):
         assert dialog.preview_kind == "movie"
         assert dialog.movie is not None
         assert dialog.movie.isValid()
-        qapp.processEvents()
-        from PySide6.QtGui import QMovie
-
+        dialog.resize(720, 520)
+        dialog.show()
+        for _ in range(20):
+            qapp.processEvents()
+        pixmap = dialog.image.pixmap()
+        if pixmap is None or pixmap.isNull():
+            assert dialog.movie.jumpToFrame(0)
+            for _ in range(5):
+                qapp.processEvents()
+            pixmap = dialog.image.pixmap()
         assert dialog.movie.state() == QMovie.Running
         assert gif_2f.name in dialog.info.text()
+        assert pixmap is not None and not pixmap.isNull()
+        assert dialog.image.width() > 0
     finally:
         dialog.close()
         qapp.processEvents()

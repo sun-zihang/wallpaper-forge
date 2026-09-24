@@ -91,11 +91,16 @@ class _PreviewMovie(QLabel):
         self._fit()
 
     def _fit(self) -> None:
-        frame = self._movie.currentFrame()
-        if frame.isNull() or self.width() <= 0 or self.height() <= 0:
+        if self.width() <= 0 or self.height() <= 0:
+            return
+        frame = self._movie.currentImage()
+        if frame.isNull():
+            return
+        pix = QPixmap.fromImage(frame)
+        if pix.isNull():
             return
         self.setPixmap(
-            frame.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pix.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
 
     def resizeEvent(self, event) -> None:
