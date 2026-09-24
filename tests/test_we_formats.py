@@ -258,6 +258,30 @@ def test_extract_tex_embedded_webp():
     assert payload.startswith(b"RIFF")
 
 
+def test_extract_tex_embedded_jpeg():
+    # SOI ... EOI with optional length prefix; extract trims at EOI
+    # payload must be >= 16 bytes (extract_embedded rejects shorter)
+    jpg = b"\xff\xd8\xff\xe0" + b"\x00\x10" + b"JFIF\x00" + b"\x00" * 8 + b"\xff\xd9"
+    assert len(jpg) >= 16
+    blob = b"\x00" * 8 + struct.pack("<I", len(jpg)) + jpg + b"\xbb" * 8
+    ext, payload = extract_embedded(blob)
+    assert ext == ".jpg"
+    assert payload.startswith(b"\xff\xd8")
+    assert payload.endswith(b"\xff\xd9")
+
+
+def test_extract_mpkg_too_small():
+    src = Path("x.mpkg")
+    # write via tmp in test — use monkeypatch-free approach
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "x.mpkg"
+        p.write_bytes(b"short")
+        with pytest.raises(WeMpkgError, match="过小"):
+            extract_mpkg(p, Path(td) / "out")
+
+
 def test_tex_embedded_png():
     png = (
         b"\x89PNG\r\n\x1a\n"

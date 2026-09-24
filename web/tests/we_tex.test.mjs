@@ -44,3 +44,20 @@ test("no payload returns null ext", () => {
   assert.equal(ext, null);
   assert.equal(payload, null);
 });
+
+test("embedded jpeg trims at EOI", () => {
+  // payload must be >= 16 bytes (extractEmbedded rejects shorter)
+  const jpg = new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xd9,
+  ]);
+  const blob = new Uint8Array(8 + 4 + jpg.length + 8);
+  new DataView(blob.buffer).setUint32(8, jpg.length, true);
+  blob.set(jpg, 12);
+  const { ext, payload } = extractEmbedded(blob);
+  assert.equal(ext, ".jpg");
+  assert.equal(payload[0], 0xff);
+  assert.equal(payload[1], 0xd8);
+  assert.equal(payload[payload.length - 2], 0xff);
+  assert.equal(payload[payload.length - 1], 0xd9);
+});

@@ -42,3 +42,49 @@ test("garbage png carved once", () => {
   const pngs = files.filter((f) => f.name.endsWith(".png"));
   assert.equal(pngs.length, 1);
 });
+
+test("path-traversal pkg falls through without escaping names", () => {
+  // extractPkg rejects "../" — extractMpkg must fall through to carving
+  // and never return a name containing ".."
+  const enc = new TextEncoder();
+  const header = enc.encode("PKGM0014");
+  const name = enc.encode("../escape.txt");
+  const blob = enc.encode("pwned");
+  const parts = [];
+  const pushU32 = (v) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, v, true);
+    parts.push(b);
+  };
+  pushU32(header.length);
+  parts.push(header);
+  pushU32(1);
+  pushU32(name.length);
+  parts.push(name);
+  pushU32(0);
+  pushU32(blob.length);
+  parts.push(blob);
+  // pad to >= 16 total (already is)
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const data = new Uint8Array(total);
+  let p = 0;
+  for (const part of parts) {
+    data.set(part, p);
+    p += part.length;
+  }
+  // May throw (no carveable media) or return carved files — but never ".."
+  try {
+    const { files } = extractMpkg(data);
+    for (const f of files) {
+      assert.ok(!f.name.includes(".."), `unsafe name: ${f.name}`);
+      assert.ok(!/^[a-zA-Z]:/.test(f.name), `drive letter name: ${f.name}`);
+    }
+  } catch (e) {
+    // expected when nothing carveable
+    assert.match(String(e), /MPKG|无法/);
+  }
+});
+
+test("too-small buffer rejected", () => {
+  assert.throws(() => extractMpkg(new Uint8Array(8)), /过小/);
+});
