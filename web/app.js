@@ -2,6 +2,7 @@
 import { mountHome } from "./pages/home.js";
 import { WEB_VERSION } from "./version.js";
 import { DEP_VERSIONS } from "./lib/deps.js";
+import { bindDocumentDrop } from "./lib/drop.js";
 
 const routes = {
   "": mountHome,
@@ -74,5 +75,6 @@ async function render() {
 }
 
 renderFooter();
+bindDocumentDrop();
 window.addEventListener("hashchange", render);
 render();
