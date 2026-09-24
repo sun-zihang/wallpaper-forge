@@ -2,8 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDropEvent
+from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtGui import (
+    QDragEnterEvent,
+    QDragLeaveEvent,
+    QDropEvent,
+    QKeySequence,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -30,6 +38,8 @@ class MainWindow(QMainWindow):
         self._version = version
         self._manual_check = False
         self._drop_status_before = None
+        self.shortcuts = {}
+        self._shortcut_event_filter_installed = False
         self.setAcceptDrops(True)
         self.setWindowTitle(f"Wallpaper Converter {version} — 壁纸格式转换")
         self.resize(1100, 720)
@@ -81,6 +91,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
+        self._register_shortcuts()
+        self.nav.currentRowChanged.connect(self._sync_shortcut_state)
+        self._install_shortcut_event_filter()
 
         self._apply_settings()
         self._restore_window_state()
@@ -129,6 +142,141 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
         self._clear_drop_hint()
+
+    def _current_page(self):
+        return self.stack.currentWidget()
+
+    def _current_table(self):
+        return getattr(self._current_page(), "table", None)
+
+    def _processing_pages(self):
+        return (
+            self.image_page,
+            self.video_page,
+            self.gif_page,
+            self.unpack_page,
+            self.rewatermark_page,
+        )
+
+    def _make_shortcut(self, name: str, key: str, callback) -> QShortcut:
+        shortcut = QShortcut(QKeySequence(key), self)
+        shortcut.setContext(Qt.WindowShortcut)
+        shortcut.activated.connect(callback)
+        self.shortcuts[name] = shortcut
+        return shortcut
+
+    def _register_shortcuts(self) -> None:
+        self.add_files_shortcut = self._make_shortcut(
+            "add_files", "Ctrl+O", self._shortcut_add_files
+        )
+        self.add_folder_shortcut = self._make_shortcut(
+            "add_folder", "Ctrl+Shift+O", self._shortcut_add_dirs
+        )
+        self.start_shortcut = self._make_shortcut(
+            "start", "Ctrl+Enter", self._shortcut_start
+        )
+        self.cancel_shortcut = self._make_shortcut(
+            "cancel", "Esc", self._shortcut_cancel
+        )
+        self.select_all_shortcut = self._make_shortcut(
+            "select_all", "Ctrl+A", self._shortcut_select_all
+        )
+        self.shortcut_add_files = self.add_files_shortcut
+        self.shortcut_add_folder = self.add_folder_shortcut
+        self.shortcut_start = self.start_shortcut
+        self.shortcut_cancel = self.cancel_shortcut
+        self.shortcut_select_all = self.select_all_shortcut
+        for page in self._processing_pages():
+            page.thread.started.connect(self._sync_shortcut_state)
+            page.thread.finished.connect(self._sync_shortcut_state)
+            page.thread.batch_finished.connect(self._sync_shortcut_state_on_batch)
+        self._sync_shortcut_state()
+
+    def _shortcut_add_files(self) -> None:
+        handler = getattr(self._current_page(), "_add_files", None)
+        if callable(handler):
+            handler()
+
+    def _shortcut_add_dirs(self) -> None:
+        handler = getattr(self._current_page(), "_add_dirs", None)
+        if callable(handler):
+            handler()
+
+    def _shortcut_start(self) -> None:
+        button = getattr(self._current_page(), "start_btn", None)
+        if button is not None and button.isEnabled():
+            button.click()
+
+    def _shortcut_select_all(self) -> None:
+        table = self._current_table()
+        if table is not None:
+            table.select_all()
+
+    def _batch_is_running(self) -> bool:
+        thread = getattr(self._current_page(), "thread", None)
+        return bool(thread is not None and thread.isRunning())
+
+    def _modal_dialog_is_open(self) -> bool:
+        app = QApplication.instance()
+        if app is None:
+            return False
+        if app.activeModalWidget() is not None:
+            return True
+        return any(
+            widget is not self and widget.isVisible() and widget.isModal()
+            for widget in app.topLevelWidgets()
+        )
+
+    def _sync_shortcut_state_on_batch(self, *args) -> None:
+        self._sync_shortcut_state()
+
+    def _sync_shortcut_state(self, *args) -> None:
+        if not hasattr(self, "cancel_shortcut"):
+            return
+        self.cancel_shortcut.setEnabled(
+            self._batch_is_running() and not self._modal_dialog_is_open()
+        )
+
+    def _shortcut_cancel(self) -> None:
+        if self._modal_dialog_is_open() or not self._batch_is_running():
+            return
+        button = getattr(self._current_page(), "cancel_btn", None)
+        if button is not None and button.isEnabled():
+            button.click()
+
+    def _on_focus_changed(self, previous, current) -> None:
+        self._sync_shortcut_state()
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() in {
+            QEvent.Type.Show,
+            QEvent.Type.Hide,
+            QEvent.Type.WindowActivate,
+            QEvent.Type.WindowDeactivate,
+            QEvent.Type.Close,
+        }:
+            QTimer.singleShot(0, self._sync_shortcut_state)
+        return super().eventFilter(watched, event)
+
+    def _install_shortcut_event_filter(self) -> None:
+        app = QApplication.instance()
+        if app is None or self._shortcut_event_filter_installed:
+            return
+        app.installEventFilter(self)
+        app.focusChanged.connect(self._on_focus_changed)
+        self._shortcut_event_filter_installed = True
+
+    def _remove_shortcut_event_filter(self) -> None:
+        if not self._shortcut_event_filter_installed:
+            return
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self)
+            try:
+                app.focusChanged.disconnect(self._on_focus_changed)
+            except (RuntimeError, TypeError):
+                pass
+        self._shortcut_event_filter_installed = False
 
     def _restore_window_state(self) -> None:
         import base64
@@ -254,6 +402,7 @@ class MainWindow(QMainWindow):
             for p in running_pages:
                 if not p.thread.wait(3000):
                     p.thread.wait(1000)
+        self._remove_shortcut_event_filter()
         import base64
 
         from gui.settings_store import save_settings
