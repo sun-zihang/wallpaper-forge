@@ -92,3 +92,18 @@ def test_output_ancestor_is_file_falls_back_to_source_parent(
     assert warn is not None
     assert "100 B" in warn
     assert "2048 B" in warn
+
+
+def test_existing_ancestor_returns_existing_dir_or_file(tmp_path: Path):
+    from core.space import _existing_ancestor
+
+    real = _existing_ancestor(tmp_path / "a.png")
+    assert real == tmp_path
+
+    # existing file is a valid probe target (caller treats it as non-dir)
+    f = tmp_path / "blocker"
+    f.write_bytes(b"x")
+    assert _existing_ancestor(f / "child" / "a.jpg") == f
+
+    # missing leaf under an existing dir still walks up
+    assert _existing_ancestor(tmp_path / "no" / "such" / "a.jpg") == tmp_path
