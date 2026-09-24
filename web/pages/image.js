@@ -1,14 +1,18 @@
 // web/pages/image.js
-import { OUT_FORMATS, convertImage, loadImageBitmap } from "../lib/image_ops.js";
+import { OUT_FORMATS, IMAGE_EXTS, convertImage, loadImageBitmap } from "../lib/image_ops.js";
 import { addImageWatermark, addTextWatermark, cropCanvas } from "../lib/annotate.js";
 import { createJobList } from "../lib/joblist.js";
+import { batchPct } from "../lib/progress.js";
+import { validateSelection } from "../lib/selection.js";
+import { attachDropTarget } from "../lib/drop.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
 export function mountImage(root) {
   root.innerHTML = `
-    <div class="row">
+    <div class="row" id="dropzone">
       <label>文件 <input type="file" id="files" multiple accept="image/*" /></label>
+      <span class="drop-hint">或拖拽图片到此处</span>
       <label>格式
         <select id="fmt">${OUT_FORMATS.map((f) => `<option${f === "JPG" ? " selected" : ""}>${f}</option>`).join("")}</select>
       </label>
@@ -34,6 +38,13 @@ export function mountImage(root) {
   let running = false;
   let zipping = false;
 
+  attachDropTarget($("dropzone"), $("files"), {
+    extensions: IMAGE_EXTS,
+    onRejected: (msg) => {
+      err.textContent = msg;
+    },
+  });
+
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
   $("scale").addEventListener("change", () => {
     $("sw").disabled = !$("scale").checked;
@@ -49,11 +60,17 @@ export function mountImage(root) {
   $("start").addEventListener("click", async () => {
     if (running || zipping) return;
     err.textContent = "";
-    const files = [...$("files").files];
-    if (!files.length) {
+    const picked = [...$("files").files];
+    if (!picked.length) {
       err.textContent = "请先选择图片文件";
       return;
     }
+    const check = validateSelection(picked, { extensions: IMAGE_EXTS });
+    if (!check.ok) {
+      err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+      return;
+    }
+    const files = check.files;
     const fmt = $("fmt").value;
     const quality = Number($("q").value);
     const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
@@ -64,9 +81,11 @@ export function mountImage(root) {
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
       for (let i = 0; i < files.length; i++) {
         jobs.setStatus(i, "running");
+        jobs.setProgress(batchPct(i, 0, files.length));
         try {
           await runOne(files[i], { format: fmt, quality, maxWidth });
           jobs.setStatus(i, "done");
+          jobs.setProgress(batchPct(i, 100, files.length));
         } catch (e) {
           const msg = friendlyError(e);
           const cancelled = msg.includes("已取消");

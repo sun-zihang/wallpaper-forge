@@ -63,8 +63,9 @@ body {
 }
 .btn.secondary { background: #2a2f3a; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.progress { height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.progress { height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin-top: 8px; position: relative; }
 .progress > i { display: block; height: 100%; background: var(--accent); width: 0; }
+.progress > .pct { position: absolute; right: 4px; top: -18px; font-size: 11px; color: #888; }
 table.jobs { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
 table.jobs th, table.jobs td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
 .st-done { color: var(--ok); }
@@ -72,6 +73,7 @@ table.jobs th, table.jobs td { border-bottom: 1px solid var(--border); padding: 
 .st-running { color: var(--run); }
 .st-cancelled, .st-pending { color: var(--muted); }
 .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; }
+.drop-hint { color: #6b7280; font-size: 12px; }
 label { color: var(--muted); font-size: 14px; }
 input, select { background: #0c0e12; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
 pre.err { color: var(--fail); white-space: pre-wrap; font-size: 12px; }

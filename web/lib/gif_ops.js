@@ -46,26 +46,73 @@ export async function loadGifFrames(file, { token, gifuct } = {}) {
   } catch (e) {
     throw new AppError("GIF 处理失败", `无法读取 GIF: ${file.name}（${e}）`);
   }
+  const width = parsed.lsd.width;
+  const height = parsed.lsd.height;
+  const buffer = new Uint8ClampedArray(width * height * 4);
   const frames = [];
-  let width = 0;
-  let height = 0;
   for (const frame of parsed.frames) {
     throwIfCancelled(token);
     const patch = decompressFramePatch(lib, parsed, frame);
     if (!patch) continue;
-    width = width || parsed.lsd.width;
-    height = height || parsed.lsd.height;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    const img = ctx.createImageData(width, height);
-    img.data.set(patch.patch);
-    ctx.putImageData(img, 0, 0);
-    frames.push(canvas);
+    compositeInto(buffer, width, height, patch);
+    frames.push(canvasFromBuffer(buffer, width, height));
+    applyDisposal(buffer, width, height, patch, patch.disposalType);
   }
   if (!frames.length) throw new AppError("GIF 处理失败", "GIF 中没有可导出的帧");
-  return { width: width || frames[0].width, height: height || frames[0].height, frames };
+  return { width, height, frames };
+}
+
+export function compositeInto(buffer, bufW, bufH, patch) {
+  const dims = patch.dims || { top: 0, left: 0, width: bufW, height: bufH };
+  const src = patch.patch;
+  const w = Math.min(dims.width, bufW);
+  const h = Math.min(dims.height, bufH);
+  for (let y = 0; y < h; y++) {
+    const dy = dims.top + y;
+    if (dy < 0 || dy >= bufH) continue;
+    for (let x = 0; x < w; x++) {
+      const dx = dims.left + x;
+      if (dx < 0 || dx >= bufW) continue;
+      const si = (y * dims.width + x) * 4;
+      if (src[si + 3] === 0) continue;
+      const di = (dy * bufW + dx) * 4;
+      buffer[di] = src[si];
+      buffer[di + 1] = src[si + 1];
+      buffer[di + 2] = src[si + 2];
+      buffer[di + 3] = src[si + 3];
+    }
+  }
+}
+
+export function applyDisposal(buffer, bufW, bufH, patch, disposalType) {
+  if (disposalType !== 2) return;
+  const dims = patch.dims || { top: 0, left: 0, width: bufW, height: bufH };
+  const w = Math.min(dims.width, bufW);
+  const h = Math.min(dims.height, bufH);
+  for (let y = 0; y < h; y++) {
+    const dy = dims.top + y;
+    if (dy < 0 || dy >= bufH) continue;
+    for (let x = 0; x < w; x++) {
+      const dx = dims.left + x;
+      if (dx < 0 || dx >= bufW) continue;
+      const di = (dy * bufW + dx) * 4;
+      buffer[di] = 0;
+      buffer[di + 1] = 0;
+      buffer[di + 2] = 0;
+      buffer[di + 3] = 0;
+    }
+  }
+}
+
+function canvasFromBuffer(buffer, width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  const img = ctx.createImageData(width, height);
+  img.data.set(buffer);
+  ctx.putImageData(img, 0, 0);
+  return canvas;
 }
 
 export async function splitGif(file, { step = 1, token } = {}) {
@@ -87,7 +134,7 @@ export async function splitGif(file, { step = 1, token } = {}) {
   return { files };
 }
 
-export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = false, token } = {}) {
+export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = false, token, onProgress } = {}) {
   if (!files.length) throw new AppError("GIF 处理失败", "没有可合并的图片");
   if (durationMs < 10) throw new AppError("GIF 处理失败", "帧间隔至少 10 毫秒");
   const ordered = mergeOrder(files, reverse);
@@ -102,18 +149,22 @@ export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = fa
     bmp.close && bmp.close();
     canvases.push(c);
   }
-  const blob = encodeAnimatedGif(canvases, { durationMs, loop });
+  const blob = await encodeAnimatedGif(canvases, { durationMs, loop, token, onProgress });
   const first = ordered[0];
   const base = (first.name || "out").replace(/\.[^.]+$/, "");
   return { blob, filename: `${base}.gif` };
 }
 
 /** Minimal GIF89a animated writer (RGBA frames, global palette = median-cut simplified to 6x6x6 web-safe). */
-export function encodeAnimatedGif(canvases, { durationMs = 100, loop = 0 } = {}) {
+export async function encodeAnimatedGif(
+  canvases,
+  { durationMs = 100, loop = 0, token, onProgress } = {}
+) {
   if (!canvases.length) throw new AppError("GIF 处理失败", "没有可合并的图片");
   const w = canvases[0].width;
   const h = canvases[0].height;
   const framesData = canvases.map((c) => c.getContext("2d").getImageData(0, 0, w, h).data);
+  throwIfCancelled(token);
   const palette = buildPalette(framesData);
   const out = [];
   pushStr(out, "GIF89a");
@@ -128,7 +179,9 @@ export function encodeAnimatedGif(canvases, { durationMs = 100, loop = 0 } = {})
   pushU16(out, loop);
   out.push(0);
   const delay = Math.max(2, Math.round(durationMs / 10));
-  for (const data of framesData) {
+  for (let fi = 0; fi < framesData.length; fi++) {
+    throwIfCancelled(token);
+    const data = framesData[fi];
     pushStr(out, "\x21\xf9\x04");
     out.push(0, delay & 0xff, (delay >> 8) & 0xff, 0, 0);
     out.push(0x2c);
@@ -147,10 +200,14 @@ export function encodeAnimatedGif(canvases, { durationMs = 100, loop = 0 } = {})
       for (const b of chunk) out.push(b);
     }
     out.push(0);
+    if (onProgress) onProgress(fi + 1, framesData.length);
+    await yieldTick();
   }
   out.push(0x3b);
   return new Blob([new Uint8Array(out)], { type: "image/gif" });
 }
+
+const yieldTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function pushStr(arr, s) {
   for (let i = 0; i < s.length; i++) arr.push(s.charCodeAt(i));
@@ -173,16 +230,46 @@ function buildPalette(allFrames) {
   return pal;
 }
 
-function mapToPalette(data, palette) {
+const PALETTE_CACHE_LIMIT = 65536;
+
+export function mapToPalette(data, palette) {
+  const n = palette.length;
+  const pr = new Uint8Array(n);
+  const pg = new Uint8Array(n);
+  const pb = new Uint8Array(n);
+  for (let k = 0; k < n; k++) {
+    const c = palette[k];
+    pr[k] = c[0];
+    pg[k] = c[1];
+    pb[k] = c[2];
+  }
+  const cache = new Map();
   const idx = new Uint8Array((data.length / 4) | 0);
-  for (let p = 0, i = 0; i < data.length; i += 4, p++) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    let best = 0, bestD = Infinity;
-    for (let k = 0; k < palette.length; k++) {
-      const pr = palette[k][0] - r, pg = palette[k][1] - g, pb = palette[k][2] - b;
-      const d = pr * pr + pg * pg + pb * pb;
-      if (d < bestD) { bestD = d; best = k; }
+  let p = 0;
+  for (let i = 0; i < data.length; i += 4, p++) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const key = (r << 16) | (g << 8) | b;
+    const hit = cache.get(key);
+    if (hit !== undefined) {
+      idx[p] = hit;
+      continue;
     }
+    let best = 0;
+    let bestD = Infinity;
+    for (let k = 0; k < n; k++) {
+      const dr = pr[k] - r;
+      const dg = pg[k] - g;
+      const db = pb[k] - b;
+      const d = dr * dr + dg * dg + db * db;
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+        if (d === 0) break;
+      }
+    }
+    if (cache.size < PALETTE_CACHE_LIMIT) cache.set(key, best);
     idx[p] = best;
   }
   return idx;

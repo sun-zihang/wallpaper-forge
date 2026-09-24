@@ -11,7 +11,7 @@ export function createJobList(container, { onCancel } = {}) {
     <div class="row">
       <button type="button" class="btn secondary" data-act="cancel" disabled>取消</button>
     </div>
-    <div class="progress"><i style="width:0%"></i></div>
+      <div class="progress"><i style="width:0%"></i><span class="pct">0%</span></div>
     <table class="jobs">
       <thead><tr><th>文件</th><th>状态</th></tr></thead>
       <tbody></tbody>
@@ -19,6 +19,7 @@ export function createJobList(container, { onCancel } = {}) {
   `;
   const tbody = container.querySelector("tbody");
   const bar = container.querySelector(".progress > i");
+  const pctLabel = container.querySelector(".progress .pct");
   const cancelBtn = container.querySelector('[data-act="cancel"]');
   let cancelled = false;
   const rows = new Map();
@@ -48,6 +49,7 @@ export function createJobList(container, { onCancel } = {}) {
       tbody.innerHTML = "";
       rows.clear();
       bar.style.width = "0%";
+      if (pctLabel) pctLabel.textContent = "0%";
       cancelBtn.disabled = true;
     },
     submit(jobs) {
@@ -65,6 +67,7 @@ export function createJobList(container, { onCancel } = {}) {
     setProgress(pct) {
       const v = Math.max(0, Math.min(100, pct | 0));
       bar.style.width = `${v}%`;
+      if (pctLabel) pctLabel.textContent = `${v}%`;
     },
     setStatus(id, status, detail) {
       renderStatus(id, status, detail);

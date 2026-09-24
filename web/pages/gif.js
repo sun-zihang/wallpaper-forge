@@ -1,12 +1,17 @@
 // web/pages/gif.js
 import { mergeGif, splitGif } from "../lib/gif_ops.js";
 import { createJobList } from "../lib/joblist.js";
+import { batchPct } from "../lib/progress.js";
+import { validateSelection } from "../lib/selection.js";
+import { attachDropTarget } from "../lib/drop.js";
 import { downloadBlob } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
+
 export function mountGif(root) {
   root.innerHTML = `
-    <div class="row">
+    <div class="row" id="dropzone">
       <label>模式
         <select id="mode">
           <option value="split">拆帧（GIF → PNG 序列）</option>
@@ -18,6 +23,7 @@ export function mountGif(root) {
       <label id="wrev" hidden><input type="checkbox" id="rev" /> 倒放</label>
       <label id="wloop" hidden><input type="checkbox" id="loop" checked /> 无限循环</label>
       <label>文件 <input type="file" id="files" multiple accept="image/*,.gif" /></label>
+      <span class="drop-hint">或拖拽到此处</span>
       <button type="button" class="btn" id="start">开始</button>
       <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
     </div>
@@ -33,6 +39,13 @@ export function mountGif(root) {
   const token = { cancelled: false };
   let splitFiles = [];
   let running = false;
+
+  attachDropTarget($("dropzone"), $("files"), {
+    extensions: IMAGE_EXTS,
+    onRejected: (msg) => {
+      $("err").textContent = msg;
+    },
+  });
 
   function syncMode() {
     const split = $("mode").value === "split";
@@ -57,26 +70,35 @@ export function mountGif(root) {
       err.textContent = $("mode").value === "split" ? "请先添加 GIF 文件" : "请先添加图片序列";
       return;
     }
+    const wanted = $("mode").value === "split" ? [".gif"] : IMAGE_EXTS;
+    const check = validateSelection(files, { extensions: wanted });
+    if (!check.ok) {
+      err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+      return;
+    }
+    const accepted = check.files;
     running = true;
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
       if ($("mode").value === "split") {
-        jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
+        jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name })));
         splitFiles = [];
-        for (let i = 0; i < files.length; i++) {
+        for (let i = 0; i < accepted.length; i++) {
           if (jobs.cancelled) {
             jobs.setStatus(i, "cancelled", "已取消");
             continue;
           }
           jobs.setStatus(i, "running");
+          jobs.setProgress(batchPct(i, 0, accepted.length));
           try {
-            const { files: parts } = await splitGif(files[i], {
+            const { files: parts } = await splitGif(accepted[i], {
               step: Number($("step").value),
               token,
             });
             splitFiles.push(...parts);
             jobs.setStatus(i, "done");
+            jobs.setProgress(batchPct(i, 100, accepted.length));
           } catch (e) {
             const msg = friendlyError(e);
             const cancelled = msg.includes("已取消");
@@ -88,7 +110,7 @@ export function mountGif(root) {
         return;
       }
       // merge
-      const ordered = [...files].sort((a, b) => a.name.localeCompare(b.name));
+      const ordered = [...accepted].sort((a, b) => a.name.localeCompare(b.name));
       jobs.submit([{ id: 0, name: ordered[0].name }]);
       jobs.setStatus(0, "running");
       try {
@@ -97,6 +119,8 @@ export function mountGif(root) {
           loop: $("loop").checked ? 0 : 1,
           reverse: $("rev").checked,
           token,
+          onProgress: (done, totalFrames) =>
+            jobs.setProgress(batchPct(0, (done / totalFrames) * 100, 1)),
         });
         jobs.setStatus(0, "done");
         downloadBlob(blob, filename);

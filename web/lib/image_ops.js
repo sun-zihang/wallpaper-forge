@@ -63,7 +63,7 @@ export async function convertImage(file, { format, maxWidth = 0, quality = 90 } 
   bitmap.close && bitmap.close();
   const outName = (file.name || "image").replace(/\.[^.]+$/, "") + ext;
   if (ext === ".gif") {
-    const blob = encodeAnimatedGif([canvas], { durationMs: 100 });
+    const blob = await encodeAnimatedGif([canvas], { durationMs: 100 });
     return { blob, filename: outName, width: canvas.width, height: canvas.height };
   }
   const mime = MIME[ext];

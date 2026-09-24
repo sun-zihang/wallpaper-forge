@@ -4,13 +4,19 @@ import { extractPkg } from "../lib/we_pkg.js";
 import { extractTex } from "../lib/we_tex.js";
 import { detectKind } from "../lib/we_detect.js";
 import { createJobList } from "../lib/joblist.js";
+import { batchPct } from "../lib/progress.js";
+import { validateSelection } from "../lib/selection.js";
+import { attachDropTarget } from "../lib/drop.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
+const WE_EXTS = [".pkg", ".tex", ".mpkg"];
+
 export function mountUnpack(root) {
   root.innerHTML = `
-    <div class="row">
+    <div class="row" id="dropzone">
       <label>文件 <input type="file" id="files" multiple accept=".pkg,.tex,.mpkg" /></label>
+      <span class="drop-hint">或拖拽到此处</span>
       <button type="button" class="btn" id="start">开始解包</button>
       <button type="button" class="btn secondary" id="dl">打包下载 ZIP</button>
     </div>
@@ -23,14 +29,27 @@ export function mountUnpack(root) {
   let running = false;
   let zipping = false;
 
+  attachDropTarget($("dropzone"), $("files"), {
+    extensions: WE_EXTS,
+    onRejected: (msg) => {
+      $("err").textContent = msg;
+    },
+  });
+
   $("start").addEventListener("click", async () => {
     if (running || zipping) return;
     $("err").textContent = "";
-    const files = [...$("files").files];
-    if (!files.length) {
+    const picked = [...$("files").files];
+    if (!picked.length) {
       $("err").textContent = "请先添加 .pkg / .tex / .mpkg 文件";
       return;
     }
+    const check = validateSelection(picked, { extensions: WE_EXTS });
+    if (!check.ok) {
+      $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+      return;
+    }
+    const files = check.files;
     running = true;
     $("start").disabled = true;
     $("dl").disabled = true;
@@ -45,10 +64,11 @@ export function mountUnpack(root) {
         const f = files[i];
         const kind = detectKind(f.name);
         if (!kind) {
-          jobs.setStatus(i, "failed", "不支持的文件类型");
+          jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
           continue;
         }
         jobs.setStatus(i, "running");
+        jobs.setProgress(batchPct(i, 0, files.length));
         try {
           const buf = new Uint8Array(await f.arrayBuffer());
           const base = stem(f.name);
@@ -58,6 +78,7 @@ export function mountUnpack(root) {
           else result = extractMpkg(buf);
           for (const item of result.files) allFiles.push(item);
           jobs.setStatus(i, "done");
+          jobs.setProgress(batchPct(i, 100, files.length));
         } catch (e) {
           jobs.setStatus(i, "failed", friendlyError(e));
         }
@@ -79,14 +100,7 @@ export function mountUnpack(root) {
         $("err").textContent = "还没有解包结果";
         return;
       }
-      await new Promise((res, rej) => {
-        if (globalThis.JSZip) return res();
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-        s.onload = res;
-        s.onerror = () => rej(new AppError("PKG 解包失败", "JSZip 加载失败"));
-        document.head.appendChild(s);
-      });
+      await ensureJszip();
       const zip = new globalThis.JSZip();
       for (const f of allFiles) zip.file(f.name, f.blob);
       downloadBlob(await zip.generateAsync({ type: "blob" }), "unpacked.zip");
@@ -96,5 +110,16 @@ export function mountUnpack(root) {
       zipping = false;
       $("dl").disabled = false;
     }
+  });
+}
+
+function ensureJszip() {
+  if (globalThis.JSZip) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
+    s.onload = res;
+    s.onerror = () => rej(new AppError("PKG 解包失败", "JSZip 加载失败"));
+    document.head.appendChild(s);
   });
 }

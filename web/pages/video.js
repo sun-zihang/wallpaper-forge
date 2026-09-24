@@ -2,6 +2,7 @@
 import { assertVideoLimits, probeVideoDuration, durationTooLongError, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "../lib/video_limits.js";
 import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../lib/video_bridge.js";
 import { createJobList } from "../lib/joblist.js";
+import { batchPct } from "../lib/progress.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus } from "../app.js";
@@ -108,7 +109,9 @@ export function mountVideo(root) {
         }
         jobs.setStatus(i, "running");
         try {
-          await processOne(files[i], mode, (p) => jobs.setProgress(p));
+          await processOne(files[i], mode, (p) =>
+            jobs.setProgress(batchPct(i, p, files.length))
+          );
           jobs.setStatus(i, "done");
         } catch (e) {
           const msg = friendlyError(e);
