@@ -1,2 +1,2 @@
 // web/version.js
-export const WEB_VERSION = "0.6.1";
+export const WEB_VERSION = "0.6.2";
