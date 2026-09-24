@@ -2,8 +2,9 @@
 import { AppError } from "./errors.js";
 
 const FFMPEG_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js";
+const FFMPEG_WORKER_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js";
 const UTIL_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js";
-const CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
+const CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm";
 
 let loadPromise = null;
 let ffmpeg = null;
@@ -32,6 +33,7 @@ export async function ensureFFmpeg(onStatus) {
       await inst.load({
         coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
         wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
+        classWorkerURL: await toBlobURL(FFMPEG_WORKER_URL, "text/javascript"),
       });
       ffmpeg = inst;
       return inst;
