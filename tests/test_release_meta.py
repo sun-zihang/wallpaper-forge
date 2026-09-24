@@ -35,3 +35,12 @@ def test_installer_ships_vendored_chinese_language():
     raw = isl.read_bytes()
     assert not raw.startswith(b"\xef\xbb\xbf")
     assert "LanguageCodePage=936" in raw.decode("utf-8")
+
+
+def test_release_workflow_generates_and_ships_sha256sums():
+    wf = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "SHA256SUMS.txt" in wf
+    assert "Get-FileHash" in wf and "SHA256" in wf
+    assert "build/Output/SHA256SUMS.txt" in wf
+    # Draft path must attach both installer and checksum file.
+    assert "gh release create" in wf and "$sums" in wf
