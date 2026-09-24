@@ -125,3 +125,39 @@ test("truncated entry rejected", () => {
   }
   assert.throws(() => readPkgIndex(data), /索引损坏/);
 });
+
+test("tiny buffer rejected", () => {
+  assert.throws(() => readPkgIndex(new Uint8Array([1, 2, 3])), /过小/);
+});
+
+test("out-of-bounds entry offset rejected", () => {
+  const header = new TextEncoder().encode("PKGV0005");
+  const name = new TextEncoder().encode("a.txt");
+  const parts = [];
+  const pushU32 = (v) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, v, true);
+    parts.push(b);
+  };
+  pushU32(header.length);
+  parts.push(header);
+  pushU32(1);
+  pushU32(name.length);
+  parts.push(name);
+  pushU32(0x7fff0000);
+  pushU32(0x7fff0000);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const data = new Uint8Array(total);
+  let p = 0;
+  for (const part of parts) {
+    data.set(part, p);
+    p += part.length;
+  }
+  assert.throws(() => extractPkg(data), /条目越界/);
+});
+
+test("empty index extracts nothing", () => {
+  const pkg = buildPkg({});
+  const { files } = extractPkg(pkg);
+  assert.equal(files.length, 0);
+});

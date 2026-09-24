@@ -99,6 +99,38 @@ def test_read_pkg_index_rejects_truncated_entry():
         read_pkg_index(data)
 
 
+def test_read_pkg_index_rejects_tiny_buffer():
+    with pytest.raises(WePkgError, match="过小"):
+        read_pkg_index(b"abc")
+
+
+def test_extract_pkg_rejects_out_of_bounds_offset(tmp_path: Path):
+    # valid index but entry.offset/length point past EOF
+    header = b"PKGV0005"
+    name = b"a.txt"
+    out = bytearray()
+    out += struct.pack("<I", len(header))
+    out += header
+    out += struct.pack("<I", 1)
+    out += struct.pack("<I", len(name)) + name
+    out += struct.pack("<I", 0x7FFF0000)  # absurd offset
+    out += struct.pack("<I", 0x7FFF0000)  # absurd length
+    src = tmp_path / "oob.pkg"
+    src.write_bytes(bytes(out))
+    with pytest.raises(WePkgError, match="条目越界"):
+        extract_pkg(src, tmp_path / "out")
+
+
+def test_extract_pkg_empty_index_writes_nothing(tmp_path: Path):
+    pkg = _build_pkg({})
+    src = tmp_path / "empty.pkg"
+    src.write_bytes(pkg)
+    out_dir = tmp_path / "out"
+    outs = extract_pkg(src, out_dir)
+    assert outs == []
+    assert list(out_dir.iterdir()) == []
+
+
 def test_extract_pkg(tmp_path: Path):
     pkg = _build_pkg({"a.txt": b"hello", "sub/b.bin": b"\x00\x01"})
     src = tmp_path / "scene.pkg"
