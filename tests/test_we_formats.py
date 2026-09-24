@@ -81,6 +81,30 @@ def test_extract_pkg_bad_header(tmp_path: Path):
         extract_pkg(src, tmp_path / "out")
 
 
+def test_extract_pkg_rejects_path_traversal(tmp_path: Path):
+    pkg = _build_pkg({"../escape.txt": b"pwned"})
+    src = tmp_path / "evil.pkg"
+    src.write_bytes(pkg)
+    out_dir = tmp_path / "converted" / "evil"
+    with pytest.raises(WePkgError, match="非法路径"):
+        extract_pkg(src, out_dir)
+    assert not (tmp_path / "converted" / "escape.txt").exists()
+    assert not (tmp_path / "escape.txt").exists()
+
+
+def test_extract_pkg_strips_leading_slash_under_out_dir(tmp_path: Path):
+    # Leading "/" is stripped so the entry lands inside out_dir, not at FS root.
+    pkg = _build_pkg({"/abs-like.txt": b"x"})
+    src = tmp_path / "abs.pkg"
+    src.write_bytes(pkg)
+    out_dir = tmp_path / "converted" / "abs"
+    outs = extract_pkg(src, out_dir)
+    assert len(outs) == 1
+    assert outs[0] == out_dir / "abs-like.txt"
+    assert outs[0].is_file()
+    assert outs[0].read_bytes() == b"x"
+
+
 def test_tex_embedded_png():
     png = (
         b"\x89PNG\r\n\x1a\n"

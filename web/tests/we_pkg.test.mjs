@@ -53,3 +53,13 @@ test("extract payload", () => {
   assert.equal(new TextDecoder().decode(files[0].blob), "hello");
   assert.equal(files[0].name, "a.txt");
 });
+
+test("extract rejects path traversal entries", () => {
+  const pkg = buildPkg({ "../escape.txt": new TextEncoder().encode("pwned") });
+  assert.throws(() => extractPkg(pkg), /非法路径/);
+});
+
+test("extract rejects nested parent segments", () => {
+  const pkg = buildPkg({ "sub/../../out.txt": new TextEncoder().encode("x") });
+  assert.throws(() => extractPkg(pkg), /非法路径/);
+});
