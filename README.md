@@ -72,7 +72,7 @@ iscc build/installer.iss
 
 应用内「检查更新 → 立即更新」同样按上表顺序优先走镜像；全部失败时会在提示框里列出可复制的镜像链接。
 
-校验下载完整性：Release 附件含 `SHA256SUMS.txt`（自 0.6.3 起），本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.6.3.exe -Algorithm SHA256` 对比其中哈希即可。
+校验下载完整性：每个 Release 均附 `SHA256SUMS.txt`，本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.6.3.exe -Algorithm SHA256` 对比其中哈希即可。
 
 发布页（含历史版本）：https://github.com/sun-zihang/wallpaper-forge/releases
 
