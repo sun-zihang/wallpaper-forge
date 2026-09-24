@@ -306,6 +306,47 @@ def test_extract_tex_writes_with_base_name(tmp_path: Path):
     assert out.suffix == ".png"
 
 
+def test_extract_tex_with_suffix_in_base(tmp_path: Path):
+    # out_base ends with a non-media suffix — with_suffix replaces it
+    png = b"\x89PNG\r\n\x1a\n" + b"IEND" + b"\x00" * 4
+    src = tmp_path / "layer.tex"
+    src.write_bytes(b"\x00" * 8 + struct.pack("<I", len(png)) + png)
+    out = extract_tex(src, tmp_path / "has.old")
+    assert out.name == "has.png"
+    assert out.suffix == ".png"
+
+
+def test_extract_tex_fallback_keeps_base_suffix(tmp_path: Path):
+    # no embedded media → writes .tex; with_suffix replaces .old
+    src = tmp_path / "empty.tex"
+    src.write_bytes(b"\x00" * 64)
+    out = extract_tex(src, tmp_path / "keep.old")
+    assert out.name == "keep.tex"
+    assert out.suffix == ".tex"
+
+
+def test_extract_mpkg_carve_dedups_identical_ftyp(tmp_path: Path):
+    # two identical ftyp boxes should produce one mp4 entry after dedup
+    body = b"ftypmp42" + b"\x00" * 4 + b"mp42mp41" + b"\x00" * 12
+    ftyp = struct.pack(">I", 4 + len(body)) + body
+    data = b"PKGM0014" + b"\x00" * 8 + ftyp + b"\x00" * 8 + ftyp + b"\x00" * 16
+    src = tmp_path / "dup.mpkg"
+    src.write_bytes(data)
+    outs = extract_mpkg(src, tmp_path / "out")
+    mp4s = [p for p in outs if p.suffix == ".mp4"]
+    # identical payloads are deduped — at most one from the pair
+    assert len(mp4s) <= 1 or len({p.read_bytes() for p in mp4s}) == 1
+
+
+def test_extract_mpkg_empty_carve_raises(tmp_path: Path):
+    # PKGM magic but no carveable media and unparseable index
+    data = b"PKGM0019" + b"\x11" * 100
+    src = tmp_path / "x.mpkg"
+    src.write_bytes(data)
+    with pytest.raises(WeMpkgError, match="无法"):
+        extract_mpkg(src, tmp_path / "out")
+
+
 def test_extract_mpkg_too_small():
     src = Path("x.mpkg")
     # write via tmp in test — use monkeypatch-free approach

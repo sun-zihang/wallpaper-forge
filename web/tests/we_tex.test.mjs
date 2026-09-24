@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractEmbedded } from "../lib/we_tex.js";
+import { extractEmbedded, extractTex } from "../lib/we_tex.js";
 
 const PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -107,4 +107,18 @@ test("prefers larger same-type payload", () => {
   const { ext, payload } = extractEmbedded(blob);
   assert.equal(ext, ".png");
   assert.equal(payload.length, big.length);
+});
+
+test("extractTex names with baseName", () => {
+  const png = concatBytes(PNG_SIG, new TextEncoder().encode("IEND"), new Uint8Array(4));
+  const blob = concatBytes(new Uint8Array(8), u32leBytes(png.length), png, new Uint8Array(8));
+  const got = extractTex(blob, "custom_base");
+  assert.equal(got.name, "custom_base.png");
+  assert.equal(got.blob.length, png.length);
+});
+
+test("extractTex falls back to .tex baseName", () => {
+  const got = extractTex(new Uint8Array(64), "keep.old");
+  assert.equal(got.name, "keep.old.tex");
+  assert.equal(got.blob.length, 64);
 });
