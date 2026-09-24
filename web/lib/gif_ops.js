@@ -156,7 +156,7 @@ export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = fa
   return { blob, filename: `${base}.gif` };
 }
 
-/** Minimal GIF89a animated writer (RGBA frames, global palette = median-cut simplified to 6x6x6 web-safe). */
+/** Minimal GIF89a animated writer (RGBA frames, global palette = top-256 histogram colors). */
 export async function encodeAnimatedGif(
   canvases,
   { durationMs = 100, loop = 0, token, onProgress } = {}

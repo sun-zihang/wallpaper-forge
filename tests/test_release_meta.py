@@ -23,3 +23,15 @@ def test_readme_links_current_release():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert f"releases/tag/v{__version__}" in readme
     assert f"WallpaperConverter-Setup-{__version__}.exe" in readme
+
+
+def test_installer_ships_vendored_chinese_language():
+    iss_path = ROOT / "build" / "installer.iss"
+    iss = iss_path.read_text(encoding="utf-8")
+    assert 'MessagesFile: "languages\\ChineseSimplified.isl"' in iss
+    isl = iss_path.parent / "languages" / "ChineseSimplified.isl"
+    assert isl.is_file(), "vendored ChineseSimplified.isl is missing"
+    # Inno reads this; a UTF-8 BOM would break codepage 936 parsing.
+    raw = isl.read_bytes()
+    assert not raw.startswith(b"\xef\xbb\xbf")
+    assert "LanguageCodePage=936" in raw.decode("utf-8")
