@@ -75,8 +75,37 @@ class MainWindow(QMainWindow):
         self.nav.setCurrentRow(0)
 
         self._apply_settings()
+        self._restore_window_state()
+        self.nav.currentRowChanged.connect(self._persist_active_page)
         self._refresh_ffmpeg()
         self._init_updates()
+
+    def _restore_window_state(self) -> None:
+        import base64
+
+        from gui.settings_store import load_settings
+
+        s = load_settings()
+        raw = s.get("window_geometry") or ""
+        if raw:
+            try:
+                data = base64.b64decode(str(raw).encode("ascii"), validate=True)
+            except (ValueError, TypeError):
+                data = b""
+            if data:
+                self.restoreGeometry(data)
+        try:
+            page = int(s.get("active_page", 0))
+        except (TypeError, ValueError):
+            page = 0
+        if 0 <= page < self.nav.count():
+            self.nav.setCurrentRow(page)
+
+    def _persist_active_page(self, row: int) -> None:
+        from gui.settings_store import save_settings
+
+        if 0 <= row < self.nav.count():
+            save_settings({"active_page": row})
 
     def _init_updates(self) -> None:
         from PySide6.QtCore import QTimer
@@ -175,6 +204,17 @@ class MainWindow(QMainWindow):
             for p in running_pages:
                 if not p.thread.wait(3000):
                     p.thread.wait(1000)
+        import base64
+
+        from gui.settings_store import save_settings
+
+        save_settings(
+            {
+                "window_geometry": base64.b64encode(bytes(self.saveGeometry())).decode(
+                    "ascii"
+                )
+            }
+        )
         event.accept()
 
 

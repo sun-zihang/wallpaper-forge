@@ -73,6 +73,7 @@ class ImagePage(BasePage):
 
         self.crop_btn.clicked.connect(self._crop)
         self.wm_btn.clicked.connect(self._watermark)
+        self.fmt.currentTextChanged.connect(self._on_fmt_changed)
 
         mid = QWidget()
         layout = QVBoxLayout(mid)
@@ -83,6 +84,11 @@ class ImagePage(BasePage):
 
     def apply_settings(self, settings: dict) -> None:
         super().apply_settings(settings)
+        fmt = settings.get("last_image_format") or "JPG"
+        if fmt in _OUT_EXTS:
+            self.fmt.blockSignals(True)
+            self.fmt.setCurrentText(fmt)
+            self.fmt.blockSignals(False)
         try:
             q = int(settings.get("default_quality", 90))
         except (TypeError, ValueError):
@@ -93,8 +99,11 @@ class ImagePage(BasePage):
         self.quality.blockSignals(False)
         self.quality_label.setText(str(q))
 
+    def _on_fmt_changed(self, text: str) -> None:
+        self._persist({"last_image_format": text})
+
     def start_batch(self) -> None:
-        paths = self.table.selected_or_all()
+        paths = self._batch_paths()
         paths = [p for p in paths if p.suffix.lower() in _IMAGE_EXTS]
         if not paths:
             from PySide6.QtWidgets import QMessageBox
@@ -129,6 +138,8 @@ class ImagePage(BasePage):
             QMessageBox.information(self, "提示", "请先选中一张图片")
             return
         src = paths[0]
+        if len(paths) > 1:
+            self._on_status(f"裁剪使用第一个选中文件：{src.name}")
         box = CropDialog.get_box(self, src)
         if box is None:
             return
@@ -157,6 +168,8 @@ class ImagePage(BasePage):
 
             QMessageBox.information(self, "提示", "请先添加并选中图片")
             return
+        if len(paths) > 1:
+            self._on_status(f"水印将处理 {len(paths)} 个文件")
         params = WatermarkDialog.get_params(self)
         if not params:
             return

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -42,12 +44,21 @@ class FileTable(QWidget):
         self.accept_exts = set(accept_exts or (_IMAGE_EXTS | _VIDEO_EXTS))
         self.setAcceptDrops(True)
         self._row_by_key: dict[str, int] = {}
+        self.output_map: dict[str, Path] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        top = QHBoxLayout()
         self.hint = QLabel("拖拽文件/文件夹到此处，或使用下方按钮添加")
         self.hint.setStyleSheet("color: #888888; padding: 4px;")
-        layout.addWidget(self.hint)
+        top.addWidget(self.hint, 1)
+        self.select_all_btn = QPushButton("全选")
+        self.select_all_btn.setObjectName("secondary")
+        self.invert_btn = QPushButton("反选")
+        self.invert_btn.setObjectName("secondary")
+        top.addWidget(self.select_all_btn)
+        top.addWidget(self.invert_btn)
+        layout.addLayout(top)
 
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["文件", "格式", "大小", "状态"])
@@ -58,6 +69,10 @@ class FileTable(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.doubleClicked.connect(self._open_output)
+        self.table.itemSelectionChanged.connect(self._update_hint)
+        self.select_all_btn.clicked.connect(self.select_all)
+        self.invert_btn.clicked.connect(self.invert_selection)
+        self.files_changed.connect(self._update_hint)
         layout.addWidget(self.table, 1)
 
     @staticmethod
@@ -116,6 +131,33 @@ class FileTable(QWidget):
             rows = list(range(self.table.rowCount()))
         return self._paths_at(rows)
 
+    def select_all(self) -> None:
+        self.table.selectAll()
+
+    def invert_selection(self) -> None:
+        total = self.table.rowCount()
+        current = {i.row() for i in self.table.selectedIndexes()}
+        self.table.clearSelection()
+        model = self.table.model()
+        selection = self.table.selectionModel()
+        for r in range(total):
+            if r not in current:
+                selection.select(
+                    model.index(r, 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+
+    def _update_hint(self) -> None:
+        total = self.table.rowCount()
+        if total == 0:
+            self.hint.setText("拖拽文件/文件夹到此处，或使用下方按钮添加")
+            return
+        n = len({i.row() for i in self.table.selectedIndexes()})
+        self.hint.setText(f"已选中 {n}/{total}（未选中则处理全部）")
+
+    def set_output_map(self, mapping: dict[str, Path]) -> None:
+        self.output_map = dict(mapping)
+
     def all_paths(self) -> list[Path]:
         return self._paths_at(range(self.table.rowCount()))
 
@@ -130,6 +172,7 @@ class FileTable(QWidget):
     def clear(self) -> None:
         self.table.setRowCount(0)
         self._row_by_key.clear()
+        self.output_map.clear()
         self.files_changed.emit()
 
     def set_status_for_path(self, path: Path, status: str, detail: str = "") -> None:
@@ -172,12 +215,18 @@ class FileTable(QWidget):
         if not rows:
             return
         item = self.table.item(next(iter(rows)), 0)
-        if item:
-            parent = Path(item.text()).parent
-            converted = parent / "converted"
-            self.open_output_requested.emit(
-                converted if converted.exists() else parent
-            )
+        if not item:
+            return
+        src_text = item.text()
+        out = self.output_map.get(src_text)
+        if out is None:
+            out = self.output_map.get(self._key(Path(src_text)))
+        if out is not None:
+            self.open_output_requested.emit(Path(out))
+            return
+        parent = Path(src_text).parent
+        converted = parent / "converted"
+        self.open_output_requested.emit(converted if converted.exists() else parent)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():

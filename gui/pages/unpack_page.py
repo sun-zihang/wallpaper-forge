@@ -82,7 +82,7 @@ class UnpackPage(BasePage):
         self.table.set_accept_exts(_UNPACK_EXTS)
 
     def start_batch(self) -> None:
-        paths = [p for p in self.table.selected_or_all() if p.suffix.lower() in _UNPACK_EXTS]
+        paths = [p for p in self._batch_paths() if p.suffix.lower() in _UNPACK_EXTS]
         if not paths:
             QMessageBox.information(self, "提示", "请先添加 .pkg / .tex / .mpkg 文件")
             return

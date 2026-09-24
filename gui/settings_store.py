@@ -9,6 +9,11 @@ _DEFAULTS = {
     "default_quality": 90,
     "default_gif_fps": 15,
     "auto_check_update": True,
+    "window_geometry": "",
+    "active_page": 0,
+    "last_image_format": "JPG",
+    "last_video_format": "MP4",
+    "last_dir": "",
 }
 
 
@@ -32,7 +37,7 @@ def load_settings() -> dict:
 
 
 def save_settings(settings: dict) -> None:
-    data = dict(_DEFAULTS)
+    data = load_settings()
     data.update({k: settings[k] for k in _DEFAULTS if k in settings})
     _settings_path().write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"

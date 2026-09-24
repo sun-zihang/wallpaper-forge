@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import Signal, Qt, QUrl
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from core.tasks import OutputMode, Task
 from gui.batch_host import BatchThread
+from gui.settings_store import save_settings
 from gui.widgets.file_table import FileTable
 
 
@@ -28,6 +30,9 @@ class BasePage(QWidget):
         self._settings: dict = {}
         self.unified_dir: Path | None = None
         self.last_outputs: list[Path] = []
+        self._failed_tasks: list = []
+        self._retry_paths: list[Path] | None = None
+        self._loading_settings = False
 
         self.root = QVBoxLayout(self)
         self.root.setContentsMargins(16, 16, 16, 16)
@@ -107,13 +112,26 @@ class BasePage(QWidget):
         unified = self.output_mode.currentData() == "unified"
         self.pick_out_btn.setVisible(unified)
         self.unified_edit.setVisible(unified)
+        self._persist({"output_mode": self.output_mode.currentData()})
+
+    def _persist(self, patch: dict) -> None:
+        if self._loading_settings:
+            return
+        self._settings.update(patch)
+        save_settings(patch)
+
+    def _last_dir(self) -> str:
+        return self._settings.get("last_dir") or ""
 
     def _pick_out(self) -> None:
-        dir_ = QFileDialog.getExistingDirectory(self, "选择统一输出目录")
+        dir_ = QFileDialog.getExistingDirectory(
+            self, "选择统一输出目录", self._last_dir()
+        )
         if dir_:
             self.unified_dir = Path(dir_)
             self.unified_edit.setText(str(self.unified_dir))
             self.unified_edit.show()
+            self._persist({"unified_dir": dir_, "last_dir": dir_})
 
     def output_mode_value(self) -> OutputMode:
         if self.output_mode.currentData() == "unified":
@@ -125,32 +143,44 @@ class BasePage(QWidget):
 
     def apply_settings(self, settings: dict) -> None:
         self._settings = dict(settings)
-        mode = settings.get("output_mode", "beside")
-        self.output_mode.blockSignals(True)
-        self.output_mode.setCurrentIndex(1 if mode == "unified" else 0)
-        self.output_mode.blockSignals(False)
-        ud = settings.get("unified_dir") or ""
-        if ud:
-            self.unified_dir = Path(ud)
-            self.unified_edit.setText(ud)
-        self._mode_changed()
+        self._loading_settings = True
+        try:
+            mode = settings.get("output_mode", "beside")
+            self.output_mode.blockSignals(True)
+            self.output_mode.setCurrentIndex(1 if mode == "unified" else 0)
+            self.output_mode.blockSignals(False)
+            ud = settings.get("unified_dir") or ""
+            if ud:
+                self.unified_dir = Path(ud)
+                self.unified_edit.setText(ud)
+            self._mode_changed()
+        finally:
+            self._loading_settings = False
 
     def set_ffmpeg_ok(self, ok: bool) -> None:
         pass
 
     def _add_files(self) -> None:
         exts = " ".join(f"*{e}" for e in sorted(self.table.accept_exts))
-        paths, _ = QFileDialog.getOpenFileNames(self, "选择文件", "", f"文件 ({exts})")
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "选择文件", self._last_dir(), f"文件 ({exts})"
+        )
         if paths:
             self.table.add_paths([Path(p) for p in paths])
+            self._persist({"last_dir": str(Path(paths[0]).parent)})
 
     def _add_dirs(self) -> None:
-        dir_ = QFileDialog.getExistingDirectory(self, "选择文件夹")
+        dir_ = QFileDialog.getExistingDirectory(self, "选择文件夹", self._last_dir())
         if dir_:
             self.table.add_paths([Path(dir_)])
+            self._persist({"last_dir": dir_})
 
     def _open_path(self, path: Path) -> None:
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+        p = Path(path)
+        if p.is_file():
+            subprocess.Popen(["explorer.exe", "/select,", str(p)])
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
 
     def _open_out(self) -> None:
         if self.last_outputs:
@@ -177,17 +207,36 @@ class BasePage(QWidget):
         label = getattr(win, "status_label", None)
         if label is not None:
             label.setText(text)
+            return
+        status_bar = getattr(win, "statusBar", None)
+        if callable(status_bar):
+            status_bar().showMessage(text)
 
     def _on_task(self, task) -> None:
         status = getattr(task, "status", "pending")
         error = getattr(task, "error", "") or ""
-        outputs = getattr(task, "outputs", []) or []
+        outputs = [
+            o for o in (getattr(task, "outputs", []) or []) if isinstance(o, Path)
+        ]
+        sources = [Path(s) for s in getattr(task, "sources", [])]
         if status == "done":
             for o in outputs:
-                if isinstance(o, Path) and o.is_file():
+                if o.is_file():
                     self.last_outputs.append(o)
-        for src in getattr(task, "sources", []):
-            self.table.set_status_for_path(Path(src), status, error)
+            if sources and outputs:
+                if len(sources) == len(outputs):
+                    pairs = list(zip(sources, outputs))
+                else:
+                    pairs = [(s, outputs[0]) for s in sources]
+                mapping = dict(self.table.output_map)
+                for s, o in pairs:
+                    if o.is_file():
+                        mapping[str(s)] = o
+                self.table.set_output_map(mapping)
+        elif status == "failed":
+            self._failed_tasks.append(task)
+        for src in sources:
+            self.table.set_status_for_path(src, status, error)
 
     def _on_batch_done(self, ok: int, failed: int) -> None:
         self._last_ok = ok
@@ -200,11 +249,64 @@ class BasePage(QWidget):
             self._on_status("已取消")
             return
         self.progress.setValue(100)
+        choice = self._ask_batch_done(ok, failed)
+        if choice == "retry":
+            self._retry_failed()
+        elif choice == "open":
+            self._open_out()
+
+    def _build_batch_box(
+        self, ok: int, failed: int
+    ) -> tuple[QMessageBox, QPushButton, QPushButton | None]:
+        box = QMessageBox(self)
+        box.setWindowTitle("批量完成")
         msg = f"成功 {ok} 个" + (f"，失败/取消 {failed} 个" if failed else "")
         if failed:
-            QMessageBox.warning(self, "批量完成", msg + "。\n可在列表状态列查看详情。")
+            box.setIcon(QMessageBox.Warning)
+            box.setText(msg + "。\n可在列表状态列查看详情。")
         else:
-            QMessageBox.information(self, "批量完成", msg + "。")
+            box.setIcon(QMessageBox.Information)
+            box.setText(msg + "。")
+        open_btn = box.addButton("打开输出文件夹", QMessageBox.ActionRole)
+        open_btn.setEnabled(bool(self.last_outputs))
+        retry_btn = None
+        if failed and self._failed_tasks:
+            retry_btn = box.addButton("重试失败项", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Ok)
+        return box, open_btn, retry_btn
+
+    def _ask_batch_done(self, ok: int, failed: int) -> str:
+        box, open_btn, retry_btn = self._build_batch_box(ok, failed)
+        box.exec()
+        clicked = box.clickedButton()
+        if retry_btn is not None and clicked is retry_btn:
+            return "retry"
+        if clicked is open_btn:
+            return "open"
+        return "ok"
+
+    def _batch_paths(self) -> list[Path]:
+        if self._retry_paths is not None:
+            return list(self._retry_paths)
+        return self.table.selected_or_all()
+
+    def _retry_failed(self) -> None:
+        if not self._failed_tasks:
+            return
+        sources: list[Path] = []
+        seen: set[str] = set()
+        for task in self._failed_tasks:
+            for s in task.sources:
+                key = str(s)
+                if key not in seen:
+                    seen.add(key)
+                    sources.append(Path(s))
+        self._failed_tasks = []
+        self._retry_paths = sources
+        try:
+            self.start_batch()
+        finally:
+            self._retry_paths = None
 
     def _submit(self, batch: list[Task]) -> None:
         if not batch:
@@ -218,6 +320,7 @@ class BasePage(QWidget):
         self.start_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.last_outputs = []
+        self._failed_tasks = []
         self.thread.submit(batch)
 
     def _confirm_overwrite(self, sources: list[Path], outs: list[Path]) -> bool:

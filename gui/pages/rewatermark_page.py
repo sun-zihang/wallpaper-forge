@@ -146,7 +146,7 @@ class RewatermarkPage(BasePage):
         self.boxes_label.setText(f"当前文件已框选 {len(boxes)} 个区域")
 
     def start_batch(self) -> None:
-        paths = [p for p in self.table.selected_or_all() if p.suffix.lower() in _ALL]
+        paths = [p for p in self._batch_paths() if p.suffix.lower() in _ALL]
         if not paths:
             QMessageBox.information(self, "提示", "请先添加文件")
             return

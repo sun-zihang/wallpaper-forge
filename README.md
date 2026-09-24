@@ -35,7 +35,7 @@ python main.py
 python -m pytest -v
 ```
 
-仅覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 冒烟测试（设置持久化、覆盖确认、输出路径、选区与失败重试）。
 
 ## 打包
 

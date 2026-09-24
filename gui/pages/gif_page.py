@@ -83,7 +83,7 @@ class GifPage(BasePage):
             self.start_btn.setText("开始合帧")
 
     def start_batch(self) -> None:
-        paths = self.table.selected_or_all()
+        paths = self._batch_paths()
         out_mode = self.output_mode_value()
         if out_mode is OutputMode.UNIFIED and self.unified_dir is None:
             return

@@ -107,6 +107,7 @@ class VideoPage(BasePage):
         row.addStretch(1)
 
         self.mode.currentIndexChanged.connect(self._sync_mode)
+        self.fmt.currentTextChanged.connect(self._on_fmt_changed)
         self._sync_mode()
 
         mid = QWidget()
@@ -119,11 +120,19 @@ class VideoPage(BasePage):
 
     def apply_settings(self, settings: dict) -> None:
         super().apply_settings(settings)
+        fmt = settings.get("last_video_format") or "MP4"
+        if fmt in _OUT:
+            self.fmt.blockSignals(True)
+            self.fmt.setCurrentText(fmt)
+            self.fmt.blockSignals(False)
         try:
             fps = int(settings.get("default_gif_fps", 15))
         except (TypeError, ValueError):
             fps = 15
         self.gif_fps.setValue(max(1, min(50, fps)))
+
+    def _on_fmt_changed(self, text: str) -> None:
+        self._persist({"last_video_format": text})
 
     def _sync_mode(self) -> None:
         kind = self.mode.currentData()
@@ -153,7 +162,7 @@ class VideoPage(BasePage):
         if not ffmpeg_available():
             QMessageBox.warning(self, "提示", "未找到 ffmpeg，无法处理视频")
             return
-        paths = self.table.selected_or_all()
+        paths = self._batch_paths()
         paths = [p for p in paths if p.suffix.lower() in _VIDEO_EXTS]
         if not paths:
             QMessageBox.information(self, "提示", "请先添加视频文件")
