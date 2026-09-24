@@ -39,3 +39,24 @@ test("404.html redirects unknown paths back to the app", async () => {
   assert.match(notFound, /location\.replace\("\/wallpaper-forge\/"\)/);
   assert.match(notFound, /rel="icon"/);
 });
+
+test("index.html loads only app.js as module entry and entry exists", async () => {
+  const scripts = [...html.matchAll(/<script[^>]*src="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(scripts, ["./app.js"]);
+  assert.match(html, /type="module"/);
+  // app.js and styles.css must exist for the shell to boot
+  await readFile(new URL("../app.js", import.meta.url));
+  await readFile(new URL("../styles.css", import.meta.url));
+});
+
+test("index.html nav hash routes cover the four tool pages", () => {
+  for (const route of ["#/", "#/image", "#/gif", "#/video", "#/unpack"]) {
+    assert.ok(html.includes(`href="${route}"`), `missing route ${route}`);
+  }
+});
+
+test("index.html loads no CDN script tags directly (pins live in lib/cdn.js)", () => {
+  assert.doesNotMatch(html, /jsdelivr\.net\/npm\//);
+  assert.doesNotMatch(html, /unpkg\.com\/[^"']+@/);
+  assert.doesNotMatch(html, /esm\.sh\/[^"']+@/);
+});
