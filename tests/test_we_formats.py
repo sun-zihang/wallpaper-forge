@@ -115,6 +115,82 @@ def test_extract_pkg_rejects_drive_letter_path(tmp_path: Path):
         extract_pkg(src, tmp_path / "out")
 
 
+def test_extract_pkg_progress_cb(tmp_path: Path):
+    pkg = _build_pkg({"a.txt": b"a", "b.txt": b"b"})
+    src = tmp_path / "p.pkg"
+    src.write_bytes(pkg)
+    seen: list[tuple[int, int]] = []
+    extract_pkg(src, tmp_path / "out", progress_cb=lambda i, t: seen.append((i, t)))
+    assert seen == [(1, 2), (2, 2)]
+
+
+def test_extract_pkg_cancel_before_start(tmp_path: Path):
+    import threading
+
+    pkg = _build_pkg({"a.txt": b"a"})
+    src = tmp_path / "c.pkg"
+    src.write_bytes(pkg)
+    ev = threading.Event()
+    ev.set()
+    out_dir = tmp_path / "out"
+    with pytest.raises(WePkgError, match="已取消"):
+        extract_pkg(src, out_dir, cancel_event=ev)
+    assert not (out_dir / "a.txt").exists()
+
+
+def test_extract_pkg_cancel_midway_leaves_no_escape(tmp_path: Path):
+    # cancel after first entry is observed at the top of the next iteration
+    import threading
+
+    pkg = _build_pkg({"a.txt": b"a", "b.txt": b"b"})
+    src = tmp_path / "c2.pkg"
+    src.write_bytes(pkg)
+    ev = threading.Event()
+    out_dir = tmp_path / "out"
+
+    def cancel_after_first(i: int, t: int) -> None:
+        ev.set()
+
+    with pytest.raises(WePkgError, match="已取消"):
+        extract_pkg(src, out_dir, cancel_event=ev, progress_cb=cancel_after_first)
+    # first file may exist; second must not
+    assert not (out_dir / "b.txt").exists()
+
+
+def test_extract_mpkg_path_traversal_does_not_escape(tmp_path: Path):
+    # Structured extract raises WePkgError; mpkg falls through to carving.
+    # A "../" entry must never land outside out_dir.
+    pkg = _build_pkg({"../escape.txt": b"pwned"}, magic=b"PKGM0014")
+    src = tmp_path / "evil.mpkg"
+    src.write_bytes(pkg)
+    out_dir = tmp_path / "converted" / "evil"
+    try:
+        outs = extract_mpkg(src, out_dir)
+    except WeMpkgError:
+        outs = []
+    assert not (tmp_path / "converted" / "escape.txt").exists()
+    assert not (tmp_path / "escape.txt").exists()
+    for p in outs:
+        assert out_dir.resolve() in p.resolve().parents or p.resolve() == out_dir.resolve()
+
+
+def test_extract_tex_embedded_webp():
+    # RIFF....WEBP payload with length prefix before the signature
+    webp = (
+        b"RIFF"
+        + (12).to_bytes(4, "little")
+        + b"WEBP"
+        + b"VP8 "
+        + (4).to_bytes(4, "little")
+        + b"xxxx"
+    )
+    # ensure extract_embedded finds WEBP at a position where i>=8 for RIFF check
+    blob = b"\x00" * 16 + struct.pack("<I", len(webp)) + webp + b"\x00" * 8
+    ext, payload = extract_embedded(blob)
+    assert ext == ".webp"
+    assert payload.startswith(b"RIFF")
+
+
 def test_tex_embedded_png():
     png = (
         b"\x89PNG\r\n\x1a\n"
