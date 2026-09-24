@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 
 from core.rewatermark import (
     RewatermarkError,
+    _delogo_filters,
     inpaint_image,
     validate_boxes,
 )
@@ -37,6 +38,38 @@ def test_validate_boxes_empty():
 def test_validate_boxes_too_small():
     with pytest.raises(RewatermarkError):
         validate_boxes([(0, 0, 1, 1)], 100, 100)
+
+
+def test_validate_boxes_wrong_arity():
+    with pytest.raises(RewatermarkError, match="区域格式无效"):
+        validate_boxes([(0, 0, 10)], 100, 100)
+    with pytest.raises(RewatermarkError, match="区域格式无效"):
+        validate_boxes([(0, 0, 10, 10, 5)], 100, 100)
+
+
+def test_validate_boxes_clamps_out_of_bounds():
+    assert validate_boxes([(-5, -5, 500, 500)], 100, 80) == [(0, 0, 100, 80)]
+
+
+def test_validate_boxes_negative_span_clamped_then_rejected():
+    # inverted box clamps to min size then still fails the 2px rule
+    with pytest.raises(RewatermarkError):
+        validate_boxes([(50, 50, 10, 10)], 100, 100)
+
+
+def test_delogo_filters_include_margin():
+    s = _delogo_filters([(4, 4, 14, 14)])
+    assert s.startswith("delogo=")
+    assert "x=3" in s
+    assert "y=3" in s
+    assert "w=12" in s
+    assert "h=12" in s
+
+
+def test_delogo_filters_multiple_boxes():
+    s = _delogo_filters([(2, 2, 8, 8), (20, 20, 30, 30)])
+    assert s.count("delogo=") == 2
+    assert "," in s
 
 
 def test_inpaint_changes_region(watermarked_png, tmp_path):
