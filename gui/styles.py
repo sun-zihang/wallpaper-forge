@@ -147,6 +147,48 @@ QProgressBar::chunk {{
     background: {ACCENT};
     border-radius: 8px;
 }}
+QSlider::groove:horizontal {{
+    background: {BG};
+    height: 4px;
+    border-radius: 2px;
+}}
+QSlider::sub-page:horizontal {{
+    background: {ACCENT};
+    height: 4px;
+    border-radius: 2px;
+}}
+QSlider::handle:horizontal {{
+    background: {ACCENT};
+    width: 12px;
+    margin: -5px 0;
+    border-radius: 6px;
+}}
+QSlider::handle:horizontal:hover {{
+    background: {TEXT};
+}}
+QCheckBox, QRadioButton {{
+    spacing: 6px;
+}}
+QCheckBox::indicator, QRadioButton::indicator {{
+    width: 14px;
+    height: 14px;
+    border: 1px solid {BORDER};
+    background: {BG};
+}}
+QCheckBox::indicator {{
+    border-radius: 4px;
+}}
+QCheckBox::indicator:checked {{
+    background: {ACCENT};
+    border-color: {ACCENT};
+}}
+QRadioButton::indicator {{
+    border-radius: 8px;
+}}
+QRadioButton::indicator:checked {{
+    background: {ACCENT};
+    border-color: {ACCENT};
+}}
 QStatusBar {{
     background: {PANEL};
     color: {TEXT};
