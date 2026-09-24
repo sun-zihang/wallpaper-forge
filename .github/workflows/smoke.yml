@@ -1,0 +1,28 @@
+name: Live smoke
+
+on:
+  workflow_run:
+    workflows: ["Deploy web to Pages"]
+    types: [completed]
+  workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * 1"
+
+jobs:
+  smoke:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install smoke dependencies
+        run: pip install playwright pillow
+      - name: Install chromium
+        run: playwright install --with-deps chromium
+      - name: Run smoke against the live site
+        env:
+          SMOKE_BASE: https://sun-zihang.github.io/wallpaper-forge
+        run: python scripts/smoke_web.py
