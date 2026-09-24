@@ -20,6 +20,39 @@ def test_parse_version_basic():
     assert parse_version("0.10") == (0, 10)
 
 
+def test_parse_version_prerelease_and_build():
+    assert parse_version("1.2.3-beta.1") == (1, 2, 3, 0, 1)
+    assert parse_version("1.2.3+build5") == (1, 2, 3, 0)
+    assert parse_version("1.2.3-rc1") == (1, 2, 3, 0)
+    assert parse_version("v1.2") == (1, 2)
+
+
+def test_parse_version_empty_or_garbage_returns_zero_tuple():
+    # non-numeric pieces collapse to 0; only fully empty part list raises
+    assert parse_version("") == (0,)
+    assert parse_version("abc") == (0,)
+    assert parse_version(None) == (0,)
+
+
+def test_is_newer_prerelease_shorter_loses():
+    # (1,2,3,0,1) vs (1,2,3) → longer wins when prefix equal
+    assert is_newer("1.2.3-beta.1", "1.2.3")
+    assert not is_newer("1.2.3", "1.2.3-beta.1")
+    assert is_newer("0.6.4", "0.6.3")
+
+
+def test_mirror_candidates_substitutes_full_url():
+    url = "https://api.github.com/repos/o/r/releases/latest"
+    for c in mirror_candidates(url):
+        assert url in c or c == url
+    assert any(c.startswith("https://ghproxy.net/") for c in mirror_candidates(url))
+
+
+def test_setup_asset_url_strips_v_prefix():
+    assert setup_asset_url("V1.0.0").endswith("WallpaperConverter-Setup-1.0.0.exe")
+    assert setup_asset_url("1.0.0").endswith("/1.0.0/WallpaperConverter-Setup-1.0.0.exe")
+
+
 def test_is_newer():
     assert is_newer("0.2.0", "0.1.0")
     assert is_newer("v0.1.1", "0.1.0")
