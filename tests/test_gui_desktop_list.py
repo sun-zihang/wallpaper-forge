@@ -182,10 +182,30 @@ def test_preview_opens_resizable_dialog_with_name_and_size(qapp, png_64):
         assert dialog.image_path == png_64
         assert png_64.name in dialog.info.text()
         assert "KB" in dialog.info.text()
+        assert dialog.preview_kind == "static"
+        assert dialog.movie is None
     finally:
         if dialog is not None:
             dialog.close()
         _close_table(table, qapp)
+
+
+def test_gif_preview_uses_animated_movie(qapp, gif_2f):
+    from gui.widgets.file_table import ImagePreviewDialog
+
+    dialog = ImagePreviewDialog(gif_2f)
+    try:
+        assert dialog.preview_kind == "movie"
+        assert dialog.movie is not None
+        assert dialog.movie.isValid()
+        qapp.processEvents()
+        from PySide6.QtGui import QMovie
+
+        assert dialog.movie.state() == QMovie.Running
+        assert gif_2f.name in dialog.info.text()
+    finally:
+        dialog.close()
+        qapp.processEvents()
 
 
 def test_hidden_selection_still_opens_output(qapp, tmp_path):

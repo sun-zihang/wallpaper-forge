@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QFileInfo, QItemSelectionModel, QPoint, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent, QFont, QIcon, QPixmap
+from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent, QFont, QIcon, QMovie, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -74,26 +74,72 @@ class _PreviewImage(QLabel):
         self._fit()
 
 
+_MAX_GIF_PREVIEW_BYTES = 30 * 1024 * 1024
+
+
+class _PreviewMovie(QLabel):
+    def __init__(self, movie: QMovie, parent=None):
+        super().__init__(parent)
+        self._movie = movie
+        self.setAlignment(Qt.AlignCenter)
+        self.setMinimumSize(320, 240)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        movie.frameChanged.connect(self._on_frame)
+        movie.start()
+
+    def _on_frame(self, _frame: int) -> None:
+        self._fit()
+
+    def _fit(self) -> None:
+        frame = self._movie.currentFrame()
+        if frame.isNull() or self.width() <= 0 or self.height() <= 0:
+            return
+        self.setPixmap(
+            frame.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._fit()
+
+
 class ImagePreviewDialog(QDialog):
     def __init__(self, image_path: Path, parent=None):
         super().__init__(parent)
         self.image_path = Path(image_path)
+        self.movie: QMovie | None = None
+        self.preview_kind = "static"
         pixmap = QPixmap(str(self.image_path))
-        if pixmap.isNull():
+        size_bytes = 0
+        try:
+            size_bytes = self.image_path.stat().st_size
+        except OSError:
+            pass
+        if (
+            self.image_path.suffix.lower() == ".gif"
+            and 0 < size_bytes <= _MAX_GIF_PREVIEW_BYTES
+        ):
+            candidate = QMovie(str(self.image_path))
+            if candidate.isValid():
+                candidate.setCacheMode(QMovie.CacheAll)
+                self.movie = candidate
+                self.preview_kind = "movie"
+        if self.movie is None and pixmap.isNull():
             raise ValueError(f"无法预览图片：{self.image_path.name}")
         self.setWindowTitle("图片预览")
         self.resize(720, 520)
 
         layout = QVBoxLayout(self)
-        self.image = _PreviewImage(pixmap)
+        if self.movie is not None:
+            self.image = _PreviewMovie(self.movie)
+        else:
+            self.image = _PreviewImage(pixmap)
         self.image.setObjectName("previewImage")
         self.image.setStyleSheet(f"background: {BG}; border: 1px solid {BORDER};")
         layout.addWidget(self.image, 1)
+        if self.movie is not None:
+            self.finished.connect(self.movie.stop)
 
-        try:
-            size_bytes = self.image_path.stat().st_size
-        except OSError:
-            size_bytes = 0
         self.info = QLabel(f"{self.image_path.name}    {_format_size(size_bytes)}")
         self.info.setObjectName("mutedText")
         layout.addWidget(self.info)

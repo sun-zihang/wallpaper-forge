@@ -17,7 +17,7 @@
 - **自动更新**：启动时静默检查 GitHub Release（可关），设置页可手动检查；安装包下载与 README 直链均优先国内镜像，失败回退官方源
 - **专有格式解包**：`.pkg` 解包、`.tex` 抽取内嵌 PNG/JPG/WebP/MP4、`.mpkg` 提取 MP4（纯 Python 实现，每个源文件输出到 `converted/<文件名>/`）
 - **去水印**：图片框选区域内容修复（OpenCV inpaint）；视频框选区域整段 FFmpeg delogo 去除，输出 `*_clean` 文件
-- **网页版**（Cloudflare Pages，纯静态、文件不离开浏览器）：图片/GIF/视频/解包四页，支持拖拽投放、整批进度百分比、GIF 拆帧按 delta/disposal 正确合成、合帧编码提速约 47 倍且可随时取消
+- **网页版**（[GitHub Pages](https://sun-zihang.github.io/wallpaper-forge/)，纯静态、文件不离开浏览器）：图片/GIF/视频/解包四页，支持拖拽投放、整批进度百分比、GIF 拆帧按 delta/disposal 正确合成、合帧编码提速约 47 倍且可随时取消
 
 ## 环境要求
 
