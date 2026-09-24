@@ -1,9 +1,13 @@
 import hashlib
+import json
+import urllib.error
 
 import pytest
 
 from core.updater import (
     UpdateError,
+    download_update,
+    fetch_latest_release,
     is_newer,
     manual_download_links,
     mirror_candidates,
@@ -135,10 +139,49 @@ def test_parse_latest_release_ignores_non_sha256_digest():
     assert info.expected_sha256 is None
 
 
+def test_parse_latest_release_empty_sha256_digest_becomes_none():
+    payload = {
+        "tag_name": "v1.0.0",
+        "assets": [
+            {
+                "name": "WallpaperConverter-Setup-1.0.0.exe",
+                "browser_download_url": "https://example.com/x.exe",
+                "digest": "sha256:",
+            },
+        ],
+    }
+    info = parse_latest_release(payload)
+    assert info.expected_sha256 is None
+
+
+def test_parse_latest_release_accepts_json_string():
+    info = parse_latest_release(json.dumps({"tag_name": "v1.0.0", "assets": []}))
+    assert info.tag == "v1.0.0"
+    assert "WallpaperConverter-Setup-1.0.0.exe" in info.download_url
+
+
+def test_parse_latest_release_rejects_non_dict_payload():
+    with pytest.raises(UpdateError, match="无效数据"):
+        parse_latest_release("[1, 2, 3]")
+
+
+def test_parse_latest_release_missing_assets_key_falls_back_to_pattern_url():
+    info = parse_latest_release({"tag_name": "v2.0.0"})
+    assert info.download_url.endswith("WallpaperConverter-Setup-2.0.0.exe")
+    assert info.expected_sha256 is None
+
+
 def test_sha256_file(tmp_path):
     p = tmp_path / "blob.bin"
     p.write_bytes(b"wallpaper")
     assert sha256_file(p) == hashlib.sha256(b"wallpaper").hexdigest()
+
+
+def test_sha256_file_small_chunk_reads_every_block(tmp_path):
+    p = tmp_path / "blob.bin"
+    p.write_bytes(b"wallpaper-forge")
+    assert sha256_file(p, chunk=1) == hashlib.sha256(b"wallpaper-forge").hexdigest()
+    assert sha256_file(p, chunk=3) == hashlib.sha256(b"wallpaper-forge").hexdigest()
 
 
 def test_download_update_rejects_bad_sha256(tmp_path, monkeypatch):
@@ -190,3 +233,158 @@ def test_parse_latest_release_missing_tag():
 def test_parse_latest_release_fallback_url():
     info = parse_latest_release({"tag_name": "v0.1.0", "assets": []})
     assert "WallpaperConverter-Setup-0.1.0.exe" in info.download_url
+
+
+def test_fetch_latest_release_success(monkeypatch):
+    from core import updater
+
+    payload = {"tag_name": "v9.9.9", "assets": []}
+    monkeypatch.setattr(
+        updater,
+        "_http_get",
+        lambda url, timeout: json.dumps(payload).encode("utf-8"),
+    )
+    info = updater.fetch_latest_release()
+    assert info.tag == "v9.9.9"
+    assert info.download_url.endswith("WallpaperConverter-Setup-9.9.9.exe")
+
+
+def test_fetch_latest_release_all_mirrors_fail(monkeypatch):
+    from core import updater
+
+    def boom(url, timeout):
+        raise urllib.error.URLError("offline")
+
+    monkeypatch.setattr(updater, "_http_get", boom)
+    with pytest.raises(UpdateError, match="无法获取最新版本信息"):
+        updater.fetch_latest_release()
+
+
+def test_fetch_latest_release_invalid_json_falls_through(monkeypatch):
+    from core import updater
+
+    monkeypatch.setattr(updater, "_http_get", lambda url, timeout: b"not-json{{")
+    with pytest.raises(UpdateError, match="无法获取最新版本信息"):
+        updater.fetch_latest_release()
+
+
+def test_download_update_cancel_raises_without_mirror_retry(tmp_path, monkeypatch):
+    import threading
+
+    from core import updater
+
+    cancel = threading.Event()
+    cancel.set()
+    attempts: list[str] = []
+
+    def fake_urlopen(req, timeout=None):
+        attempts.append(getattr(req, "full_url", str(req)))
+
+        class _Resp:
+            headers = {"Content-Length": "10"}
+
+            def read(self, n=-1):
+                return b"x" * 10
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "setup.exe"
+    with pytest.raises(UpdateError, match="已取消"):
+        updater.download_update(
+            "https://example.com/x.exe", dest, cancel_event=cancel
+        )
+    assert len(attempts) == 1
+    assert not dest.exists()
+
+
+def test_download_update_incomplete_body_raises(tmp_path, monkeypatch):
+    from core import updater
+
+    def fake_urlopen(req, timeout=None):
+        class _Resp:
+            headers = {"Content-Length": "100"}
+
+            def read(self, n=-1):
+                if getattr(self, "_done", False):
+                    return b""
+                self._done = True
+                return b"short"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "setup.exe"
+    with pytest.raises(UpdateError, match="下载更新失败"):
+        updater.download_update("https://example.com/x.exe", dest)
+    assert not dest.exists()
+
+
+def test_download_update_http_error_falls_through_to_final_message(tmp_path, monkeypatch):
+    from core import updater
+
+    def fake_urlopen(req, timeout=None):
+        raise urllib.error.HTTPError(
+            url="https://example.com/x.exe",
+            code=404,
+            msg="Not Found",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "setup.exe"
+    with pytest.raises(UpdateError, match="下载更新失败"):
+        updater.download_update("https://example.com/x.exe", dest)
+    assert not dest.exists()
+    assert not dest.with_suffix(dest.suffix + ".part").exists()
+
+
+def test_download_update_progress_cb_without_content_length(tmp_path, monkeypatch):
+    from core import updater
+
+    payload = b"abcdef"
+
+    def fake_urlopen(req, timeout=None):
+        class _Resp:
+            headers = {}
+
+            def read(self, n=-1):
+                if getattr(self, "_pos", 0) >= len(payload):
+                    return b""
+                pos = self._pos = getattr(self, "_pos", 0)
+                chunk = payload[pos:] if n < 0 else payload[pos : pos + n]
+                self._pos = pos + len(chunk)
+                return chunk
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    calls: list[tuple[int, int]] = []
+    dest = tmp_path / "setup.exe"
+    got = updater.download_update(
+        "https://example.com/x.exe",
+        dest,
+        progress_cb=lambda d, t: calls.append((d, t)),
+    )
+    assert got.read_bytes() == payload
+    assert calls
+    assert all(total == 0 for _, total in calls)

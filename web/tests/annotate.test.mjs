@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cropBoxValid, pastePos, POSITIONS } from "../lib/annotate.js";
+import {
+  addImageWatermark,
+  addTextWatermark,
+  cropBoxValid,
+  pastePos,
+  POSITIONS,
+} from "../lib/annotate.js";
 
 test("crop validation matches desktop bounds rule", () => {
   assert.equal(cropBoxValid([0, 0, 32, 24], 64, 48), true);
@@ -41,4 +47,31 @@ test("positions set same as desktop", () => {
   assert.deepEqual([...POSITIONS].sort(), [
     "bottom_left", "bottom_right", "center", "top_left", "top_right",
   ]);
+});
+
+test("addTextWatermark rejects empty text before touching the canvas", async () => {
+  await assert.rejects(
+    () => addTextWatermark({}, { text: "" }),
+    /水印文字不能为空/,
+  );
+  await assert.rejects(() => addTextWatermark({}, {}), /水印文字不能为空/);
+});
+
+test("addImageWatermark rejects out-of-range scale and opacity before decoding", async () => {
+  await assert.rejects(
+    () => addImageWatermark({}, {}, { scale: 0.01 }),
+    /水印缩放比例/,
+  );
+  await assert.rejects(
+    () => addImageWatermark({}, {}, { scale: 1.5 }),
+    /水印缩放比例/,
+  );
+  await assert.rejects(
+    () => addImageWatermark({}, {}, { opacity: -0.1 }),
+    /透明度/,
+  );
+  await assert.rejects(
+    () => addImageWatermark({}, {}, { opacity: 1.1 }),
+    /透明度/,
+  );
 });
