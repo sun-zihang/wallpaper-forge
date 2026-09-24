@@ -85,3 +85,31 @@ def test_save_filters_unknown_keys(tmp_path, monkeypatch):
     s = load_settings()
     assert "overwrite" not in s
     assert s["output_mode"] == "beside"
+
+
+def test_corrupt_settings_json_falls_back_to_defaults(tmp_path, monkeypatch):
+    from gui import settings_store
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    s = load_settings()
+    assert s["default_quality"] == 90
+    assert s["output_mode"] == "beside"
+
+
+def test_non_dict_settings_json_falls_back_to_defaults(tmp_path, monkeypatch):
+    from gui import settings_store
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("[1,2,3]", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    s = load_settings()
+    assert s["last_image_format"] == "JPG"
+
+
+def test_auto_check_update_default_true():
+    assert _DEFAULTS["auto_check_update"] is True
+    assert _DEFAULTS["unified_dir"] == ""

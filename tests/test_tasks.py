@@ -186,3 +186,24 @@ def test_resolve_out_dir_taken_dedupe_same_stem(tmp_path: Path):
     d2 = resolve_out_dir(b, OutputMode.UNIFIED, unified, overwrite=True, taken=taken)
     assert d1 == unified / "scene"
     assert d2 == unified / "scene (1)"
+
+
+def test_op_subdir_changes_beside_layout(tmp_path: Path):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x")
+    outs = resolve_outputs([src], "png", OutputMode.BESIDE, None, op_subdir="frames")
+    assert outs == [tmp_path / "frames" / "a.png"]
+
+
+def test_empty_source_list_returns_empty():
+    assert resolve_outputs([], "jpg", OutputMode.BESIDE, None) == []
+
+
+def test_resolve_out_dir_unified_requires_dir_regardless_of_taken(tmp_path: Path):
+    try:
+        resolve_out_dir(
+            tmp_path / "x.gif", OutputMode.UNIFIED, None, taken=set()
+        )
+        raise AssertionError("should raise")
+    except ValueError as exc:
+        assert "unified_dir" in str(exc)

@@ -24,6 +24,9 @@ test("assert tolerates missing size and duration", () => {
   assert.doesNotThrow(() => assertVideoLimits({ name: "a.mp4" }));
   assert.doesNotThrow(() => assertVideoLimits({ name: "a.mp4", size: 10, durationSec: null }));
   assert.doesNotThrow(() => assertVideoLimits({ name: "a.mp4", size: 0, durationSec: 0 }));
+  // non-finite duration must not throw (NaN > MAX is false)
+  assert.doesNotThrow(() => assertVideoLimits({ size: 1, durationSec: NaN }));
+  assert.doesNotThrow(() => assertVideoLimits({ size: 1, durationSec: undefined }));
 });
 
 test("assert rejects exactly MAX_VIDEO_BYTES+1 but allows MAX", () => {

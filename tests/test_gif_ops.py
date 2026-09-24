@@ -107,3 +107,36 @@ def test_merge_unreadable_frame_raises(tmp_path):
         raise AssertionError("should raise")
     except GifOpError as exc:
         assert "无法读取图片" in str(exc)
+
+
+def test_split_cancel_before_each_frame(gif_2f, tmp_path):
+    import threading
+
+    ev = threading.Event()
+    ev.set()
+    try:
+        split_gif(gif_2f, tmp_path / "f", cancel_event=ev)
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "已取消" in str(exc)
+
+
+def test_merge_cancel_before_load(gif_2f, tmp_path):
+    import threading
+
+    frames = split_gif(gif_2f, tmp_path / "f")
+    ev = threading.Event()
+    ev.set()
+    try:
+        merge_gif(frames, tmp_path / "m.gif", cancel_event=ev)
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "已取消" in str(exc)
+
+
+def test_split_step_negative_raises(gif_2f, tmp_path):
+    try:
+        split_gif(gif_2f, tmp_path / "f", step=-2)
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "抽稀步长至少为 1" in str(exc)
