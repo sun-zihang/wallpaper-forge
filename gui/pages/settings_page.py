@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.ffmpeg_finder import FFmpegNotFound, find_ffmpeg
+from core.version import __version__
 from gui.settings_store import load_settings, save_settings
 from gui.styles import FAIL, OK
 
@@ -86,11 +87,23 @@ class SettingsPage(QWidget):
         urow.addStretch(1)
 
         about = QLabel(
-            "Wallpaper Converter\n"
+            f"Wallpaper Converter {__version__}\n"
             "图片/视频壁纸批量格式转换工具\n"
             "依赖：Pillow (BSD)、PySide6 (LGPL)、FFmpeg (LGPL)"
         )
         about.setObjectName("mutedText")
+
+        keys = QGroupBox("快捷键")
+        kv = QVBoxLayout(keys)
+        for line in (
+            "Ctrl+O  添加文件　　Ctrl+Shift+O  添加文件夹",
+            "Ctrl+Enter  开始处理　　Esc  取消当前任务",
+            "Ctrl+A  全选文件　　双击文件  打开输出位置",
+            "空格  预览选中的图片",
+        ):
+            row = QLabel(line)
+            row.setObjectName("mutedText")
+            kv.addWidget(row)
 
         save_btn = QPushButton("保存设置")
         save_btn.clicked.connect(self._save)
@@ -98,6 +111,7 @@ class SettingsPage(QWidget):
         root.addWidget(out_box)
         root.addWidget(ff_box)
         root.addWidget(upd_box)
+        root.addWidget(keys)
         root.addWidget(about)
         root.addStretch(1)
         root.addWidget(save_btn, alignment=Qt.AlignRight)

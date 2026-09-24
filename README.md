@@ -56,17 +56,17 @@ iscc build/installer.iss
 
 ## 下载
 
-最新版：**[v0.6.1](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.6.1)**（暗房风格界面重构、整窗拖拽、按时间点截帧、崩溃日志；网页版 UI 重做）
+最新版：**[v0.6.2](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.6.2)**（文件列表筛选/缩略图/源图预览、快捷键、关闭前确认；网页版 BMP 输出、镜像回退）
 
 国内若 GitHub 较慢，优先用镜像直链（任选其一，粘贴到浏览器）：
 
 | 来源 | 直链 |
 |------|------|
-| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.1/WallpaperConverter-Setup-0.6.1.exe |
-| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.1/WallpaperConverter-Setup-0.6.1.exe |
-| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.1/WallpaperConverter-Setup-0.6.1.exe |
-| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.1/WallpaperConverter-Setup-0.6.1.exe |
-| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.1/WallpaperConverter-Setup-0.6.1.exe |
+| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.2/WallpaperConverter-Setup-0.6.2.exe |
+| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.2/WallpaperConverter-Setup-0.6.2.exe |
+| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.2/WallpaperConverter-Setup-0.6.2.exe |
+| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.2/WallpaperConverter-Setup-0.6.2.exe |
+| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.6.2/WallpaperConverter-Setup-0.6.2.exe |
 
 应用内「检查更新 → 立即更新」同样按上表顺序优先走镜像；全部失败时会在提示框里列出可复制的镜像链接。
 

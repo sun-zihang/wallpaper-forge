@@ -30,7 +30,16 @@ QWidget#pageRoot {{
     background: {BG};
     color: {TEXT};
 }}
-QFrame, QGroupBox {{
+QFrame {{
+    background: {PANEL};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+}}
+QLabel {{
+    background: transparent;
+    border: 0;
+}}
+QGroupBox {{
     background: {PANEL};
     border: 1px solid {BORDER};
     border-radius: 8px;
