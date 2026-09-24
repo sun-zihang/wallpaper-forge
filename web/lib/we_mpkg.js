@@ -40,14 +40,28 @@ function extractMp4Blobs(data) {
     }
     idx = i + 4;
   }
-  // dedup by containment
+  // dedup by containment, with an exact-duplicate prefilter so repeated
+  // identical payloads do not trigger an O(n^2) byte scan
   out.sort((a, b) => b.length - a.length);
   const kept = [];
+  const seenExact = new Set();
   for (const b of out) {
+    const key = exactKey(b);
+    if (seenExact.has(key)) continue;
+    seenExact.add(key);
     if (kept.some((k) => includesBytes(k, b))) continue;
     kept.push(b);
   }
   return kept;
+}
+
+function exactKey(bytes) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${bytes.length}:${h}`;
 }
 
 function includesBytes(hay, needle) {

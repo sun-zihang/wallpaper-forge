@@ -106,6 +106,25 @@ export function mountImage(root) {
   });
 
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
+  try {
+    const savedFmt = localStorage.getItem("wc.fmt");
+    if (savedFmt && [...$("fmt").options].some((o) => o.value === savedFmt)) $("fmt").value = savedFmt;
+    const savedQ = Number(localStorage.getItem("wc.q"));
+    if (savedQ >= 1 && savedQ <= 100) {
+      $("q").value = String(savedQ);
+      $("qv").textContent = String(savedQ);
+    }
+  } catch { /* storage unavailable */ }
+  $("fmt").addEventListener("change", () => {
+    try {
+      localStorage.setItem("wc.fmt", $("fmt").value);
+    } catch { /* ignore */ }
+  });
+  $("q").addEventListener("change", () => {
+    try {
+      localStorage.setItem("wc.q", $("q").value);
+    } catch { /* ignore */ }
+  });
   $("wm_size").addEventListener("input", () => ($("wm_size_v").textContent = $("wm_size").value));
   $("wm_opacity").addEventListener("input", () => ($("wm_opacity_v").textContent = `${$("wm_opacity").value}%`));
   $("wm_scale").addEventListener("input", () => ($("wm_scale_v").textContent = `${$("wm_scale").value}%`));
@@ -128,10 +147,17 @@ export function mountImage(root) {
     $("sw").disabled = !$("scale").checked;
   });
 
+  function addOutput(blob, filename) {
+    const at = outputs.findIndex((o) => o.filename === filename);
+    if (at >= 0) outputs.splice(at, 1);
+    outputs.push({ blob, filename });
+    $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
+  }
+
   async function runOne(file, opts, jobName) {
     if (jobs.cancelled) throw new AppError("图片处理失败", "已取消");
     const { blob, filename } = await convertImage(file, opts);
-    outputs.push({ blob, filename });
+    addOutput(blob, filename);
     return filename;
   }
 
@@ -224,7 +250,7 @@ export function mountImage(root) {
         canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png")
       );
       const filename = `${stem(file.name)}_crop.png`;
-      outputs.push({ blob, filename });
+      addOutput(blob, filename);
       downloadBlob(blob, filename);
       bitmap.close && bitmap.close();
     } catch (e) {
@@ -298,7 +324,7 @@ export function mountImage(root) {
                 color: `rgba(255,255,255,${opacity})`,
               })
             : await addImageWatermark(files[i], mark, { scale, opacity, position });
-          outputs.push({ blob: res.blob, filename: res.filename });
+          addOutput(res.blob, res.filename);
           produced.push({ blob: res.blob, filename: res.filename });
           jobs.setStatus(i, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
