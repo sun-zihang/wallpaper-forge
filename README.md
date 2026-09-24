@@ -37,7 +37,7 @@ python main.py
 python -m pytest -v
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 57 个 Node 测试；GitHub Actions 在每次推送上跑桌面（Windows pytest）、网页（Ubuntu Node）与 CDN 钉版可达性三道检查，Pages 工作流自动部署网页版。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 58 个 Node 测试；GitHub Actions 在每次推送上跑桌面（Windows pytest）、网页（Ubuntu Node）与 CDN 钉版可达性三道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。
 
 ## 打包
 
@@ -53,6 +53,8 @@ iscc build/installer.iss
 
 - 程序目录：`dist/WallpaperConverter/`
 - 安装包：`build/Output/WallpaperConverter-Setup-<版本>.exe`
+
+也可以在 GitHub Actions 的 **Release build** 工作流（手动触发）一键完成以上两步，安装包在同一 run 的 Artifacts（`WallpaperConverter-Setup`）中下载；勾选 `create_draft_release` 还会顺带创建带安装包的草稿 Release。`core/version.py`、`build/installer.iss` 与本 README 的版本号由测试 `tests/test_release_meta.py` 保持一致。
 
 ## 下载
 
