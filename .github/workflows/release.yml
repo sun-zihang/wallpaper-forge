@@ -48,11 +48,22 @@ jobs:
       - name: Compile installer (Inno Setup)
         run: '& "$env:ISCC" build\installer.iss'
 
+      - name: Generate SHA256 checksum
+        shell: pwsh
+        run: |
+          $exe = Get-Item build/Output/WallpaperConverter-Setup-*.exe
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          $line = "$hash  $($exe.Name)"
+          Set-Content -Path (Join-Path $exe.DirectoryName "SHA256SUMS.txt") -Value $line -Encoding ascii -NoNewline
+          Write-Host $line
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
           name: WallpaperConverter-Setup
-          path: build/Output/WallpaperConverter-Setup-*.exe
+          path: |
+            build/Output/WallpaperConverter-Setup-*.exe
+            build/Output/SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Create draft release
@@ -63,4 +74,5 @@ jobs:
         run: |
           $ver = (Select-String -Path core/version.py -Pattern '__version__\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
           $exe = (Get-Item build/Output/WallpaperConverter-Setup-*.exe).FullName
-          gh release create "v$ver" --draft --title "v$ver" --generate-notes $exe
+          $sums = Join-Path (Split-Path $exe) "SHA256SUMS.txt"
+          gh release create "v$ver" --draft --title "v$ver" --generate-notes $exe $sums
