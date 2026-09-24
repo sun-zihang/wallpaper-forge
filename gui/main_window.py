@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from pathlib import Path
+
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDropEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -19,7 +21,7 @@ from gui.pages.rewatermark_page import RewatermarkPage
 from gui.pages.settings_page import SettingsPage
 from gui.pages.unpack_page import UnpackPage
 from gui.pages.video_page import VideoPage
-from gui.styles import DARK_QSS
+from gui.styles import STYLESHEET
 
 
 class MainWindow(QMainWindow):
@@ -27,10 +29,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._version = version
         self._manual_check = False
+        self._drop_status_before = None
+        self.setAcceptDrops(True)
         self.setWindowTitle(f"Wallpaper Converter {version} — 壁纸格式转换")
         self.resize(1100, 720)
 
         central = QWidget()
+        central.setObjectName("pageRoot")
+        central.setAcceptDrops(True)
         root = QVBoxLayout(central)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -46,6 +52,7 @@ class MainWindow(QMainWindow):
             QListWidgetItem(label, self.nav)
 
         self.stack = QStackedWidget()
+        self.stack.setAcceptDrops(True)
         self.image_page = ImagePage()
         self.video_page = VideoPage()
         self.gif_page = GifPage()
@@ -67,6 +74,7 @@ class MainWindow(QMainWindow):
         root.addLayout(body, 1)
 
         self.status_label = QLabel("就绪")
+        self.status_label.setObjectName("statusBar")
         self.status_label.setContentsMargins(12, 6, 12, 6)
         root.addWidget(self.status_label)
 
@@ -79,6 +87,48 @@ class MainWindow(QMainWindow):
         self.nav.currentRowChanged.connect(self._persist_active_page)
         self._refresh_ffmpeg()
         self._init_updates()
+
+    def _drop_table(self):
+        page = self.stack.currentWidget()
+        return getattr(page, "table", None)
+
+    def _clear_drop_hint(self) -> None:
+        if self._drop_status_before is not None:
+            if self.status_label.text() == "可拖拽文件/文件夹到当前页面":
+                self.status_label.setText(self._drop_status_before)
+            self._drop_status_before = None
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        mime = event.mimeData()
+        has_local_path = any(url.toLocalFile() for url in mime.urls())
+        if not has_local_path or self._drop_table() is None:
+            event.ignore()
+            return
+        if self._drop_status_before is None:
+            self._drop_status_before = self.status_label.text()
+        self.status_label.setText("可拖拽文件/文件夹到当前页面")
+        event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        self._clear_drop_hint()
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        table = self._drop_table()
+        if table is None:
+            event.ignore()
+            return
+        paths = [
+            Path(url.toLocalFile())
+            for url in event.mimeData().urls()
+            if url.toLocalFile()
+        ]
+        if paths:
+            table.add_paths(paths)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+        self._clear_drop_hint()
 
     def _restore_window_state(self) -> None:
         import base64
@@ -223,9 +273,12 @@ def run(version: str) -> None:
 
     from PySide6.QtWidgets import QApplication
 
+    from gui.crashlog import install_crash_handler
+
     app = QApplication(sys.argv)
-    app.setStyleSheet(DARK_QSS)
+    app.setStyleSheet(STYLESHEET)
     app.setApplicationName("WallpaperConverter")
+    install_crash_handler()
     win = MainWindow(version)
     win.show()
     sys.exit(app.exec())

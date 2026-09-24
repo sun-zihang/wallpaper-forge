@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.rewatermark import RewatermarkError, validate_boxes
+from gui.styles import ACCENT, BG, BORDER
 
 
 class BoxSelectDialog(QDialog):
@@ -38,13 +39,13 @@ class BoxSelectDialog(QDialog):
         self.hint = QLabel(
             "按住左键拖拽画框，可画多个；双击已有框可删除。确认后点「确定」。"
         )
-        self.hint.setStyleSheet("color: #888888;")
+        self.hint.setObjectName("mutedText")
         layout.addWidget(self.hint)
 
         self.canvas = QLabel()
         self.canvas.setAlignment(Qt.AlignCenter)
         self.canvas.setMinimumSize(480, 320)
-        self.canvas.setStyleSheet("background: #111111; border: 1px solid #3c3c3c;")
+        self.canvas.setStyleSheet(f"background: {BG}; border: 1px solid {BORDER};")
         layout.addWidget(self.canvas, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -160,14 +161,16 @@ class BoxSelectDialog(QDialog):
         from PySide6.QtGui import QPixmap as QP
 
         canvas = QP(self.canvas.size())
-        canvas.fill(QColor("#111111"))
+        canvas.fill(QColor(BG))
         painter = QPainter(canvas)
         scaled = self._scaled_pixmap(nw, nh)
         painter.drawPixmap(ox, oy, scaled)
 
-        pen = QPen(QColor("#3b82f6"), 2)
+        pen = QPen(QColor(ACCENT), 2)
         painter.setPen(pen)
-        painter.setBrush(QColor(59, 130, 246, 50))
+        selection = QColor(ACCENT)
+        selection.setAlpha(50)
+        painter.setBrush(selection)
         for l, t, r, b in self.boxes_img:
             x1 = ox + int(l * scale)
             y1 = oy + int(t * scale)
@@ -183,8 +186,10 @@ class BoxSelectDialog(QDialog):
                 y1 = oy + int(t * scale)
                 w = max(2, int((r - l) * scale))
                 h = max(2, int((b - t) * scale))
-                painter.setPen(QColor("#fbbf24"))
-                painter.setBrush(QColor(251, 191, 36, 60))
+                painter.setPen(QColor(ACCENT))
+                active = QColor(ACCENT)
+                active.setAlpha(60)
+                painter.setBrush(active)
                 painter.drawRect(x1, y1, w, h)
         painter.end()
         self.canvas.setPixmap(canvas)

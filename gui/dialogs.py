@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.annotate import ImageOpError
+from gui.styles import ACCENT, BG, BORDER
 
 
 class CropDialog(QDialog):
@@ -44,11 +45,11 @@ class CropDialog(QDialog):
         self.canvas = QLabel()
         self.canvas.setAlignment(Qt.AlignCenter)
         self.canvas.setMinimumSize(400, 300)
-        self.canvas.setStyleSheet("background: #111; border: 1px solid #3c3c3c;")
+        self.canvas.setStyleSheet(f"background: {BG}; border: 1px solid {BORDER};")
         layout.addWidget(self.canvas, 1)
 
         self.info = QLabel("在图片上按住鼠标左键拖拽选择区域")
-        self.info.setStyleSheet("color: #888;")
+        self.info.setObjectName("mutedText")
         layout.addWidget(self.info)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -136,7 +137,7 @@ class CropDialog(QDialog):
     def _redraw(self) -> None:
         ox, oy, scaled = self._label_geometry()
         canvas = QPixmap(self.canvas.size())
-        canvas.fill(QColor("#111111"))
+        canvas.fill(QColor(BG))
         painter = QPainter(canvas)
         painter.drawPixmap(ox, oy, scaled)
         if self._origin and self._current:
@@ -148,8 +149,10 @@ class CropDialog(QDialog):
                 abs(x2 - x1),
                 abs(y2 - y1),
             )
-            painter.setPen(QColor("#3b82f6"))
-            painter.setBrush(QColor(59, 130, 246, 60))
+            painter.setPen(QColor(ACCENT))
+            selection = QColor(ACCENT)
+            selection.setAlpha(60)
+            painter.setBrush(selection)
             painter.drawRect(*rect)
         painter.end()
         self.canvas.setPixmap(canvas)

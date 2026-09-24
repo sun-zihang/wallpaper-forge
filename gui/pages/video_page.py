@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -10,8 +11,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
-    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -28,6 +29,26 @@ _OUT = {
     "MOV": ".mov",
     "MKV": ".mkv",
 }
+_MAX_AT_SECONDS = 200
+
+
+def parse_at_seconds(text: str) -> list[float]:
+    parts = [part.strip() for part in text.replace("，", ",").split(",")]
+    if not parts or any(not part for part in parts):
+        raise ValueError("请输入有效的指定时间点")
+    values = []
+    for part in parts:
+        try:
+            value = float(part)
+        except ValueError as exc:
+            raise ValueError(f"时间点“{part}”不是有效数字") from exc
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("指定时间点必须是正数")
+        values.append(value)
+    values = sorted(set(values))
+    if len(values) > _MAX_AT_SECONDS:
+        raise ValueError(f"指定时间点最多 {_MAX_AT_SECONDS} 个")
+    return values
 
 
 class VideoPage(BasePage):
@@ -81,14 +102,27 @@ class VideoPage(BasePage):
         ]
 
         # frames opts
+        self.lbl_frame_mode = QLabel("截帧方式：")
+        self.frame_mode = QComboBox()
+        self.frame_mode.addItem("每 N 秒", "interval")
+        self.frame_mode.addItem("指定时间点", "at")
         self.lbl_every = QLabel("每 N 秒一帧：")
         self.every = QDoubleSpinBox()
         self.every.setRange(0.1, 3600)
         self.every.setValue(1.0)
+        self.lbl_at_seconds = QLabel("时间点(秒)：")
+        self.at_seconds_edit = QLineEdit("0.5, 2, 10")
+        self.at_seconds_edit.setPlaceholderText("例如：0.5, 2, 10")
+        self.at_seconds_edit.setMinimumWidth(180)
         self.frame_ext = QComboBox()
         self.frame_ext.addItems(["png", "jpg", "webp"])
         self.lbl_ext = QLabel("图片格式：")
-        self.frame_widgets = [(self.lbl_every, self.every), (self.lbl_ext, self.frame_ext)]
+        self.frame_widgets = [
+            (self.lbl_frame_mode, self.frame_mode),
+            (self.lbl_every, self.every),
+            (self.lbl_at_seconds, self.at_seconds_edit),
+            (self.lbl_ext, self.frame_ext),
+        ]
 
         # trim opts
         self.lbl_start = QLabel("开始(秒)：")
@@ -107,6 +141,7 @@ class VideoPage(BasePage):
         row.addStretch(1)
 
         self.mode.currentIndexChanged.connect(self._sync_mode)
+        self.frame_mode.currentIndexChanged.connect(self._sync_frame_mode)
         self.fmt.currentTextChanged.connect(self._on_fmt_changed)
         self._sync_mode()
 
@@ -145,13 +180,21 @@ class VideoPage(BasePage):
             lbl.setVisible(vis)
             w.setVisible(vis)
         for lbl, w in self.frame_widgets:
-            vis = kind == "frames"
-            lbl.setVisible(vis)
-            w.setVisible(vis)
+            lbl.setVisible(kind == "frames")
+            w.setVisible(kind == "frames")
         for lbl, w in self.trim_widgets:
             vis = kind == "trim"
             lbl.setVisible(vis)
             w.setVisible(vis)
+        self._sync_frame_mode()
+
+    def _sync_frame_mode(self) -> None:
+        show_frames = self.mode.currentData() == "frames"
+        at_mode = show_frames and self.frame_mode.currentData() == "at"
+        self.lbl_every.setVisible(show_frames and not at_mode)
+        self.every.setVisible(show_frames and not at_mode)
+        self.lbl_at_seconds.setVisible(at_mode)
+        self.at_seconds_edit.setVisible(at_mode)
 
     def set_ffmpeg_ok(self, ok: bool) -> None:
         self._ffmpeg_ok = ok
@@ -207,22 +250,32 @@ class VideoPage(BasePage):
             )
             self._submit([task])
         elif mode == "frames":
-            # one task per source so each writes its own folder
+            at_seconds = None
+            if self.frame_mode.currentData() == "at":
+                try:
+                    at_seconds = parse_at_seconds(self.at_seconds_edit.text())
+                except ValueError as exc:
+                    QMessageBox.warning(self, "截帧时间无效", str(exc))
+                    return
             batch = []
             for p in paths:
                 if out_mode is OutputMode.UNIFIED:
                     out_dir = self.unified_dir / f"{p.stem}_frames"
                 else:
                     out_dir = p.parent / "converted" / f"{p.stem}_frames"
+                params = {
+                    "ext": self.frame_ext.currentText(),
+                    "out_dir": out_dir,
+                }
+                if at_seconds is not None:
+                    params["at_seconds"] = at_seconds
+                else:
+                    params["every_seconds"] = self.every.value()
                 batch.append(
                     Task(
                         sources=[p],
                         kind=TaskKind.VIDEO_EXTRACT_FRAMES,
-                        params={
-                            "every_seconds": self.every.value(),
-                            "ext": self.frame_ext.currentText(),
-                            "out_dir": out_dir,
-                        },
+                        params=params,
                         output_mode=out_mode,
                         unified_dir=self.unified_dir,
                         outputs=[],

@@ -67,7 +67,7 @@ class RewatermarkPage(BasePage):
             "选中文件 →「框选区域」在预览上拖出一个或多个矩形 → 开始处理。\n"
             "图片用内容修复；视频对整段应用同一区域。输出为 <原名>_clean.*"
         )
-        info.setStyleSheet("color: #aaaaaa;")
+        info.setObjectName("mutedText")
         row.addWidget(info)
         row.addStretch(1)
 
@@ -75,7 +75,7 @@ class RewatermarkPage(BasePage):
         self.select_btn = QPushButton("框选区域…")
         self.select_btn.setObjectName("secondary")
         self.boxes_label = QLabel("未框选")
-        self.boxes_label.setStyleSheet("color: #888888;")
+        self.boxes_label.setObjectName("mutedText")
         tools.addWidget(self.select_btn)
         tools.addWidget(self.boxes_label)
         tools.addStretch(1)

@@ -51,7 +51,7 @@ class BasePage(QWidget):
         self.output_mode.addItem("输出到源旁 converted 子目录", "beside")
         self.output_mode.addItem("输出到统一目录", "unified")
         self.unified_edit = QLabel("")
-        self.unified_edit.setStyleSheet("color: #888888;")
+        self.unified_edit.setObjectName("pathText")
         self.unified_edit.hide()
         self.pick_out_btn = QPushButton("选择输出目录…")
         self.pick_out_btn.setObjectName("secondary")

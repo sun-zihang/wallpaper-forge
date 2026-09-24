@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from core.ffmpeg_finder import FFmpegNotFound, find_ffmpeg
 from gui.settings_store import load_settings, save_settings
+from gui.styles import FAIL, OK
 
 
 class SettingsPage(QWidget):
@@ -45,7 +46,7 @@ class SettingsPage(QWidget):
         row.addStretch(1)
         g.addLayout(row)
         self.dir_label = QLabel("")
-        self.dir_label.setStyleSheet("color: #888888;")
+        self.dir_label.setObjectName("pathText")
         g.addWidget(self.dir_label)
 
         quality_row = QHBoxLayout()
@@ -89,7 +90,7 @@ class SettingsPage(QWidget):
             "图片/视频壁纸批量格式转换工具\n"
             "依赖：Pillow (BSD)、PySide6 (LGPL)、FFmpeg (LGPL)"
         )
-        about.setStyleSheet("color: #888888;")
+        about.setObjectName("mutedText")
 
         save_btn = QPushButton("保存设置")
         save_btn.clicked.connect(self._save)
@@ -138,10 +139,10 @@ class SettingsPage(QWidget):
         try:
             p = find_ffmpeg()
             self.ff_label.setText(f"已找到：{p}")
-            self.ff_label.setStyleSheet("color: #4ade80;")
+            self.ff_label.setStyleSheet(f"color: {OK};")
         except FFmpegNotFound:
             self.ff_label.setText("未找到 ffmpeg（视频功能不可用）")
-            self.ff_label.setStyleSheet("color: #f87171;")
+            self.ff_label.setStyleSheet(f"color: {FAIL};")
 
     def _recheck(self) -> None:
         self.refresh_ffmpeg()

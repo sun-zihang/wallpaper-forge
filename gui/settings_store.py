@@ -17,10 +17,14 @@ _DEFAULTS = {
 }
 
 
-def _settings_path() -> Path:
+def settings_dir() -> Path:
     base = Path.home() / "AppData" / "Roaming" / "WallpaperConverter"
     base.mkdir(parents=True, exist_ok=True)
-    return base / "settings.json"
+    return base
+
+
+def _settings_path() -> Path:
+    return settings_dir() / "settings.json"
 
 
 def load_settings() -> dict:

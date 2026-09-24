@@ -68,7 +68,7 @@ class UnpackPage(BasePage):
             "支持 .pkg 解包、.tex 抽取内嵌图片/视频、.mpkg 提取 MP4。\n"
             "每个源文件输出到独立目录：converted/<文件名>/"
         )
-        label.setStyleSheet("color: #aaaaaa;")
+        label.setObjectName("mutedText")
         row.addWidget(label)
         row.addStretch(1)
 

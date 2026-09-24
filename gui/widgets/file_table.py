@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
-from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -16,15 +16,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.styles import ACCENT, FAINT, FAIL, MONO_FONT, OK
+
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 _VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv"}
 
 _STATUS_COLORS = {
-    "pending": "#aaaaaa",
-    "running": "#fbbf24",
-    "done": "#4ade80",
-    "failed": "#f87171",
-    "cancelled": "#94a3b8",
+    "pending": FAINT,
+    "running": ACCENT,
+    "done": OK,
+    "failed": FAIL,
+    "cancelled": FAINT,
 }
 _STATUS_TEXT = {
     "pending": "等待",
@@ -50,7 +52,8 @@ class FileTable(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         top = QHBoxLayout()
         self.hint = QLabel("拖拽文件/文件夹到此处，或使用下方按钮添加")
-        self.hint.setStyleSheet("color: #888888; padding: 4px;")
+        self.hint.setObjectName("mutedText")
+        self.hint.setContentsMargins(4, 4, 4, 4)
         top.addWidget(self.hint, 1)
         self.select_all_btn = QPushButton("全选")
         self.select_all_btn.setObjectName("secondary")
@@ -81,6 +84,12 @@ class FileTable(QWidget):
             return str(p.resolve())
         except OSError:
             return str(p)
+
+    @staticmethod
+    def _item(text: str) -> QTableWidgetItem:
+        item = QTableWidgetItem(text)
+        item.setFont(QFont(MONO_FONT))
+        return item
 
     def set_accept_exts(self, exts: set[str]) -> None:
         self.accept_exts = set(exts)
@@ -116,12 +125,12 @@ class FileTable(QWidget):
         except OSError:
             size_kb = 0
         size_txt = f"{size_kb:.0f} KB" if size_kb < 1024 else f"{size_kb / 1024:.1f} MB"
-        self.table.setItem(row, 0, QTableWidgetItem(str(p)))
+        self.table.setItem(row, 0, self._item(str(p)))
         self.table.setItem(row, 1, QTableWidgetItem(p.suffix.lstrip(".").upper()))
-        self.table.setItem(row, 2, QTableWidgetItem(size_txt))
-        status = QTableWidgetItem("等待")
+        self.table.setItem(row, 2, self._item(size_txt))
+        status = self._item("等待")
         status.setData(Qt.UserRole, "pending")
-        status.setForeground(QColor("#aaaaaa"))
+        status.setForeground(QColor(FAINT))
         self.table.setItem(row, 3, status)
         return True
 
@@ -200,7 +209,7 @@ class FileTable(QWidget):
             text = detail
         item.setText(text)
         item.setData(Qt.UserRole, status)
-        item.setForeground(QColor(_STATUS_COLORS.get(status, "#aaaaaa")))
+        item.setForeground(QColor(_STATUS_COLORS.get(status, FAINT)))
 
     def reset_statuses(self) -> None:
         self.table.setUpdatesEnabled(False)
