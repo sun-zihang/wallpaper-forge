@@ -270,6 +270,42 @@ def test_extract_tex_embedded_jpeg():
     assert payload.endswith(b"\xff\xd9")
 
 
+def test_extract_embedded_prefers_mp4_over_png():
+    png = b"\x89PNG\r\n\x1a\n" + b"IHDR" + b"\x00" * 13 + b"IEND" + b"\x00" * 4
+    ftyp = struct.pack(">I", 20) + b"ftyp" + b"isom" + b"\x00\x00\x00\x00" + b"isom"
+    # put png first, mp4 second — mp4 should still win
+    blob = png + b"\x00" * 16 + ftyp + b"\x00" * 16
+    ext, payload = extract_embedded(blob)
+    assert ext == ".mp4"
+    assert b"ftyp" in payload
+
+
+def test_extract_embedded_prefers_larger_same_type():
+    small_png = b"\x89PNG\r\n\x1a\n" + b"IEND" + b"\x00" * 4
+    big_png = b"\x89PNG\r\n\x1a\n" + b"IHDR" + b"\x00" * 40 + b"IEND" + b"\x00" * 4
+    # length prefixes so each is bounded
+    blob = (
+        b"\x00" * 8
+        + struct.pack("<I", len(small_png))
+        + small_png
+        + b"\x00" * 8
+        + struct.pack("<I", len(big_png))
+        + big_png
+    )
+    ext, payload = extract_embedded(blob)
+    assert ext == ".png"
+    assert len(payload) == len(big_png)
+
+
+def test_extract_tex_writes_with_base_name(tmp_path: Path):
+    png = b"\x89PNG\r\n\x1a\n" + b"IEND" + b"\x00" * 4
+    src = tmp_path / "layer.tex"
+    src.write_bytes(b"\x00" * 8 + struct.pack("<I", len(png)) + png)
+    out = extract_tex(src, tmp_path / "custom_base")
+    assert out.name == "custom_base.png"
+    assert out.suffix == ".png"
+
+
 def test_extract_mpkg_too_small():
     src = Path("x.mpkg")
     # write via tmp in test — use monkeypatch-free approach
