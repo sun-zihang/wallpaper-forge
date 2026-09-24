@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.space import free_space_warning
+from core.space import _fmt, free_space_warning
+
+
+def test_fmt_unit_boundaries():
+    assert _fmt(0) == "0 B"
+    assert _fmt(1023) == "1023 B"
+    assert _fmt(1024) == "1024 B"
+    assert _fmt(1024 * 1024 - 1) == "1048575 B"
+    assert _fmt(1024 * 1024) == "1 MB"
+    assert _fmt(1024 * 1024 * 1024 - 1) == "1024 MB"
+    assert _fmt(1024 * 1024 * 1024) == "1.0 GB"
+    assert _fmt(1024**4) == "1.0 TB"
+    assert _fmt(1024**4 * 3) == "3.0 TB"
 
 
 def test_no_sources_returns_none(tmp_path: Path):
@@ -57,3 +69,26 @@ def test_disk_usage_error_is_silent(tmp_path: Path, monkeypatch):
 def test_unreadable_source_is_skipped(tmp_path: Path):
     missing = tmp_path / "gone.png"
     assert free_space_warning([missing], [tmp_path / "a.jpg"]) is None
+
+
+def test_all_zero_sizes_returns_none(tmp_path: Path):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"")
+    assert free_space_warning([src], [tmp_path / "out" / "a.jpg"]) is None
+
+
+def test_output_ancestor_is_file_falls_back_to_source_parent(
+    tmp_path: Path, monkeypatch
+):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x" * 2048)
+    blocker = tmp_path / "out"
+    blocker.write_bytes(b"file")
+    monkeypatch.setattr(
+        "core.space.shutil.disk_usage",
+        lambda p: type("du", (), {"free": 100})(),
+    )
+    warn = free_space_warning([src], [blocker / "a.jpg"])
+    assert warn is not None
+    assert "100 B" in warn
+    assert "2048 B" in warn

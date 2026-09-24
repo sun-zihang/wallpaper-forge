@@ -75,6 +75,43 @@ def test_overwrite_still_dedupes_within_batch(tmp_path: Path):
     assert outs[1].name == "a (1).jpg"
 
 
+def test_resolve_outputs_unified_requires_dir(tmp_path: Path):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x")
+    try:
+        resolve_outputs([src], "jpg", OutputMode.UNIFIED, None)
+        raise AssertionError("should raise")
+    except ValueError as exc:
+        assert "unified_dir" in str(exc)
+
+
+def test_resolve_out_dir_unified_requires_dir(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    try:
+        resolve_out_dir(src, OutputMode.UNIFIED, None)
+        raise AssertionError("should raise")
+    except ValueError as exc:
+        assert "unified_dir" in str(exc)
+
+
+def test_resolve_outputs_strips_dot_and_lowercases_ext(tmp_path: Path):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x")
+    outs = resolve_outputs([src], ".JPG", OutputMode.BESIDE, None)
+    assert outs == [tmp_path / "converted" / "a.jpg"]
+
+
+def test_resolve_out_dir_overwrite_conflicts_with_file_same_name(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    d.parent.mkdir(parents=True, exist_ok=True)
+    d.write_bytes(b"not-a-dir")
+    d2 = resolve_out_dir(
+        src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True
+    )
+    assert d2.name == "anim_frames (1)"
+
+
 def test_would_overwrite_sources_pairs(tmp_path: Path):
     src = tmp_path / "a.png"
     src.write_bytes(b"x")
@@ -128,6 +165,14 @@ def test_resolve_out_dir_overwrite_reuses_nonempty(tmp_path: Path):
         src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True
     )
     assert d2 == d
+
+
+def test_would_overwrite_sources_empty_when_no_overlap(tmp_path: Path):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x")
+    other = tmp_path / "b.png"
+    other.write_bytes(b"y")
+    assert would_overwrite_sources([src], [other]) == []
 
 
 def test_resolve_out_dir_taken_dedupe_same_stem(tmp_path: Path):
