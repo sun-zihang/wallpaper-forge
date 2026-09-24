@@ -315,6 +315,21 @@ class BasePage(QWidget):
         if self.thread.isRunning():
             QMessageBox.information(self, "提示", "已有任务在进行中")
             return
+        from core.space import free_space_warning
+
+        sources = [Path(s) for t in batch for s in t.sources]
+        outputs = [Path(o) for t in batch for o in t.outputs]
+        warn = free_space_warning(sources, outputs)
+        if warn:
+            ret = QMessageBox.question(
+                self,
+                "磁盘空间可能不足",
+                warn,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if ret != QMessageBox.Yes:
+                return
         self.table.reset_statuses()
         self.progress.setValue(0)
         self.start_btn.setEnabled(False)

@@ -33,3 +33,9 @@ test("og-image.png exists and has png magic", async () => {
   const bytes = await readFile(new URL("../og-image.png", import.meta.url));
   assert.deepEqual([...bytes.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
 });
+
+test("404.html redirects unknown paths back to the app", async () => {
+  const notFound = await readFile(new URL("../404.html", import.meta.url), "utf8");
+  assert.match(notFound, /location\.replace\("\/wallpaper-forge\/"\)/);
+  assert.match(notFound, /rel="icon"/);
+});
