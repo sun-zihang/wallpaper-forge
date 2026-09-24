@@ -145,7 +145,10 @@ def _post_process(files: list[Path], out_dir: Path) -> list[Path]:
             from core.we_tex import extract_tex
 
             try:
-                out.append(extract_tex(p, p.with_suffix(""), overwrite=True))
+                got = extract_tex(p, p.with_suffix(""), overwrite=True)
+                if got.suffix.lower() != ".tex" and got != p:
+                    p.unlink(missing_ok=True)
+                out.append(got)
             except Exception:
                 out.append(p)
         else:

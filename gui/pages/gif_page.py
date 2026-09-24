@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.tasks import OutputMode, Task, TaskKind, resolve_outputs
+from core.tasks import OutputMode, Task, TaskKind, resolve_out_dir, resolve_outputs
 from gui.pages.base import BasePage
 
 _GIF_EXTS = {".gif"}
@@ -92,12 +92,20 @@ class GifPage(BasePage):
             if not gifs:
                 QMessageBox.information(self, "提示", "请先添加 GIF 文件")
                 return
+            ow = self.overwrite_check.isChecked()
             batch = []
+            out_dirs: list[Path] = []
+            taken: set[Path] = set()
             for p in gifs:
-                if out_mode is OutputMode.UNIFIED:
-                    out_dir = self.unified_dir / f"{p.stem}_frames"
-                else:
-                    out_dir = p.parent / "converted" / f"{p.stem}_frames"
+                out_dir = resolve_out_dir(
+                    p,
+                    out_mode,
+                    self.unified_dir,
+                    name_suffix="_frames",
+                    overwrite=ow,
+                    taken=taken,
+                )
+                out_dirs.append(out_dir)
                 batch.append(
                     Task(
                         sources=[p],
@@ -108,6 +116,9 @@ class GifPage(BasePage):
                         outputs=[],
                     )
                 )
+            # out_dirs are directories, so resolve-equality with file sources is structurally impossible (can never fire; correct per design).
+            if not self._confirm_overwrite(gifs, out_dirs):
+                return
             self._submit(batch)
         else:
             imgs = [

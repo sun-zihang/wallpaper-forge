@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from core.tasks import OutputMode, resolve_outputs, would_overwrite_sources
+from core.tasks import (
+    OutputMode,
+    resolve_out_dir,
+    resolve_outputs,
+    would_overwrite_sources,
+)
 
 
 def test_beside_mode_creates_converted_subdir_path(tmp_path: Path):
@@ -76,3 +81,63 @@ def test_would_overwrite_sources_pairs(tmp_path: Path):
     other = tmp_path / "converted" / "b.jpg"
     pairs = would_overwrite_sources([src, tmp_path / "b.png"], [src, other])
     assert pairs == [(src, src)]
+
+
+def test_resolve_out_dir_beside_basic(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None)
+    assert d == tmp_path / "converted" / "anim"
+
+
+def test_resolve_out_dir_name_suffix(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    assert d == tmp_path / "converted" / "anim_frames"
+
+
+def test_resolve_out_dir_unified_suffix(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    out = tmp_path / "unified"
+    d = resolve_out_dir(src, OutputMode.UNIFIED, out, name_suffix="_frames")
+    assert d == out / "anim_frames"
+
+
+def test_resolve_out_dir_numbers_nonempty_existing(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    d.mkdir(parents=True)
+    (d / "frame_0001.png").write_bytes(b"x")
+    d2 = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    assert d2.name == "anim_frames (1)"
+
+
+def test_resolve_out_dir_reuses_empty_dir(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    d.mkdir(parents=True)  # empty (e.g. interrupted prior run)
+    d2 = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    assert d2 == d
+
+
+def test_resolve_out_dir_overwrite_reuses_nonempty(tmp_path: Path):
+    src = tmp_path / "anim.gif"
+    d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
+    d.mkdir(parents=True)
+    (d / "frame_0001.png").write_bytes(b"x")
+    d2 = resolve_out_dir(
+        src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True
+    )
+    assert d2 == d
+
+
+def test_resolve_out_dir_taken_dedupe_same_stem(tmp_path: Path):
+    a = tmp_path / "w1" / "scene.pkg"
+    b = tmp_path / "w2" / "scene.pkg"
+    a.parent.mkdir()
+    b.parent.mkdir()
+    unified = tmp_path / "unified"
+    taken: set[Path] = set()
+    d1 = resolve_out_dir(a, OutputMode.UNIFIED, unified, overwrite=True, taken=taken)
+    d2 = resolve_out_dir(b, OutputMode.UNIFIED, unified, overwrite=True, taken=taken)
+    assert d1 == unified / "scene"
+    assert d2 == unified / "scene (1)"

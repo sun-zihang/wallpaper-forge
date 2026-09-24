@@ -56,8 +56,10 @@ class BasePage(QWidget):
         self.pick_out_btn = QPushButton("选择输出目录…")
         self.pick_out_btn.setObjectName("secondary")
         self.pick_out_btn.hide()
-        self.overwrite_check = QCheckBox("覆盖原文件")
-        self.overwrite_check.setToolTip("勾选后允许覆盖源文件与已存在的输出；覆盖源文件前会再确认一次")
+        self.overwrite_check = QCheckBox("覆盖已存在的输出")
+        self.overwrite_check.setToolTip(
+            "勾选后允许覆盖已存在的输出文件并复用输出目录；覆盖源文件前会再确认一次"
+        )
         self.start_btn = QPushButton("开始转换")
         self.cancel_btn = QPushButton("取消")
         self.cancel_btn.setObjectName("secondary")

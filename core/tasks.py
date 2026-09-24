@@ -86,6 +86,51 @@ def resolve_outputs(
     return outs
 
 
+def resolve_out_dir(
+    src: Path,
+    output_mode: OutputMode,
+    unified_dir: Path | None,
+    *,
+    name_suffix: str = "",
+    overwrite: bool = False,
+    taken: set[Path] | None = None,
+) -> Path:
+    """Pick a per-source output directory (unpack / frame sequences).
+
+    Default (overwrite=False): an existing non-empty directory is treated as a
+    conflict and the next candidate gets a `` (n)`` suffix, so previous runs are
+    never touched. Empty directories (e.g. from an interrupted run) are reused.
+    overwrite=True reuses an existing directory in place (same-named files
+    inside may be replaced by the extraction).
+    """
+    stem = f"{src.stem}{name_suffix}"
+    if output_mode is OutputMode.UNIFIED:
+        if unified_dir is None:
+            raise ValueError("unified_dir required for UNIFIED mode")
+        base = unified_dir / stem
+    else:
+        base = src.parent / "converted" / stem
+    if taken is None:
+        taken = set()
+    if overwrite and base.exists() and base.is_dir() and base.resolve() not in taken:
+        taken.add(base.resolve())
+        return base
+    n = 1
+    cand = base
+    while True:
+        if overwrite:
+            conflict = cand.resolve() in taken or (cand.exists() and not cand.is_dir())
+        else:
+            conflict = cand.resolve() in taken or (
+                cand.exists() and (not cand.is_dir() or any(cand.iterdir()))
+            )
+        if not conflict:
+            taken.add(cand.resolve())
+            return cand
+        cand = base.with_name(f"{stem} ({n})")
+        n += 1
+
+
 def would_overwrite_sources(
     sources: list[Path],
     outputs: list[Path],

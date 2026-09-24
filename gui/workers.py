@@ -134,6 +134,7 @@ def execute_task(
             at_seconds=params.get("at_seconds") or None,
             ext=params.get("ext", "png"),
             cancel_event=cancel_event,
+            clean_existing=True,
         )
         _tick(1)
     elif kind is TaskKind.VIDEO_TRIM:
@@ -152,6 +153,7 @@ def execute_task(
             Path(params["out_dir"]),
             step=int(params.get("step", 1)),
             cancel_event=cancel_event,
+            clean_existing=True,
         )
         _tick(1)
     elif kind is TaskKind.GIF_MERGE:

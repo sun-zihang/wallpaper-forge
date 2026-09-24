@@ -57,6 +57,19 @@ def test_extract_frames(tiny_mp4, tmp_path):
     assert len(outs) >= 1 and outs[0].suffix == ".png"
 
 
+def test_extract_frames_clean_existing_removes_stale(tiny_mp4, tmp_path):
+    out = tmp_path / "fr"
+    out.mkdir()
+    (out / "frame_0009.png").write_bytes(b"stale")
+    (out / "at_0.5s_01.png").write_bytes(b"stale")
+    (out / "keepme.png").write_bytes(b"keep")
+    outs = extract_frames(tiny_mp4, out, every_seconds=0.5, clean_existing=True)
+    assert outs
+    assert not (out / "frame_0009.png").exists()
+    assert not (out / "at_0.5s_01.png").exists()
+    assert (out / "keepme.png").exists()
+
+
 def test_trim(tiny_mp4, tmp_path):
     out = trim_video(tiny_mp4, tmp_path / "t.mp4", 0, 0.4)
     assert out.exists()

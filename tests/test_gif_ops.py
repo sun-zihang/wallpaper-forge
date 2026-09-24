@@ -14,6 +14,25 @@ def test_split_step(gif_2f, tmp_path):
     assert len(split_gif(gif_2f, tmp_path / "f", step=2)) == 1
 
 
+def test_split_clean_existing_removes_stale_frames(gif_2f, tmp_path):
+    out = tmp_path / "f"
+    out.mkdir()
+    (out / "frame_0009.png").write_bytes(b"stale")
+    (out / "keepme.txt").write_bytes(b"keep")
+    frames = split_gif(gif_2f, out, clean_existing=True)
+    assert len(frames) == 2
+    assert not (out / "frame_0009.png").exists()
+    assert (out / "keepme.txt").exists()
+
+
+def test_split_without_clean_keeps_stale_frames(gif_2f, tmp_path):
+    out = tmp_path / "f"
+    out.mkdir()
+    (out / "frame_0009.png").write_bytes(b"stale")
+    split_gif(gif_2f, out)
+    assert (out / "frame_0009.png").exists()
+
+
 def test_merge_roundtrip(gif_2f, tmp_path):
     frames = split_gif(gif_2f, tmp_path / "f")
     out = merge_gif(frames, tmp_path / "m.gif", duration_ms=50)

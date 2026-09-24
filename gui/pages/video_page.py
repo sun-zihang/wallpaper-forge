@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.ffmpeg_finder import ffmpeg_available
-from core.tasks import OutputMode, Task, TaskKind, resolve_outputs
+from core.tasks import OutputMode, Task, TaskKind, resolve_out_dir, resolve_outputs
 from gui.pages.base import BasePage
 
 _VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv"}
@@ -257,12 +257,20 @@ class VideoPage(BasePage):
                 except ValueError as exc:
                     QMessageBox.warning(self, "截帧时间无效", str(exc))
                     return
+            ow = self.overwrite_check.isChecked()
             batch = []
+            out_dirs: list[Path] = []
+            taken: set[Path] = set()
             for p in paths:
-                if out_mode is OutputMode.UNIFIED:
-                    out_dir = self.unified_dir / f"{p.stem}_frames"
-                else:
-                    out_dir = p.parent / "converted" / f"{p.stem}_frames"
+                out_dir = resolve_out_dir(
+                    p,
+                    out_mode,
+                    self.unified_dir,
+                    name_suffix="_frames",
+                    overwrite=ow,
+                    taken=taken,
+                )
+                out_dirs.append(out_dir)
                 params = {
                     "ext": self.frame_ext.currentText(),
                     "out_dir": out_dir,
@@ -281,6 +289,9 @@ class VideoPage(BasePage):
                         outputs=[],
                     )
                 )
+            # out_dirs are directories, so resolve-equality with file sources is structurally impossible (can never fire; correct per design).
+            if not self._confirm_overwrite(paths, out_dirs):
+                return
             self._submit(batch)
         elif mode == "trim":
             # single file trim typically

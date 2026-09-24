@@ -5,7 +5,15 @@ from types import SimpleNamespace
 import pytest
 
 
-_PAGE_KINDS = ("image", "gif", "video", "unpack", "rewatermark")
+_PAGE_KINDS = (
+    "image",
+    "gif",
+    "gif_split",
+    "video",
+    "video_frames",
+    "unpack",
+    "rewatermark",
+)
 
 
 @pytest.fixture
@@ -33,12 +41,27 @@ def _build_page_case(kind: str, qapp, tmp_path: Path, monkeypatch):
         page.mode.setCurrentIndex(1)
         sources = [tmp_path / "first.png", tmp_path / "second.png"]
         resolver_name = "resolve_outputs"
+    elif kind == "gif_split":
+        from gui.pages import gif_page as module
+
+        page = module.GifPage()
+        page.mode.setCurrentIndex(0)  # split
+        sources = [tmp_path / "anim.gif"]
+        resolver_name = "resolve_out_dir"
     elif kind == "video":
         from gui.pages import video_page as module
 
         page = module.VideoPage()
         sources = [tmp_path / "clip.mp4"]
         resolver_name = "resolve_outputs"
+        monkeypatch.setattr(module, "ffmpeg_available", lambda: True)
+    elif kind == "video_frames":
+        from gui.pages import video_page as module
+
+        page = module.VideoPage()
+        page.mode.setCurrentIndex(2)  # frames
+        sources = [tmp_path / "clip.mp4"]
+        resolver_name = "resolve_out_dir"
         monkeypatch.setattr(module, "ffmpeg_available", lambda: True)
     elif kind == "unpack":
         from gui.pages import unpack_page as module

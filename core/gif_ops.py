@@ -18,7 +18,14 @@ def split_gif(
     *,
     step: int = 1,
     cancel_event: threading.Event | None = None,
+    clean_existing: bool = False,
 ) -> list[Path]:
+    """Split a GIF into PNG frames inside out_dir.
+
+    clean_existing=True first removes previous ``frame_*.png`` files in
+    out_dir so a reused output directory never mixes frames from different
+    runs (foreign files are left untouched).
+    """
     if step < 1:
         raise GifOpError("抽稀步长至少为 1")
     try:
@@ -27,6 +34,10 @@ def split_gif(
     except Exception as e:
         raise GifOpError(f"无法读取 GIF: {src.name}（{e}）") from e
     out_dir.mkdir(parents=True, exist_ok=True)
+    if clean_existing:
+        for old in out_dir.glob("frame_*.png"):
+            if old.is_file():
+                old.unlink(missing_ok=True)
     outs: list[Path] = []
     idx = 0
     kept = 0

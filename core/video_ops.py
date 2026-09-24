@@ -250,11 +250,25 @@ def extract_frames(
     at_seconds: list[float] | None = None,
     ext: str = "png",
     cancel_event: threading.Event | None = None,
+    clean_existing: bool = False,
 ) -> list[Path]:
+    """Extract frames into out_dir.
+
+    clean_existing=True first removes previous ``frame_*`` / ``at_*`` image
+    files in out_dir so a reused output directory never mixes frames from
+    different runs (foreign files are left untouched).
+    """
     ext = ext.lstrip(".").lower()
     if ext not in {"png", "jpg", "jpeg", "webp"}:
         raise VideoOpError(f"不支持的截帧格式: {ext}")
     out_dir.mkdir(parents=True, exist_ok=True)
+    if clean_existing:
+        image_exts = {".png", ".jpg", ".jpeg", ".webp"}
+        for old in out_dir.iterdir():
+            if not old.is_file() or old.suffix.lower() not in image_exts:
+                continue
+            if old.name.startswith(("frame_", "at_")):
+                old.unlink(missing_ok=True)
     pattern = str(out_dir / f"frame_%04d.{ext}")
     if at_seconds:
         outs: list[Path] = []

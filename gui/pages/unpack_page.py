@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.tasks import OutputMode, Task, TaskKind, resolve_outputs
+from core.tasks import OutputMode, Task, TaskKind
+from core.tasks import resolve_out_dir as _out_dir_for
 from gui.pages.base import BasePage
 
 _UNPACK_EXTS = {".pkg", ".tex", ".mpkg"}
@@ -23,41 +24,6 @@ _KIND_BY_EXT = {
 }
 
 
-def _out_dir_for(
-    src: Path,
-    mode: OutputMode,
-    unified: Path | None,
-    *,
-    overwrite: bool = False,
-    taken: set[Path] | None = None,
-) -> Path:
-    stem = src.stem
-    if mode is OutputMode.UNIFIED:
-        assert unified is not None
-        base = unified / stem
-    else:
-        base = src.parent / "converted" / stem
-    if taken is None:
-        taken = set()
-    if overwrite and base.exists() and base.is_dir() and base.resolve() not in taken:
-        taken.add(base.resolve())
-        return base
-    n = 1
-    cand = base
-    while True:
-        if overwrite:
-            conflict = cand.resolve() in taken or (cand.exists() and not cand.is_dir())
-        else:
-            conflict = cand.resolve() in taken or (
-                cand.exists() and (not cand.is_dir() or any(cand.iterdir()))
-            )
-        if not conflict:
-            taken.add(cand.resolve())
-            return cand
-        cand = base.with_name(f"{stem} ({n})")
-        n += 1
-
-
 class UnpackPage(BasePage):
     def __init__(self):
         super().__init__(_UNPACK_EXTS)
@@ -66,7 +32,8 @@ class UnpackPage(BasePage):
         row = QHBoxLayout(info)
         label = QLabel(
             "支持 .pkg 解包、.tex 抽取内嵌图片/视频、.mpkg 提取 MP4。\n"
-            "每个源文件输出到独立目录：converted/<文件名>/"
+            "每个源文件输出到独立目录：converted/<文件名>/\n"
+            "目录非空时自动编号为 xxx (1)；勾选「覆盖已存在的输出」可复用目录"
         )
         label.setObjectName("mutedText")
         row.addWidget(label)
