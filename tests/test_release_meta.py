@@ -44,3 +44,12 @@ def test_release_workflow_generates_and_ships_sha256sums():
     assert "build/Output/SHA256SUMS.txt" in wf
     # Draft path must attach both installer and checksum file.
     assert "gh release create" in wf and "$sums" in wf
+
+
+def test_web_version_is_independent_semver():
+    # web/version.js tracks the static site independently of the desktop app;
+    # both must stay valid semver so release tooling can parse them.
+    web = (ROOT / "web" / "version.js").read_text(encoding="utf-8")
+    m = re.search(r'WEB_VERSION\s*=\s*"([^"]+)"', web)
+    assert m, "web/version.js is missing WEB_VERSION"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", m.group(1)), m.group(1)
