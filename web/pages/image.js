@@ -5,6 +5,7 @@ import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
+import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
@@ -45,11 +46,45 @@ export function mountImage(root) {
       </div>
     </div>
     <div class="panel">
-      <p class="panel-title">单图编辑</p>
+      <p class="panel-title">水印（批量）</p>
       <div class="row">
+        <div class="field">
+          <label>类型</label>
+          <span class="row">
+            <button type="button" class="btn secondary active" id="wmtext">文字水印</button>
+            <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
+          </span>
+        </div>
+        <div class="field" id="wm_text_field">
+          <label for="wm_text">文字</label>
+          <input type="text" id="wm_text" value="我的壁纸" />
+        </div>
+        <div class="field">
+          <label for="wm_size">字号 <span id="wm_size_v">32</span></label>
+          <input type="number" id="wm_size" min="8" max="400" value="32" />
+        </div>
+        <div class="field" id="wm_scale_field" hidden>
+          <label for="wm_scale">缩放 <span id="wm_scale_v">20%</span></label>
+          <input type="range" id="wm_scale" min="5" max="100" value="20" />
+        </div>
+        <div class="field">
+          <label for="wm_opacity">透明度 <span id="wm_opacity_v">70%</span></label>
+          <input type="range" id="wm_opacity" min="5" max="100" value="70" />
+        </div>
+        <div class="field">
+          <label for="wm_pos">位置</label>
+          <select id="wm_pos">
+            <option value="bottom_right">右下</option>
+            <option value="bottom_left">左下</option>
+            <option value="top_right">右上</option>
+            <option value="top_left">左上</option>
+            <option value="center">居中</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="wm_apply">应用到全部图片</button>
         <button type="button" class="btn secondary" id="crop">裁剪第一张…</button>
-        <button type="button" class="btn secondary" id="wmtext">文字水印…</button>
-        <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
         <input type="file" id="markfile" accept="image/*" hidden />
       </div>
     </div>
@@ -71,6 +106,24 @@ export function mountImage(root) {
   });
 
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
+  $("wm_size").addEventListener("input", () => ($("wm_size_v").textContent = $("wm_size").value));
+  $("wm_opacity").addEventListener("input", () => ($("wm_opacity_v").textContent = `${$("wm_opacity").value}%`));
+  $("wm_scale").addEventListener("input", () => ($("wm_scale_v").textContent = `${$("wm_scale").value}%`));
+  $("wmtext").addEventListener("click", () => {
+    $("wmtext").classList.add("active");
+    $("wmimg").classList.remove("active");
+    $("wm_text_field").hidden = false;
+    $("wm_scale_field").hidden = true;
+  });
+  $("wmimg").addEventListener("click", () => {
+    $("markfile").click();
+  });
+  $("markfile").addEventListener("change", () => {
+    $("wmimg").classList.add("active");
+    $("wmtext").classList.remove("active");
+    $("wm_text_field").hidden = true;
+    $("wm_scale_field").hidden = false;
+  });
   $("scale").addEventListener("change", () => {
     $("sw").disabled = !$("scale").checked;
   });
@@ -179,55 +232,100 @@ export function mountImage(root) {
     }
   });
 
-  $("wmtext").addEventListener("click", async () => {
-    err.textContent = "";
-    try {
-      const { file, bitmap } = await firstBitmap();
-      bitmap.close && bitmap.close();
-      const text = prompt("水印文字", "我的壁纸");
-      if (!text) return;
-      const pos = prompt("位置 top_left|top_right|bottom_left|bottom_right|center", "bottom_right") || "bottom_right";
-      const { blob, filename } = await addTextWatermark(file, { text, position: pos });
-      outputs.push({ blob, filename });
-      downloadBlob(blob, filename);
-    } catch (e) {
-      err.textContent = friendlyError(e);
-    }
-  });
+  const POSITION_LABELS = [
+    ["bottom_right", "右下"],
+    ["bottom_left", "左下"],
+    ["top_right", "右上"],
+    ["top_left", "左上"],
+    ["center", "居中"],
+  ];
 
-  $("wmimg").addEventListener("click", async () => {
+  function syncWatermarkKind() {
+    const textMode = $("wmtext").classList.contains("active");
+    $("wm_text_field").hidden = !textMode;
+    $("wm_scale_field").hidden = textMode;
+  }
+
+  $("wm_apply").addEventListener("click", async () => {
+    if (running) return;
     err.textContent = "";
+    const picked = [...$("files").files];
+    if (!picked.length) {
+      err.textContent = "请先选择图片文件";
+      return;
+    }
+    const check = validateSelection(picked, { extensions: IMAGE_EXTS });
+    if (!check.ok) {
+      err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+      return;
+    }
+    const files = check.files;
+    const position = $("wm_pos").value;
+    const opacity = Number($("wm_opacity").value) / 100;
+    const textMode = $("wmtext").classList.contains("active");
+    const text = $("wm_text").value.trim();
+    const fontSize = Number($("wm_size").value);
+    const scale = Number($("wm_scale").value) / 100;
+    if (textMode && !text) {
+      err.textContent = "请输入水印文字";
+      return;
+    }
+    const mark = textMode ? null : $("markfile").files[0];
+    if (!textMode && !mark) {
+      err.textContent = "请先选择水印图片";
+      return;
+    }
+    running = true;
+    $("wm_apply").disabled = true;
     try {
-      const { file, bitmap } = await firstBitmap();
-      bitmap.close && bitmap.close();
-      $("markfile").click();
-      $("markfile").onchange = async () => {
-        err.textContent = "";
-        try {
-          const mark = $("markfile").files[0];
-          if (!mark) return;
-          const { blob, filename } = await addImageWatermark(file, mark, { scale: 0.2, opacity: 0.8, position: "bottom_right" });
-          outputs.push({ blob, filename });
-          downloadBlob(blob, filename);
-        } catch (e) {
-          err.textContent = friendlyError(e);
+      jobs.submit(
+        files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
+      );
+      const produced = [];
+      for (let i = 0; i < files.length; i++) {
+        if (jobs.cancelled) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          continue;
         }
-      };
-    } catch (e) {
-      err.textContent = friendlyError(e);
+        jobs.setStatus(i, "running");
+        jobs.setProgress(batchPct(i, 0, files.length));
+        try {
+          const res = textMode
+            ? await addTextWatermark(files[i], {
+                text,
+                fontSize,
+                position,
+                color: `rgba(255,255,255,${opacity})`,
+              })
+            : await addImageWatermark(files[i], mark, { scale, opacity, position });
+          outputs.push({ blob: res.blob, filename: res.filename });
+          produced.push({ blob: res.blob, filename: res.filename });
+          jobs.setStatus(i, "done");
+          jobs.setProgress(batchPct(i, 100, files.length));
+        } catch (e) {
+          const msg = friendlyError(e);
+          jobs.setStatus(i, msg.includes("已取消") ? "cancelled" : "failed", msg);
+        }
+      }
+      jobs.finish();
+      if (produced.length === 1) {
+        downloadBlob(produced[0].blob, produced[0].filename);
+      }
+    } finally {
+      running = false;
+      $("wm_apply").disabled = false;
     }
   });
 }
 
 async function ensureJszip() {
   if (globalThis.JSZip) return;
-  await new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-    s.onload = res;
-    s.onerror = () => rej(new AppError("图片处理失败", "JSZip 加载失败"));
-    document.head.appendChild(s);
-  });
+  try {
+    await loadScriptFirst(JSZIP_URLS);
+  } catch {
+    throw new AppError("图片处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+  }
+  if (!globalThis.JSZip) throw new AppError("图片处理失败", "JSZip 加载失败");
 }
 
 function pickBoxOnPage(bitmap) {

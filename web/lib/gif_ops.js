@@ -1,5 +1,6 @@
 // web/lib/gif_ops.js
 import { AppError } from "./errors.js";
+import { GIFUCT_URLS, importFirst } from "./cdn.js";
 
 export function stepIndexKept(index, step) {
   return index % Math.max(1, step | 0) === 0;
@@ -14,15 +15,15 @@ function throwIfCancelled(token) {
   if (token && token.cancelled) throw new AppError("GIF 处理失败", "已取消");
 }
 
-export const GIFUCT_ESM_URL = "https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm";
+export const GIFUCT_ESM_URL = GIFUCT_URLS[0];
 
 const modulePromises = new Map();
 
 export function ensureGifuct() {
   if (!modulePromises.has(GIFUCT_ESM_URL)) {
-    const p = import(GIFUCT_ESM_URL).catch(() => {
+    const p = importFirst(GIFUCT_URLS).catch(() => {
       modulePromises.delete(GIFUCT_ESM_URL);
-      throw new AppError("GIF 处理失败", `无法加载依赖: ${GIFUCT_ESM_URL}`);
+      throw new AppError("GIF 处理失败", `无法加载依赖: ${GIFUCT_URLS.join(" / ")}`);
     });
     modulePromises.set(GIFUCT_ESM_URL, p);
   }

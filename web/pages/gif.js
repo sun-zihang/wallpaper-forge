@@ -4,6 +4,7 @@ import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
+import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
 import { downloadBlob } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
@@ -185,11 +186,10 @@ export function mountGif(root) {
 
 async function ensureJszipGif() {
   if (globalThis.JSZip) return;
-  await new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-    s.onload = res;
-    s.onerror = () => rej(new AppError("GIF 处理失败", "JSZip 加载失败"));
-    document.head.appendChild(s);
-  });
+  try {
+    await loadScriptFirst(JSZIP_URLS);
+  } catch {
+    throw new AppError("GIF 处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+  }
+  if (!globalThis.JSZip) throw new AppError("GIF 处理失败", "JSZip 加载失败");
 }

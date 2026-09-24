@@ -141,6 +141,7 @@ label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(-
 .btn:hover { filter: brightness(1.07); }
 .btn.secondary { background: var(--panel-hi); border-color: var(--line); color: var(--ink); font-weight: 500; }
 .btn.secondary:hover { border-color: var(--amber-line); }
+.btn.secondary.active { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 
 /* ---------- drop bay ---------- */

@@ -7,6 +7,7 @@ import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
+import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
@@ -128,11 +129,11 @@ export function mountUnpack(root) {
 
 function ensureJszip() {
   if (globalThis.JSZip) return Promise.resolve();
-  return new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-    s.onload = res;
-    s.onerror = () => rej(new AppError("PKG 解包失败", "JSZip 加载失败"));
-    document.head.appendChild(s);
-  });
+  return loadScriptFirst(JSZIP_URLS)
+    .then(() => {
+      if (!globalThis.JSZip) throw new AppError("PKG 解包失败", "JSZip 加载失败");
+    })
+    .catch(() => {
+      throw new AppError("PKG 解包失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+    });
 }

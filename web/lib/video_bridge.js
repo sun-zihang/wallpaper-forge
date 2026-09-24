@@ -1,45 +1,39 @@
 // web/lib/video_bridge.js
 import { AppError } from "./errors.js";
-
-const FFMPEG_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js";
-const FFMPEG_WORKER_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js";
-const UTIL_URL = "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js";
-const CORE_BASE = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm";
+import {
+  FFMPEG_CORE_JS_URLS,
+  FFMPEG_CORE_WASM_URLS,
+  FFMPEG_URLS,
+  FFMPEG_UTIL_URLS,
+  FFMPEG_WORKER_URLS,
+  loadScriptFirst,
+  toBlobUrlFirst,
+} from "./cdn.js";
 
 let loadPromise = null;
 let ffmpeg = null;
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new AppError("视频处理失败", `无法加载依赖: ${src}`));
-    document.head.appendChild(s);
-  });
-}
 
 export async function ensureFFmpeg(onStatus) {
   if (ffmpeg) return ffmpeg;
   if (!loadPromise) {
     loadPromise = (async () => {
       if (onStatus) onStatus("正在加载视频引擎…");
-      await loadScript(UTIL_URL);
-      await loadScript(FFMPEG_URL);
+      await loadScriptFirst(FFMPEG_UTIL_URLS);
+      await loadScriptFirst(FFMPEG_URLS);
       const { FFmpeg } = globalThis.FFmpegWASM;
       const { toBlobURL } = globalThis.FFmpegUtil;
       const inst = new FFmpeg();
       if (onStatus) onStatus("正在下载核心（可能需数 MB）…");
       await inst.load({
-        coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-        classWorkerURL: await toBlobURL(FFMPEG_WORKER_URL, "text/javascript"),
+        coreURL: await toBlobUrlFirst(FFMPEG_CORE_JS_URLS, "text/javascript", toBlobURL),
+        wasmURL: await toBlobUrlFirst(FFMPEG_CORE_WASM_URLS, "application/wasm", toBlobURL),
+        classWorkerURL: await toBlobUrlFirst(FFMPEG_WORKER_URLS, "text/javascript", toBlobURL),
       });
       ffmpeg = inst;
       return inst;
     })().catch((e) => {
       loadPromise = null;
-      throw e instanceof AppError ? e : new AppError("视频处理失败", String(e));
+      throw e instanceof AppError ? e : new AppError("视频处理失败", String(e && e.message ? e.message : e));
     });
   }
   return loadPromise;

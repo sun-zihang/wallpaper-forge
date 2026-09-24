@@ -4,6 +4,7 @@ import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../l
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { attachDropTarget } from "../lib/drop.js";
+import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus } from "../app.js";
@@ -64,6 +65,7 @@ export function mountVideo(root) {
       </div>
       <div class="row">
         <button type="button" class="btn" id="start">开始转换</button>
+        <button type="button" class="btn secondary" id="zip" disabled>打包下载 ZIP</button>
       </div>
     </div>
     <div id="jobs"></div>
@@ -77,6 +79,8 @@ export function mountVideo(root) {
     },
   });
   let running = false;
+  let zipping = false;
+  const outputs = [];
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: [".mp4", ".webm", ".mov", ".mkv"],
@@ -146,10 +150,15 @@ export function mountVideo(root) {
         }
         jobs.setStatus(i, "running");
         try {
-          await processOne(files[i], mode, (p) =>
+          const out = await processOne(files[i], mode, (p) =>
             jobs.setProgress(batchPct(i, p, files.length))
           );
-          jobs.setStatus(i, "done");
+          if (out) {
+            outputs.push(out);
+            jobs.setStatus(i, "done");
+          } else {
+            jobs.setStatus(i, "failed", "没有产出文件");
+          }
         } catch (e) {
           const msg = friendlyError(e);
           const cancelled = msg.includes("已取消");
@@ -158,9 +167,31 @@ export function mountVideo(root) {
         }
       }
       jobs.finish();
+      $("zip").disabled = outputs.length === 0;
+      $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
+      if (outputs.length === 1) {
+        downloadBlob(outputs[0].blob, outputs[0].filename);
+      }
     } finally {
       running = false;
       $("start").disabled = false;
+    }
+  });
+
+  $("zip").addEventListener("click", async () => {
+    if (zipping || !outputs.length) return;
+    zipping = true;
+    $("zip").disabled = true;
+    try {
+      await ensureJszipV();
+      const zip = new globalThis.JSZip();
+      for (const o of outputs) zip.file(o.filename, o.blob);
+      downloadBlob(await zip.generateAsync({ type: "blob" }), "videos.zip");
+    } catch (e) {
+      $("err").textContent = friendlyError(e);
+    } finally {
+      zipping = false;
+      $("zip").disabled = outputs.length === 0;
     }
   });
 
@@ -177,10 +208,11 @@ export function mountVideo(root) {
           ? ["-i", inName, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
           : ["-i", inName, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      downloadBlob(await readFileToBlob(ff, out), `${base}.${ext}`);
+      const blob = await readFileToBlob(ff, out);
       try {
         await ff.deleteFile(out);
       } catch { /* ignore */ }
+      return { blob, filename: `${base}.${ext}` };
     } else if (mode === "gif") {
       const out = `${base}.gif`;
       const args = [
@@ -190,10 +222,11 @@ export function mountVideo(root) {
         out,
       ];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      downloadBlob(await readFileToBlob(ff, out), out);
+      const blob = await readFileToBlob(ff, out);
       try {
         await ff.deleteFile(out);
       } catch { /* ignore */ }
+      return { blob, filename: out };
     } else if (mode === "frames") {
       const pattern = `frame_%04d.png`;
       const args = ["-i", inName, "-vf", `fps=1/${$("every").value}`, pattern];
@@ -202,12 +235,13 @@ export function mountVideo(root) {
       await ensureJszipV();
       const zip = new globalThis.JSZip();
       for (const n of names) zip.file(n, await readFileToBlob(ff, n));
-      downloadBlob(await zip.generateAsync({ type: "blob" }), `${base}_frames.zip`);
+      const zipBlob = await zip.generateAsync({ type: "blob" });
       for (const n of names) {
         try {
           await ff.deleteFile(n);
         } catch { /* ignore */ }
       }
+      return { blob: zipBlob, filename: `${base}_frames.zip` };
     } else {
       const out = `${base}_trim.mp4`;
       const t0 = Math.max(0, Number($("t0").value) || 0);
@@ -217,14 +251,16 @@ export function mountVideo(root) {
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out,
       ];
       await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      downloadBlob(await readFileToBlob(ff, out), out);
+      const blob = await readFileToBlob(ff, out);
       try {
         await ff.deleteFile(out);
       } catch { /* ignore */ }
+      return { blob, filename: out };
     }
     try {
       await ff.deleteFile(inName);
     } catch { /* ignore */ }
+    return null;
   }
 }
 
@@ -239,11 +275,10 @@ async function listFiles(ff, re) {
 
 async function ensureJszipV() {
   if (globalThis.JSZip) return;
-  await new Promise((res, rej) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js";
-    s.onload = res;
-    s.onerror = () => rej(new AppError("视频处理失败", "JSZip 加载失败"));
-    document.head.appendChild(s);
-  });
+  try {
+    await loadScriptFirst(JSZIP_URLS);
+  } catch {
+    throw new AppError("视频处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+  }
+  if (!globalThis.JSZip) throw new AppError("视频处理失败", "JSZip 加载失败");
 }
