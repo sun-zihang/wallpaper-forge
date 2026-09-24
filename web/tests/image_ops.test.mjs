@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OUT_EXTS, outputExtFor, qualityExts, canvasToBmp } from "../lib/image_ops.js";
+import { OUT_EXTS, IMAGE_EXTS, OUT_FORMATS, outputExtFor, qualityExts, canvasToBmp } from "../lib/image_ops.js";
 
 function fakeCanvas(w, h, rgba) {
   return {
@@ -33,6 +33,20 @@ test("quality only for lossy", () => {
   assert.ok(qualityExts().has(".jpg"));
   assert.ok(qualityExts().has(".webp"));
   assert.ok(!qualityExts().has(".png"));
+});
+
+test("format tables stay aligned with each other", () => {
+  assert.deepEqual(OUT_FORMATS, ["PNG", "JPG", "WebP", "BMP", "GIF"]);
+  assert.deepEqual(OUT_EXTS, [".png", ".jpg", ".webp", ".bmp", ".gif"]);
+  assert.deepEqual(IMAGE_EXTS, [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
+  for (const fmt of OUT_FORMATS) {
+    assert.ok(OUT_EXTS.includes(outputExtFor(fmt)), `${fmt} maps into OUT_EXTS`);
+  }
+  // lossy quality applies to jpg/jpeg/webp whenever those suffixes appear
+  for (const e of qualityExts()) {
+    assert.ok(IMAGE_EXTS.includes(e), `${e} is a known input suffix`);
+    assert.ok(!e.endsWith(".png") && !e.endsWith(".bmp") && !e.endsWith(".gif"));
+  }
 });
 
 test("bmp header is a valid 24-bit BITMAPINFOHEADER", async () => {

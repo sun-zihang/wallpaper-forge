@@ -24,3 +24,10 @@ test("friendlyError message containing 已取消 maps to cancelled", () => {
 test("friendlyError unknown", () => {
   assert.match(friendlyError(new Error("boom")), /未知错误/);
 });
+
+test("friendlyError handles null, undefined and plain strings", () => {
+  assert.match(friendlyError(null), /未知错误/);
+  assert.match(friendlyError(undefined), /未知错误/);
+  assert.match(friendlyError("boom"), /未知错误/);
+  assert.match(friendlyError(42), /42/);
+});

@@ -42,6 +42,12 @@ test("split step keeps first frame at step>=1", () => {
   assert.deepEqual([0, 1, 2].filter((i) => stepIndexKept(i, 1)), [0, 1, 2]);
 });
 
+test("split step clamps step below 1 to keep every frame", () => {
+  assert.deepEqual([0, 1, 2].filter((i) => stepIndexKept(i, 0)), [0, 1, 2]);
+  assert.deepEqual([0, 1, 2].filter((i) => stepIndexKept(i, -3)), [0, 1, 2]);
+  assert.deepEqual([0, 1, 2].filter((i) => stepIndexKept(i, NaN)), [0, 1, 2]);
+});
+
 test("merge reverse order", () => {
   assert.deepEqual(mergeOrder(["a", "b"], true), ["b", "a"]);
   assert.deepEqual(mergeOrder(["a", "b"], false), ["a", "b"]);
