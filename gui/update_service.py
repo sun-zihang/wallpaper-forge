@@ -31,10 +31,11 @@ class DownloadWorker(QThread):
     finished_ok = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, url: str, dest, parent=None):
+    def __init__(self, url: str, dest, parent=None, *, expected_sha256: str | None = None):
         super().__init__(parent)
         self.url = url
         self.dest = dest
+        self.expected_sha256 = expected_sha256
         import threading
 
         self._cancel = threading.Event()
@@ -50,7 +51,11 @@ class DownloadWorker(QThread):
                 self.progressed.emit(done, total)
 
             download_update(
-                self.url, self.dest, progress_cb=cb, cancel_event=self._cancel
+                self.url,
+                self.dest,
+                progress_cb=cb,
+                cancel_event=self._cancel,
+                expected_sha256=self.expected_sha256,
             )
             self.finished_ok.emit(str(self.dest))
         except UpdateError as e:

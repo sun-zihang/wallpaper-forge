@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 from core.updater import (
@@ -8,6 +10,7 @@ from core.updater import (
     parse_latest_release,
     parse_version,
     setup_asset_url,
+    sha256_file,
 )
 
 
@@ -64,6 +67,86 @@ def test_parse_latest_release_finds_setup_asset():
     info = parse_latest_release(payload)
     assert info.tag == "v0.2.0"
     assert info.download_url.endswith("WallpaperConverter-Setup-0.2.0.exe")
+    assert info.expected_sha256 is None
+
+
+def test_parse_latest_release_reads_sha256_digest():
+    payload = {
+        "tag_name": "v0.6.3",
+        "assets": [
+            {
+                "name": "WallpaperConverter-Setup-0.6.3.exe",
+                "browser_download_url": "https://github.com/o/r/releases/download/v0.6.3/x.exe",
+                "digest": "sha256:2FE66D5FF088D9D2B0135E51EAF2ACBD505D40DB23214226D3CC5CFDF9344B68",
+            },
+        ],
+    }
+    info = parse_latest_release(payload)
+    assert info.expected_sha256 == (
+        "2fe66d5ff088d9d2b0135e51eaf2acbd505d40db23214226d3cc5cfdf9344b68"
+    )
+
+
+def test_parse_latest_release_ignores_non_sha256_digest():
+    payload = {
+        "tag_name": "v0.6.3",
+        "assets": [
+            {
+                "name": "WallpaperConverter-Setup-0.6.3.exe",
+                "browser_download_url": "https://example.com/x.exe",
+                "digest": "sha512:abc",
+            },
+        ],
+    }
+    info = parse_latest_release(payload)
+    assert info.expected_sha256 is None
+
+
+def test_sha256_file(tmp_path):
+    p = tmp_path / "blob.bin"
+    p.write_bytes(b"wallpaper")
+    assert sha256_file(p) == hashlib.sha256(b"wallpaper").hexdigest()
+
+
+def test_download_update_rejects_bad_sha256(tmp_path, monkeypatch):
+    from core import updater
+
+    payload = b"not-the-real-installer"
+    good = hashlib.sha256(payload).hexdigest()
+    bad = "0" * 64
+
+    def fake_urlopen(req, timeout=None):
+        class _Resp:
+            headers = {"Content-Length": str(len(payload))}
+
+            def read(self, n=-1):
+                if getattr(self, "_done", False):
+                    return b""
+                self._done = True
+                return payload if n < 0 else payload[:n]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "WallpaperConverter-Setup-9.9.9.exe"
+
+    with pytest.raises(UpdateError, match="校验失败"):
+        updater.download_update(
+            "https://example.com/x.exe", dest, expected_sha256=bad
+        )
+    assert not dest.exists()
+    assert not dest.with_suffix(dest.suffix + ".part").exists()
+
+    got = updater.download_update(
+        "https://example.com/x.exe", dest, expected_sha256=good
+    )
+    assert got.read_bytes() == payload
 
 
 def test_parse_latest_release_missing_tag():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import urllib.error
@@ -35,6 +36,7 @@ class ReleaseInfo:
     name: str
     download_url: str
     html_url: str
+    expected_sha256: str | None = None
 
 
 def parse_version(raw: str) -> tuple[int, ...]:
@@ -79,10 +81,14 @@ def parse_latest_release(payload: str | dict) -> ReleaseInfo:
     html_url = str(data.get("html_url") or f"https://github.com/{REPO}/releases/tag/{tag}")
     name = str(data.get("name") or tag)
     download_url = ""
+    expected_sha256: str | None = None
     for asset in data.get("assets") or []:
         aname = str(asset.get("name") or "")
         if _ASSET_RE.search(aname):
             download_url = str(asset.get("browser_download_url") or "")
+            digest = str(asset.get("digest") or "").strip()
+            if digest.lower().startswith("sha256:"):
+                expected_sha256 = digest.split(":", 1)[1].strip().lower() or None
             break
     if not download_url:
         # fall back to standard URL pattern
@@ -90,7 +96,13 @@ def parse_latest_release(payload: str | dict) -> ReleaseInfo:
             f"https://github.com/{REPO}/releases/download/{tag}/"
             f"WallpaperConverter-Setup-{tag.lstrip('vV')}.exe"
         )
-    return ReleaseInfo(tag=tag, name=name, download_url=download_url, html_url=html_url)
+    return ReleaseInfo(
+        tag=tag,
+        name=name,
+        download_url=download_url,
+        html_url=html_url,
+        expected_sha256=expected_sha256,
+    )
 
 
 def _http_get(url: str, timeout: float) -> bytes:
@@ -111,6 +123,17 @@ def fetch_latest_release(timeout: float = 12.0) -> ReleaseInfo:
     raise UpdateError(f"无法获取最新版本信息：{last_err}")
 
 
+def sha256_file(path: Path, *, chunk: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            block = f.read(chunk)
+            if not block:
+                break
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def download_update(
     asset_url: str,
     dest: Path,
@@ -119,12 +142,15 @@ def download_update(
     cancel_event=None,
     timeout: float = 30.0,
     chunk: int = 256 * 1024,
+    expected_sha256: str | None = None,
 ) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     last_err: Exception | None = None
     for url in mirror_candidates(asset_url):
         try:
-            return _download_one(url, dest, progress_cb, cancel_event, timeout, chunk)
+            return _download_one(
+                url, dest, progress_cb, cancel_event, timeout, chunk, expected_sha256
+            )
         except UpdateError as e:
             if "已取消" in str(e):
                 raise
@@ -143,6 +169,7 @@ def _download_one(
     cancel_event,
     timeout: float,
     chunk: int,
+    expected_sha256: str | None = None,
 ) -> Path:
     req = urllib.request.Request(url, headers=_UA)
     try:
@@ -173,6 +200,10 @@ def _download_one(
                         progress_cb(done, total)
         if total and tmp.stat().st_size < total // 2:
             raise UpdateError("下载不完整")
+        if expected_sha256:
+            actual = sha256_file(tmp)
+            if actual != expected_sha256.lower():
+                raise UpdateError("安装包 SHA256 校验失败，可能是下载损坏或被篡改")
         tmp.replace(dest)
         if progress_cb and total:
             progress_cb(total, total)

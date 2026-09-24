@@ -35,7 +35,7 @@ class UpdateDialog(QDialog):
             f"发现新版本 <b>{info.tag}</b>（当前 {self.parent_version()}）。\n"
             f"{info.name}\n\n"
             "点击「立即更新」将优先走国内镜像下载安装包，失败自动回退官方源；"
-            "下载完成后退出本程序并开始安装。"
+            "下载完成后校验 SHA256，通过再退出本程序并开始安装。"
         )
         label.setTextFormat(Qt.RichText)
         label.setWordWrap(True)
@@ -67,7 +67,9 @@ class UpdateDialog(QDialog):
         self.bar.show()
         tmp = Path(tempfile.gettempdir()) / "WallpaperConverter" / Path(self.info.download_url).name
         self._dest = tmp
-        self._worker = DownloadWorker(self.info.download_url, tmp, self)
+        self._worker = DownloadWorker(
+            self.info.download_url, tmp, self, expected_sha256=self.info.expected_sha256
+        )
         self._worker.progressed.connect(self._on_progress)
         self._worker.finished_ok.connect(self._on_done)
         self._worker.failed.connect(self._on_failed)
