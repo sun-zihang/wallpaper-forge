@@ -11,21 +11,48 @@ const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 
 export function mountGif(root) {
   root.innerHTML = `
-    <div class="row" id="dropzone">
-      <label>模式
-        <select id="mode">
-          <option value="split">拆帧（GIF → PNG 序列）</option>
-          <option value="merge">合帧（图片 → GIF）</option>
-        </select>
-      </label>
-      <label id="wstep">抽稀步长 <input type="number" id="step" min="1" max="30" value="1" /></label>
-      <label id="wdur" hidden>帧间隔(ms) <input type="number" id="dur" min="10" max="5000" value="100" /></label>
-      <label id="wrev" hidden><input type="checkbox" id="rev" /> 倒放</label>
-      <label id="wloop" hidden><input type="checkbox" id="loop" checked /> 无限循环</label>
-      <label>文件 <input type="file" id="files" multiple accept="image/*,.gif" /></label>
-      <span class="drop-hint">或拖拽到此处</span>
-      <button type="button" class="btn" id="start">开始</button>
-      <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
+    <div class="page-head">
+      <h1>GIF 工具</h1>
+      <p>拆帧按 delta 与 disposal 正确合成，与桌面版输出一致；合帧逐帧编码，可随时取消。</p>
+    </div>
+    <div class="drop-bay" id="dropzone">
+      <div class="row">
+        <div class="field">
+          <label for="files">选择文件</label>
+          <input type="file" id="files" multiple accept="image/*,.gif" />
+        </div>
+        <span class="drop-hint">或拖拽到此处</span>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">模式与参数</p>
+      <div class="row">
+        <div class="field">
+          <label for="mode">模式</label>
+          <select id="mode">
+            <option value="split">拆帧（GIF → PNG 序列）</option>
+            <option value="merge">合帧（图片 → GIF）</option>
+          </select>
+        </div>
+        <div class="field" id="wstep">
+          <label for="step">抽稀步长</label>
+          <input type="number" id="step" min="1" max="30" value="1" />
+        </div>
+        <div class="field" id="wdur" hidden>
+          <label for="dur">帧间隔 (ms)</label>
+          <input type="number" id="dur" min="10" max="5000" value="100" />
+        </div>
+        <div class="field" id="wrev" hidden>
+          <label class="inline"><input type="checkbox" id="rev" /> 倒放</label>
+        </div>
+        <div class="field" id="wloop" hidden>
+          <label class="inline"><input type="checkbox" id="loop" checked /> 无限循环</label>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="start">开始</button>
+        <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
+      </div>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
@@ -82,7 +109,9 @@ export function mountGif(root) {
     $("zip").disabled = true;
     try {
       if ($("mode").value === "split") {
-        jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name })));
+        jobs.submit(
+          accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
+        );
         splitFiles = [];
         for (let i = 0; i < accepted.length; i++) {
           if (jobs.cancelled) {
@@ -111,7 +140,7 @@ export function mountGif(root) {
       }
       // merge
       const ordered = [...accepted].sort((a, b) => a.name.localeCompare(b.name));
-      jobs.submit([{ id: 0, name: ordered[0].name }]);
+      jobs.submit([{ id: 0, name: ordered[0].name, thumb: URL.createObjectURL(ordered[0]) }]);
       jobs.setStatus(0, "running");
       try {
         const { blob, filename } = await mergeGif(ordered, {

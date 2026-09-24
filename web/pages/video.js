@@ -3,38 +3,68 @@ import { assertVideoLimits, probeVideoDuration, durationTooLongError, MAX_VIDEO_
 import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../lib/video_bridge.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
+import { attachDropTarget } from "../lib/drop.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus } from "../app.js";
 
 export function mountVideo(root) {
   root.innerHTML = `
-    <div class="note">
-      视频引擎按需加载（约数十 MB，首次较慢）。单文件 ≤ ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)}MB 且 ≤ ${MAX_VIDEO_SECONDS}s，超出请用桌面版。
-      去水印请用桌面版。
+    <div class="page-head">
+      <h1>视频</h1>
+      <p>格式互转、转 GIF、截帧与片段截取。引擎按需加载（数十 MB，首次较慢）。</p>
     </div>
-    <div class="row">
-      <label>模式
-        <select id="mode">
-          <option value="convert">格式互转</option>
-          <option value="gif">视频转 GIF</option>
-          <option value="frames">截取帧</option>
-          <option value="trim">片段截取</option>
-        </select>
-      </label>
-      <label id="fmtw">输出
-        <select id="fmt">
-          <option value="mp4">MP4</option>
-          <option value="webm">WebM</option>
-        </select>
-      </label>
-      <label id="gifw" hidden>帧率 <input type="number" id="fps" min="1" max="50" value="15" /></label>
-      <label id="gifw2" hidden>宽度 <input type="number" id="gw" min="16" max="3840" value="480" /></label>
-      <label id="everyw" hidden>每N秒 <input type="number" id="every" min="0.1" step="0.1" value="1" /></label>
-      <label id="trimw" hidden>起(s) <input type="number" id="t0" min="0" step="0.1" value="0" />
-        止(s) <input type="number" id="t1" min="0.1" step="0.1" value="5" /></label>
-      <label>文件 <input type="file" id="files" accept="video/*,.mp4,.webm,.mov,.mkv" multiple /></label>
-      <button type="button" class="btn" id="start">开始转换</button>
+    <div class="drop-bay" id="dropzone">
+      <div class="row">
+        <div class="field">
+          <label for="files">选择视频</label>
+          <input type="file" id="files" accept="video/*,.mp4,.webm,.mov,.mkv" multiple />
+        </div>
+        <span class="drop-hint">单文件 ≤ ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)}MB 且 ≤ ${MAX_VIDEO_SECONDS}s，超出请用桌面版</span>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">模式与参数</p>
+      <div class="row">
+        <div class="field">
+          <label for="mode">模式</label>
+          <select id="mode">
+            <option value="convert">格式互转</option>
+            <option value="gif">视频转 GIF</option>
+            <option value="frames">截取帧</option>
+            <option value="trim">片段截取</option>
+          </select>
+        </div>
+        <div class="field" id="fmtw">
+          <label for="fmt">输出格式</label>
+          <select id="fmt">
+            <option value="mp4">MP4</option>
+            <option value="webm">WebM</option>
+          </select>
+        </div>
+        <div class="field" id="gifw" hidden>
+          <label for="fps">帧率</label>
+          <input type="number" id="fps" min="1" max="50" value="15" />
+        </div>
+        <div class="field" id="gifw2" hidden>
+          <label for="gw">宽度</label>
+          <input type="number" id="gw" min="16" max="3840" value="480" />
+        </div>
+        <div class="field" id="everyw" hidden>
+          <label for="every">每 N 秒</label>
+          <input type="number" id="every" min="0.1" step="0.1" value="1" />
+        </div>
+        <div class="field" id="trimw" hidden>
+          <label for="t0">起 (s) / 止 (s)</label>
+          <span class="row">
+            <input type="number" id="t0" min="0" step="0.1" value="0" />
+            <input type="number" id="t1" min="0.1" step="0.1" value="5" />
+          </span>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="start">开始转换</button>
+      </div>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
@@ -47,6 +77,13 @@ export function mountVideo(root) {
     },
   });
   let running = false;
+
+  attachDropTarget($("dropzone"), $("files"), {
+    extensions: [".mp4", ".webm", ".mov", ".mkv"],
+    onRejected: (msg) => {
+      $("err").textContent = msg;
+    },
+  });
 
   function syncMode() {
     const m = $("mode").value;

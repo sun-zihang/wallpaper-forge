@@ -8,17 +8,23 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="top">
-    <a href="#/" class="brand">Wallpaper Converter</a>
-    <nav>
-      <a href="#/image">图片</a>
-      <a href="#/gif">GIF</a>
-      <a href="#/video">视频</a>
-      <a href="#/unpack">解包</a>
-    </nav>
-    <span id="status" class="status">就绪</span>
-  </header>
-  <main id="app"></main>
+  <div class="shell">
+    <aside class="rail">
+      <a href="#/" class="brand">Wallpaper Converter<span>WEB</span></a>
+      <nav>
+        <a href="#/">首页</a>
+        <a href="#/image">图片</a>
+        <a href="#/gif">GIF</a>
+        <a href="#/video">视频</a>
+        <a href="#/unpack">解包</a>
+      </nav>
+      <span id="status" class="status">就绪</span>
+    </aside>
+    <div class="work">
+      <main id="app"></main>
+      <footer class="footer" id="footer"></footer>
+    </div>
+  </div>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

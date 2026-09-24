@@ -10,23 +10,48 @@ import { friendlyError, AppError } from "../lib/errors.js";
 
 export function mountImage(root) {
   root.innerHTML = `
-    <div class="row" id="dropzone">
-      <label>文件 <input type="file" id="files" multiple accept="image/*" /></label>
-      <span class="drop-hint">或拖拽图片到此处</span>
-      <label>格式
-        <select id="fmt">${OUT_FORMATS.map((f) => `<option${f === "JPG" ? " selected" : ""}>${f}</option>`).join("")}</select>
-      </label>
-      <label>质量 <input type="range" id="q" min="1" max="100" value="90" /><span id="qv">90</span></label>
-      <label><input type="checkbox" id="scale" /> 缩放到宽度</label>
-      <input type="number" id="sw" value="1920" min="16" max="8192" disabled style="width:90px" />
-      <button type="button" class="btn" id="start">开始转换</button>
-      <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
+    <div class="page-head">
+      <h1>图片转换</h1>
+      <p>格式互转、等比缩放、裁剪与水印。批量结果先进入作业表，完成后可一次打包下载。</p>
     </div>
-    <div class="row">
-      <button type="button" class="btn secondary" id="crop">裁剪第一张…</button>
-      <button type="button" class="btn secondary" id="wmtext">文字水印…</button>
-      <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
-      <input type="file" id="markfile" accept="image/*" hidden />
+    <div class="drop-bay" id="dropzone">
+      <div class="row">
+        <div class="field">
+          <label for="files">选择图片</label>
+          <input type="file" id="files" multiple accept="image/*" />
+        </div>
+        <span class="drop-hint">或把图片拖到这里</span>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">转换设置</p>
+      <div class="row">
+        <div class="field">
+          <label for="fmt">输出格式</label>
+          <select id="fmt">${OUT_FORMATS.map((f) => `<option${f === "JPG" ? " selected" : ""}>${f}</option>`).join("")}</select>
+        </div>
+        <div class="field">
+          <label for="q">质量 <span id="qv">90</span></label>
+          <input type="range" id="q" min="1" max="100" value="90" />
+        </div>
+        <div class="field">
+          <label class="inline"><input type="checkbox" id="scale" /> 缩放到宽度</label>
+          <input type="number" id="sw" value="1920" min="16" max="8192" disabled />
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="start">开始转换</button>
+        <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">单图编辑</p>
+      <div class="row">
+        <button type="button" class="btn secondary" id="crop">裁剪第一张…</button>
+        <button type="button" class="btn secondary" id="wmtext">文字水印…</button>
+        <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
+        <input type="file" id="markfile" accept="image/*" hidden />
+      </div>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
@@ -78,7 +103,9 @@ export function mountImage(root) {
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
-      jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
+      jobs.submit(
+        files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
+      );
       for (let i = 0; i < files.length; i++) {
         jobs.setStatus(i, "running");
         jobs.setProgress(batchPct(i, 0, files.length));

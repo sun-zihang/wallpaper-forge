@@ -14,11 +14,24 @@ const WE_EXTS = [".pkg", ".tex", ".mpkg"];
 
 export function mountUnpack(root) {
   root.innerHTML = `
-    <div class="row" id="dropzone">
-      <label>文件 <input type="file" id="files" multiple accept=".pkg,.tex,.mpkg" /></label>
-      <span class="drop-hint">或拖拽到此处</span>
-      <button type="button" class="btn" id="start">开始解包</button>
-      <button type="button" class="btn secondary" id="dl">打包下载 ZIP</button>
+    <div class="page-head">
+      <h1>解包</h1>
+      <p>识别 <code>.pkg</code> / <code>.tex</code> / <code>.mpkg</code> 并列出产物，打包下载。</p>
+    </div>
+    <div class="drop-bay" id="dropzone">
+      <div class="row">
+        <div class="field">
+          <label for="files">选择文件</label>
+          <input type="file" id="files" multiple accept=".pkg,.tex,.mpkg" />
+        </div>
+        <span class="drop-hint">或拖拽到此处</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row">
+        <button type="button" class="btn" id="start">开始解包</button>
+        <button type="button" class="btn secondary" id="dl">打包下载 ZIP</button>
+      </div>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>

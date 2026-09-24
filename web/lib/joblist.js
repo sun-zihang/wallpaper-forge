@@ -10,19 +10,28 @@ export function createJobList(container, { onCancel } = {}) {
   container.innerHTML = `
     <div class="row">
       <button type="button" class="btn secondary" data-act="cancel" disabled>取消</button>
+      <span class="pct">0%</span>
     </div>
-      <div class="progress"><i style="width:0%"></i><span class="pct">0%</span></div>
-    <table class="jobs">
-      <thead><tr><th>文件</th><th>状态</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="progress"><i style="width:0%"></i></div>
+    <div class="panel sheet">
+      <table class="jobs">
+        <thead><tr><th>预览</th><th>文件</th><th>状态</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   `;
   const tbody = container.querySelector("tbody");
   const bar = container.querySelector(".progress > i");
-  const pctLabel = container.querySelector(".progress .pct");
+  const pctLabel = container.querySelector(".pct");
   const cancelBtn = container.querySelector('[data-act="cancel"]');
   let cancelled = false;
   const rows = new Map();
+  const thumbs = new Set();
+
+  function releaseThumbs() {
+    for (const url of thumbs) URL.revokeObjectURL(url);
+    thumbs.clear();
+  }
 
   cancelBtn.addEventListener("click", () => {
     cancelled = true;
@@ -32,11 +41,12 @@ export function createJobList(container, { onCancel } = {}) {
   function renderStatus(id, status, detail = "") {
     const tr = rows.get(id);
     if (!tr) return;
-    const td = tr.querySelector("td:last-child");
-    td.className = `st-${status}`;
+    const td = tr.querySelector("td.status");
+    td.className = `status st-${status}`;
     td.textContent = STATUS_TEXT[status] || status;
     if (detail && (status === "failed" || status === "cancelled")) {
       td.textContent = status === "failed" ? `${STATUS_TEXT.failed}（${detail}）` : detail;
+      td.title = detail;
     }
   }
 
@@ -46,6 +56,7 @@ export function createJobList(container, { onCancel } = {}) {
     },
     reset() {
       cancelled = false;
+      releaseThumbs();
       tbody.innerHTML = "";
       rows.clear();
       bar.style.width = "0%";
@@ -57,8 +68,16 @@ export function createJobList(container, { onCancel } = {}) {
       cancelBtn.disabled = !jobs.length;
       for (const job of jobs) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td></td><td class="st-pending"></td>`;
-        tr.cells[0].textContent = job.name;
+        tr.innerHTML =
+          '<td class="thumb"></td><td class="name"></td><td class="status st-pending"></td>';
+        tr.cells[1].textContent = job.name;
+        if (job.thumb) {
+          const img = document.createElement("img");
+          img.src = job.thumb;
+          img.alt = "";
+          thumbs.add(job.thumb);
+          tr.cells[0].appendChild(img);
+        }
         tbody.appendChild(tr);
         rows.set(job.id, tr);
         renderStatus(job.id, "pending");
