@@ -105,6 +105,16 @@ def test_extract_pkg_strips_leading_slash_under_out_dir(tmp_path: Path):
     assert outs[0].read_bytes() == b"x"
 
 
+def test_extract_pkg_rejects_drive_letter_path(tmp_path: Path):
+    # On Windows pathlib joins an absolute right-hand path, so "C:/..." would
+    # escape out_dir — the resolve()/relative_to guard must catch it.
+    pkg = _build_pkg({"C:/Windows/evil.txt": b"pwned"})
+    src = tmp_path / "drive.pkg"
+    src.write_bytes(pkg)
+    with pytest.raises(WePkgError, match="非法路径"):
+        extract_pkg(src, tmp_path / "out")
+
+
 def test_tex_embedded_png():
     png = (
         b"\x89PNG\r\n\x1a\n"

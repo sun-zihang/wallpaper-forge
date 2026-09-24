@@ -63,3 +63,13 @@ test("extract rejects nested parent segments", () => {
   const pkg = buildPkg({ "sub/../../out.txt": new TextEncoder().encode("x") });
   assert.throws(() => extractPkg(pkg), /非法路径/);
 });
+
+test("extract rejects drive-letter absolute paths", () => {
+  const pkg = buildPkg({ "C:/Windows/evil.txt": new TextEncoder().encode("x") });
+  assert.throws(() => extractPkg(pkg), /非法路径/);
+});
+
+test("extract rejects backslash drive-letter entries", () => {
+  const pkg = buildPkg({ "C:\\Windows\\evil.txt": new TextEncoder().encode("x") });
+  assert.throws(() => extractPkg(pkg), /非法路径/);
+});

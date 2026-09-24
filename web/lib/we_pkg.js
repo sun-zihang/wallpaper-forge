@@ -62,7 +62,7 @@ export function extractPkg(data) {
       if (end > data.length || start < 0) throw new AppError(label, `条目越界: ${entry.name}`);
     }
     const name = entry.name.replace(/^\/+/, "");
-    if (name.split("/").some((seg) => seg === "..")) {
+    if (name.split("/").some((seg) => seg === "..") || /^[a-zA-Z]:/.test(name)) {
       throw new AppError(label, `非法路径: ${entry.name}`);
     }
     files.push({ name, blob: data.slice(start, end) });
