@@ -399,8 +399,20 @@ class MainWindow(QMainWindow):
                 return
             for p in running_pages:
                 p.thread.cancel()
-            for p in running_pages:
-                if not p.thread.wait(3000):
+            stuck = [p for p in running_pages if not p.thread.wait(3000)]
+            if stuck:
+                ret = QMessageBox.question(
+                    self,
+                    "仍在处理",
+                    f"有 {len(stuck)} 个任务没有在 3 秒内停止。\n"
+                    "继续退出会中断处理，未完成的输出可能不完整。\n仍要退出吗？",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if ret != QMessageBox.Yes:
+                    event.ignore()
+                    return
+                for p in stuck:
                     p.thread.wait(1000)
         self._remove_shortcut_event_filter()
         import base64

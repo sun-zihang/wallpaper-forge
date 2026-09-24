@@ -15,7 +15,7 @@ jobs:
     name: desktop tests (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -31,20 +31,20 @@ jobs:
     name: web tests (node)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Run node tests
-        run: node --test "web/tests/**/*.mjs"
+        run: node --test web/tests/*.test.mjs
 
   cdn-pins:
     name: cdn pins reachable
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Every pinned CDN mirror must answer
         run: node scripts/check_cdn.mjs
