@@ -1,5 +1,7 @@
 """Update dialog / worker must thread the release asset SHA256 digest through."""
 
+import hashlib
+
 from core.updater import ReleaseInfo
 
 
@@ -84,3 +86,82 @@ def test_download_worker_forwards_digest_to_download_update(monkeypatch, tmp_pat
     worker.run()
     assert seen.get("expected_sha256") == digest
     assert seen.get("url") == "https://example.com/x.exe"
+
+
+def test_dialog_failed_offers_mirror_links(qapp, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from gui.update_dialog import UpdateDialog
+
+    captured = {}
+
+    def fake_exec(self):
+        captured["title"] = self.windowTitle()
+        captured["text"] = self.text()
+        captured["informative"] = self.informativeText()
+        captured["detailed"] = self.detailedText()
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    dialog = UpdateDialog(_info(None))
+    try:
+        dialog._on_failed("安装包 SHA256 校验失败")
+        assert captured["title"] == "下载失败"
+        assert "SHA256" in captured["text"]
+        assert "ghproxy.net" in captured["informative"]
+        assert "发布页" in captured["informative"]
+        assert "https://ghproxy.net/" in captured["detailed"]
+        assert dialog.update_btn.isEnabled() is True
+        assert dialog.bar.isHidden() is True
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()
+
+
+def test_download_update_retries_next_mirror_after_sha256_fail(tmp_path, monkeypatch):
+    from core import updater
+
+    good = b"installer-bytes"
+    good_hash = hashlib.sha256(good).hexdigest()
+    attempts: list[str] = []
+    # First mirror serves wrong bytes; second serves the real ones.
+    bodies = [b"corrupted-bytes", good]
+
+    def fake_urlopen(req, timeout=None):
+        url = req.full_url if hasattr(req, "full_url") else str(req)
+        attempts.append(url)
+        payload = bodies[min(len(attempts) - 1, len(bodies) - 1)]
+
+        class _Resp:
+            headers = {"Content-Length": str(len(payload))}
+            _payload = payload
+            _pos = 0
+
+            def read(self, n=-1):
+                if n < 0:
+                    chunk = self._payload[self._pos :]
+                    self._pos = len(self._payload)
+                    return chunk
+                chunk = self._payload[self._pos : self._pos + n]
+                self._pos += len(chunk)
+                return chunk
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "setup.exe"
+    got = updater.download_update(
+        "https://github.com/o/r/releases/download/v9/x.exe",
+        dest,
+        expected_sha256=good_hash,
+    )
+    assert len(attempts) >= 2, attempts
+    assert got.read_bytes() == good
+    assert not dest.with_suffix(dest.suffix + ".part").exists()
