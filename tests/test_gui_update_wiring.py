@@ -30,6 +30,60 @@ def test_dialog_label_mentions_sha256_verification(qapp):
         qapp.processEvents()
 
 
+def test_dialog_parent_version_matches_core(qapp):
+    from core.version import __version__
+    from gui.update_dialog import UpdateDialog
+
+    dialog = UpdateDialog(_info(None))
+    try:
+        assert dialog.parent_version() == __version__
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()
+
+
+def test_dialog_on_progress_sets_percent_or_busy(qapp):
+    from gui.update_dialog import UpdateDialog
+
+    dialog = UpdateDialog(_info(None))
+    try:
+        dialog._on_progress(50, 100)
+        assert dialog.bar.maximum() == 100
+        assert dialog.bar.value() == 50
+
+        dialog._on_progress(10, 0)
+        assert dialog.bar.maximum() == 0  # busy indicator
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()
+
+
+def test_dialog_on_done_oserror_reenables_update_button(qapp, monkeypatch):
+    from gui import update_dialog as mod
+
+    errors = []
+    monkeypatch.setattr(
+        mod.QMessageBox,
+        "critical",
+        staticmethod(lambda *args: errors.append(args)),
+    )
+    monkeypatch.setattr(mod.subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(OSError("no install")))
+
+    dialog = mod.UpdateDialog(_info(None))
+    try:
+        dialog.update_btn.setEnabled(True)
+        dialog._on_done("C:\\missing-setup.exe")
+        assert errors
+        assert "无法启动安装程序" in errors[0][2]
+        assert dialog.update_btn.isEnabled() is True
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()
+
+
 def test_dialog_passes_expected_sha256_to_download_worker(qapp, monkeypatch):
     from gui import update_dialog as mod
 

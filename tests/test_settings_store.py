@@ -113,3 +113,28 @@ def test_non_dict_settings_json_falls_back_to_defaults(tmp_path, monkeypatch):
 def test_auto_check_update_default_true():
     assert _DEFAULTS["auto_check_update"] is True
     assert _DEFAULTS["unified_dir"] == ""
+
+
+def test_settings_dir_is_under_roaming_and_creatable(tmp_path, monkeypatch):
+    from gui import settings_store
+
+    monkeypatch.setattr(
+        settings_store.Path, "home", staticmethod(lambda: tmp_path)
+    )
+    # settings_dir uses Path.home() / "AppData" / ...
+    d = settings_store.settings_dir()
+    assert d == tmp_path / "AppData" / "Roaming" / "WallpaperConverter"
+    assert d.is_dir()
+
+
+def test_save_settings_ignores_unknown_and_partial_keys(tmp_path, monkeypatch):
+    from gui import settings_store
+
+    settings_path = tmp_path / "settings.json"
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    save_settings({"default_quality": 70, "bogus": 1, "output_mode": "unified"})
+    s = load_settings()
+    assert s["default_quality"] == 70
+    assert s["output_mode"] == "unified"
+    assert "bogus" not in s
