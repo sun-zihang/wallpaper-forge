@@ -16,3 +16,10 @@ test("stem keeps only the final extension", () => {
   assert.equal(stem("trailing."), "trailing");
   assert.equal(baseName("/only/one/"), "");
 });
+
+test("path helpers tolerate empty and non-string input", () => {
+  assert.equal(baseName(""), "");
+  assert.equal(stem(""), "");
+  assert.equal(stem("..."), "..");
+  assert.equal(baseName(null), "null");
+});

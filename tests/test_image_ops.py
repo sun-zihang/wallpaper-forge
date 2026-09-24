@@ -2,6 +2,7 @@ from PIL import Image
 
 from core.annotate import (
     ImageOpError,
+    _paste_pos,
     add_image_watermark,
     add_text_watermark,
     crop_image,
@@ -165,3 +166,35 @@ def test_all_five_positions_render(png_64, tmp_path):
             png_64, out, mark=mark, scale=0.3, position=pos
         )
         assert Image.open(out).size == (64, 48)
+
+
+def test_paste_pos_corners_and_center():
+    assert _paste_pos(100, 80, 10, 10, "top_left", 4) == (4, 4)
+    assert _paste_pos(100, 80, 10, 10, "top_right", 4) == (86, 4)
+    assert _paste_pos(100, 80, 10, 10, "bottom_left", 4) == (4, 66)
+    assert _paste_pos(100, 80, 10, 10, "bottom_right", 4) == (86, 66)
+    assert _paste_pos(100, 80, 10, 10, "center", 4) == (45, 35)
+
+
+def test_paste_pos_unknown_position():
+    try:
+        _paste_pos(100, 80, 10, 10, "middle", 4)
+        raise AssertionError("should raise")
+    except ImageOpError as exc:
+        assert "未知水印位置" in str(exc)
+
+
+def test_load_font_returns_a_font():
+    from core.annotate import _load_font
+
+    font = _load_font(24)
+    assert font is not None
+
+
+def test_bad_suffix_message_mentions_format(png_64, tmp_path):
+    try:
+        convert_image(png_64, tmp_path / "o.xyz")
+        raise AssertionError("should raise")
+    except ImageOpError as exc:
+        assert "不支持的输出格式" in str(exc)
+        assert ".xyz" in str(exc)
