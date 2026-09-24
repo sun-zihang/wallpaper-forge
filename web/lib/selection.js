@@ -1,6 +1,7 @@
 export function validateSelection(files, { extensions = null, maxSize = 0 } = {}) {
   const errors = [];
   const list = [...(files || [])];
+  const kept = [];
   for (const f of list) {
     const name = (f && f.name) || "";
     if (f && f.size === 0) {
@@ -15,8 +16,10 @@ export function validateSelection(files, { extensions = null, maxSize = 0 } = {}
       const lower = name.toLowerCase();
       if (!extensions.some((e) => lower.endsWith(String(e).toLowerCase()))) {
         errors.push({ name, reason: `不支持的文件类型（仅支持 ${extensions.join("、")}）` });
+        continue;
       }
     }
+    kept.push(f);
   }
-  return { ok: errors.length === 0, errors, files: list.filter((f) => !errors.some((e) => e.name === (f && f.name))) };
+  return { ok: errors.length === 0, errors, files: kept };
 }

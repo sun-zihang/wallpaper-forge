@@ -15,8 +15,18 @@ function fakeCanvas(w, h, rgba) {
 test("output ext mapping", () => {
   assert.equal(outputExtFor("PNG"), ".png");
   assert.equal(outputExtFor("JPG"), ".jpg");
+  assert.equal(outputExtFor("JPEG"), ".jpg");
+  assert.equal(outputExtFor("jpeg"), ".jpg");
+  assert.equal(outputExtFor("WebP"), ".webp");
+  assert.equal(outputExtFor("BMP"), ".bmp");
+  assert.equal(outputExtFor("GIF"), ".gif");
   assert.ok(OUT_EXTS.includes(".webp"));
   assert.ok(OUT_EXTS.includes(".bmp"));
+});
+
+test("output ext rejects unknown format", () => {
+  assert.throws(() => outputExtFor("tiff"), /不支持的输出格式/);
+  assert.throws(() => outputExtFor(""), /不支持的输出格式/);
 });
 
 test("quality only for lossy", () => {

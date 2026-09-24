@@ -40,3 +40,13 @@ test("without an extension filter any type passes, but empty files are still rej
   assert.equal(emptyRes.ok, false);
   assert.equal(emptyRes.errors[0].reason, "文件为空");
 });
+
+test("handles missing name and null entries without throwing", () => {
+  const r = validateSelection([null, { size: 10 }, { name: "ok.png", size: 10 }], {
+    extensions: [".png"],
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.errors.length, 2);
+  assert.equal(r.files.length, 1);
+  assert.equal(r.files[0].name, "ok.png");
+});

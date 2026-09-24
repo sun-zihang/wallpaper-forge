@@ -11,6 +11,34 @@ def test_part_path_appends_part(tmp_path: Path):
     assert part_path(tmp_path / "a.png") == tmp_path / "a.png.part"
 
 
+def test_needs_part_missing_src_returns_false(tmp_path: Path):
+    missing = tmp_path / "gone.png"
+    dst = tmp_path / "b.png"
+    assert needs_part(missing, dst) is False
+    # same missing path still resolves equal on both sides
+    assert needs_part(missing, missing) is True
+
+
+def test_cleanup_part_missing_is_silent(tmp_path: Path):
+    cleanup_part(tmp_path / "nope.png.part")  # must not raise
+
+
+def test_cleanup_part_removes_file(tmp_path: Path):
+    p = tmp_path / "x.png.part"
+    p.write_bytes(b"half")
+    cleanup_part(p)
+    assert not p.exists()
+
+
+def test_replace_part_moves_file(tmp_path: Path):
+    part = tmp_path / "a.png.part"
+    dst = tmp_path / "a.png"
+    part.write_bytes(b"new")
+    replace_part(part, dst)
+    assert dst.read_bytes() == b"new"
+    assert not part.exists()
+
+
 def test_needs_part_same_and_different(tmp_path: Path):
     a = tmp_path / "a.png"
     a.write_bytes(b"x")

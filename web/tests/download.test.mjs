@@ -9,3 +9,10 @@ test("path helpers normalise windows separators", () => {
   assert.equal(stem("noext"), "noext");
   assert.equal(stem(".hidden"), ".hidden");
 });
+
+test("stem keeps only the final extension", () => {
+  assert.equal(stem("archive.tar.gz"), "archive.tar");
+  assert.equal(stem("a.b.c"), "a.b");
+  assert.equal(stem("trailing."), "trailing");
+  assert.equal(baseName("/only/one/"), "");
+});

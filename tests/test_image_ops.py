@@ -16,6 +16,44 @@ def test_png_to_jpg(png_64, tmp_path):
     assert im.size == (64, 48)
 
 
+def test_jpeg_suffix_treated_as_jpg(tmp_path):
+    src = tmp_path / "img.png"
+    Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(src)
+    out = convert_image(src, tmp_path / "o.jpeg")
+    im = Image.open(out)
+    assert im.format == "JPEG"
+    assert im.mode == "RGB"
+
+
+def test_quality_clamped_to_1_100(tmp_path):
+    src = tmp_path / "img.png"
+    Image.new("RGB", (32, 32), (1, 2, 3)).save(src)
+    convert_image(src, tmp_path / "lo.jpg", quality=0)
+    convert_image(src, tmp_path / "hi.jpg", quality=200)
+    assert Image.open(tmp_path / "lo.jpg").format == "JPEG"
+    assert Image.open(tmp_path / "hi.jpg").format == "JPEG"
+
+
+def test_max_width_noop_when_already_narrow(png_64, tmp_path):
+    out = convert_image(png_64, tmp_path / "o.png", max_width=128)
+    assert Image.open(out).size == (64, 48)
+
+
+def test_max_width_zero_is_noop(png_64, tmp_path):
+    out = convert_image(png_64, tmp_path / "o.png", max_width=0)
+    assert Image.open(out).size == (64, 48)
+
+
+def test_unreadable_source_raises_chinese(tmp_path):
+    bad = tmp_path / "bad.png"
+    bad.write_bytes(b"not-a-png")
+    try:
+        convert_image(bad, tmp_path / "o.jpg")
+        raise AssertionError("should raise")
+    except ImageOpError as exc:
+        assert "无法读取图片" in str(exc)
+
+
 def test_max_width_downscale(png_64, tmp_path):
     out = convert_image(png_64, tmp_path / "o.png", max_width=32)
     assert Image.open(out).size == (32, 24)

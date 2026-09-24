@@ -1,6 +1,6 @@
 from PIL import Image
 
-from core.gif_ops import merge_gif, split_gif
+from core.gif_ops import GifOpError, merge_gif, split_gif
 from core.safeio import part_path
 
 
@@ -12,6 +12,24 @@ def test_split_two_frames(gif_2f, tmp_path):
 
 def test_split_step(gif_2f, tmp_path):
     assert len(split_gif(gif_2f, tmp_path / "f", step=2)) == 1
+
+
+def test_split_step_below_one_raises(gif_2f, tmp_path):
+    try:
+        split_gif(gif_2f, tmp_path / "f", step=0)
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "抽稀步长至少为 1" in str(exc)
+
+
+def test_split_unreadable_raises(tmp_path):
+    bad = tmp_path / "bad.gif"
+    bad.write_bytes(b"not-a-gif")
+    try:
+        split_gif(bad, tmp_path / "f")
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "无法读取 GIF" in str(exc)
 
 
 def test_split_clean_existing_removes_stale_frames(gif_2f, tmp_path):
@@ -62,3 +80,30 @@ def test_merge_inplace_same_path(gif_2f, tmp_path):
     assert out == gif_2f
     assert out.exists()
     assert not part_path(gif_2f).exists()
+
+
+def test_merge_empty_sources_raises(tmp_path):
+    try:
+        merge_gif([], tmp_path / "m.gif")
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "没有可合并的图片" in str(exc)
+
+
+def test_merge_duration_too_small_raises(gif_2f, tmp_path):
+    frames = split_gif(gif_2f, tmp_path / "f")
+    try:
+        merge_gif(frames, tmp_path / "m.gif", duration_ms=5)
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "帧间隔至少 10 毫秒" in str(exc)
+
+
+def test_merge_unreadable_frame_raises(tmp_path):
+    bad = tmp_path / "bad.png"
+    bad.write_bytes(b"not-a-png")
+    try:
+        merge_gif([bad], tmp_path / "m.gif")
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "无法读取图片" in str(exc)
