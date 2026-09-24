@@ -64,6 +64,41 @@ def test_read_pkg_index_roundtrip():
     assert entries[0].length == 5
 
 
+def test_read_pkg_index_zero_entries():
+    pkg = _build_pkg({})
+    magic, entries = read_pkg_index(pkg)
+    assert entries == []
+
+
+def test_read_pkg_index_normalizes_backslashes():
+    pkg = _build_pkg({"sub\\nested\\a.txt": b"x"})
+    _, entries = read_pkg_index(pkg)
+    assert entries[0].name == "sub/nested/a.txt"
+
+
+def test_read_pkg_index_rejects_oversized_header():
+    # header_len larger than remaining payload
+    data = struct.pack("<I", 0xFFFFFF) + b"XXXX"
+    with pytest.raises(WePkgError, match="头部长度异常"):
+        read_pkg_index(data)
+
+
+def test_read_pkg_index_rejects_absurd_file_count():
+    # valid-looking header, then count > 1_000_000
+    header = b"PKGV0005"
+    data = struct.pack("<I", len(header)) + header + struct.pack("<I", 2_000_000)
+    with pytest.raises(WePkgError, match="文件数异常"):
+        read_pkg_index(data)
+
+
+def test_read_pkg_index_rejects_truncated_entry():
+    header = b"PKGV0005"
+    # count=1 but name_len extends past buffer
+    data = struct.pack("<I", len(header)) + header + struct.pack("<I", 1) + struct.pack("<I", 100) + b"ab"
+    with pytest.raises(WePkgError, match="索引损坏"):
+        read_pkg_index(data)
+
+
 def test_extract_pkg(tmp_path: Path):
     pkg = _build_pkg({"a.txt": b"hello", "sub/b.bin": b"\x00\x01"})
     src = tmp_path / "scene.pkg"
