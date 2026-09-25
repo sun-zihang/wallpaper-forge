@@ -38,13 +38,13 @@ python main.py
 ## 测试
 
 ```bash
-python -m pytest -q --cov=core --cov=gui --cov-fail-under=90
+python -m pytest -q --cov=core --cov=gui --cov-fail-under=93
 python -m ruff check . && python -m ruff format --check .
 node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --test-coverage-lines=95 web/tests/*.test.mjs
 node scripts/check_cdn.mjs
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 164 个 Node 测试（`web/lib/**` 行覆盖 100%）；GitHub Actions 在每次推送上跑桌面（Windows pytest，覆盖率门禁 ≥90%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥95% + JS 语法检查）、ruff 静态检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 164 个 Node 测试（`web/lib/**` 行覆盖 100%）；GitHub Actions 在每次推送上跑桌面（Windows pytest，499 个测试，覆盖率门禁 ≥93%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥95% + JS 语法检查）、ruff 静态检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
 
 ## 打包
 

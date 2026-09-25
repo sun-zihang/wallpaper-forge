@@ -272,3 +272,181 @@ def test_select_boxes_rejects_video_without_ffmpeg(qapp, tmp_path, monkeypatch):
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def _rew_setup(qapp, tmp_path, monkeypatch):
+    from gui import settings_store
+    from gui.pages import rewatermark_page as mod
+    from gui.pages.rewatermark_page import RewatermarkPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+    return mod, RewatermarkPage()
+
+
+def test_select_boxes_without_single_selection_returns_early(qapp, tmp_path, monkeypatch):
+    from gui import settings_store
+    from gui.pages import rewatermark_page as mod
+    from gui.pages.rewatermark_page import RewatermarkPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    msgs = []
+    monkeypatch.setattr(
+        mod.QMessageBox,
+        "information",
+        staticmethod(lambda *a, **k: msgs.append(str(a[2] if len(a) > 2 else k))),
+    )
+    # would open a dialog if reached — must not be called
+    monkeypatch.setattr(
+        mod.BoxSelectDialog,
+        "get_boxes",
+        staticmethod(lambda *a, **k: (_ for _ in ()).throw(AssertionError("dialog opened"))),
+    )
+
+    page = RewatermarkPage()
+    try:
+        page._select_boxes()  # nothing selected → early return
+        assert msgs and "选中一个文件" in msgs[0]
+        assert page._boxes == {}
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_select_boxes_image_opens_dialog_and_records_boxes(qapp, tmp_path, monkeypatch):
+    from gui import settings_store
+    from gui.pages import rewatermark_page as mod
+    from gui.pages.rewatermark_page import RewatermarkPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    page = RewatermarkPage()
+    try:
+        a = tmp_path / "a.png"
+        a.write_bytes(b"x")
+        page.table.add_paths([a])
+        page.table.table.selectRow(0)
+
+        opened = []
+        monkeypatch.setattr(
+            mod.BoxSelectDialog,
+            "get_boxes",
+            staticmethod(
+                lambda parent, preview, title: opened.append((preview, title)) or [(0, 0, 5, 5)]
+            ),
+        )
+        page._select_boxes()
+        assert opened and opened[0][0] == a
+        assert "视频" not in opened[0][1]
+        assert page._boxes[a] == [(0, 0, 5, 5)]
+        assert "已框选 1" in page.boxes_label.text()
+
+        # dialog cancelled → keep existing boxes untouched
+        monkeypatch.setattr(mod.BoxSelectDialog, "get_boxes", staticmethod(lambda *args, **k: None))
+        page._select_boxes()
+        assert page._boxes[a] == [(0, 0, 5, 5)]
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_select_boxes_video_preview_failures(qapp, tmp_path, monkeypatch):
+    from core.rewatermark import RewatermarkError
+    from gui import settings_store
+    from gui.pages import rewatermark_page as mod
+    from gui.pages.rewatermark_page import RewatermarkPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(mod, "ffmpeg_available", lambda: True)
+
+    msgs = []
+    monkeypatch.setattr(
+        mod.QMessageBox,
+        "warning",
+        staticmethod(lambda *a, **k: msgs.append(str(a[2] if len(a) > 2 else k))),
+    )
+
+    page = RewatermarkPage()
+    try:
+        vid = tmp_path / "clip.mp4"
+        vid.write_bytes(b"\x00" * 16)
+        page.table.add_paths([vid])
+        page.table.table.selectRow(0)
+
+        def raise_rew(src, cache):
+            raise RewatermarkError("no frame")
+
+        monkeypatch.setattr(mod, "extract_preview_frame", raise_rew)
+        page._select_boxes()
+        assert msgs and msgs[-1] == "no frame"
+
+        def raise_generic(src, cache):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(mod, "extract_preview_frame", raise_generic)
+        page._select_boxes()
+        assert msgs and msgs[-1] == "视频处理失败：boom"
+
+        # successful preview: title mentions video, boxes recorded
+        preview = tmp_path / "preview.jpg"
+        preview.write_bytes(b"jpg")
+        monkeypatch.setattr(mod, "extract_preview_frame", lambda s, c: preview)
+        opened = []
+        monkeypatch.setattr(
+            mod.BoxSelectDialog,
+            "get_boxes",
+            staticmethod(lambda parent, p, title: opened.append(title) or [(1, 1, 2, 2)]),
+        )
+        page._select_boxes()
+        assert opened and "视频" in opened[0]
+        assert page._boxes[vid] == [(1, 1, 2, 2)]
+        assert "已框选 1" in page.boxes_label.text()
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_start_batch_builds_video_task(qapp, tmp_path, monkeypatch):
+    from core.tasks import TaskKind
+    from gui import settings_store
+    from gui.pages import rewatermark_page as mod
+    from gui.pages.rewatermark_page import RewatermarkPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(mod, "ffmpeg_available", lambda: True)
+
+    page = RewatermarkPage()
+    try:
+        vid = tmp_path / "clip.mp4"
+        vid.write_bytes(b"\x00" * 32)
+        page.table.add_paths([vid])
+        page._boxes[vid] = [(0, 0, 6, 6)]
+
+        submitted = []
+        monkeypatch.setattr(page, "_submit", lambda b: submitted.append(b))
+        monkeypatch.setattr(page, "_confirm_overwrite", lambda s, o: True)
+        page.start_batch()
+        assert len(submitted) == 1
+        t = submitted[0][0]
+        assert t.kind is TaskKind.REMOVE_VIDEO_WATERMARK
+        assert t.params["boxes"] == [(0, 0, 6, 6)]
+        assert t.params["out"].name == "clip_clean.mp4"
+        assert t.outputs == [t.params["out"]]
+
+        # declined confirmation → no submit
+        monkeypatch.setattr(page, "_confirm_overwrite", lambda s, o: False)
+        page.start_batch()
+        assert len(submitted) == 1
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
