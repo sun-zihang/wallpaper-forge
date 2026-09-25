@@ -43,3 +43,7 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[[tool.mypy.overrides]]
+module = ["playwright", "playwright.sync_api", "playwright.*"]
+ignore_missing_imports = true
