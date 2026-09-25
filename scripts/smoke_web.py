@@ -25,6 +25,7 @@ BASE = os.environ.get("SMOKE_BASE", "http://127.0.0.1:8791").rstrip("/")
 png_path = FIX / "wall.png"
 img = Image.new("RGB", (320, 200))
 px = img.load()
+assert px is not None
 for y in range(200):
     for x in range(320):
         px[x, y] = ((x * 3) % 256, (y * 5) % 256, (x + y) % 256)
@@ -56,7 +57,8 @@ def _make_tiny_mp4() -> bool:
         import cv2
         import numpy as np
 
-        w = cv2.VideoWriter(str(tiny_path), cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 48))
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
+        w = cv2.VideoWriter(str(tiny_path), fourcc, 10, (64, 48))
         if w.isOpened():
             for i in range(15):
                 w.write(np.full((48, 64, 3), i * 10 % 255, dtype=np.uint8))
@@ -92,7 +94,7 @@ def _make_tiny_mp4() -> bool:
 if not (tiny_path.exists() and tiny_path.stat().st_size > 1000):
     _make_tiny_mp4()
 
-failures = []
+failures: list[str] = []
 console_errors = []
 warns = []
 
@@ -249,7 +251,7 @@ if warns:
         print(" -", w)
 if failures:
     print(f"SMOKE FAILED: {len(failures)}")
-    for f in failures:
-        print(" -", f)
+    for item in failures:
+        print(" -", item)
     sys.exit(1)
 print("SMOKE PASSED")
