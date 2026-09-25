@@ -26,7 +26,7 @@ def test_darkroom_tokens_and_stylesheet(qapp):
 
 
 def test_file_table_uses_status_tokens_and_mono_font(qapp, tmp_path):
-    from gui.styles import ACCENT, FAINT, FAIL, OK
+    from gui.styles import ACCENT, FAIL, FAINT, OK
     from gui.widgets.file_table import FileTable
 
     source = tmp_path / "clip.mp4"

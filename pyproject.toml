@@ -1,0 +1,39 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [
+    "dist",
+    "build",
+    "vendor",
+    "docs",
+    "hw",
+    ".mimosa",
+    "__pycache__",
+    "site-packages",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # bugbear
+    "SIM",    # simplify
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",     # line length: left to ruff format, long Chinese strings are fine
+    "B905",     # zip(strict=): length mismatches are handled explicitly upstream
+    "RUF001",   # ambiguous unicode in strings: full-width Chinese punctuation is intentional
+    "RUF002",   # ambiguous unicode in comments: same
+    "RUF003",   # ambiguous unicode in comments: same
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]  # assert False is a valid test failure idiom
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

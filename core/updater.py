@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 REPO = "sun-zihang/wallpaper-forge"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -210,7 +211,5 @@ def _download_one(
         return dest
     finally:
         if tmp.exists() and not dest.exists():
-            try:
+            with contextlib.suppress(OSError):
                 tmp.unlink()
-            except OSError:
-                pass

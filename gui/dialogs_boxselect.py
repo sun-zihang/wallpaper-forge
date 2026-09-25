@@ -126,8 +126,8 @@ class BoxSelectDialog(QDialog):
             return
         x, y = img_pt
         for i in range(len(self.boxes_img) - 1, -1, -1):
-            l, t, r, b = self.boxes_img[i]
-            if l <= x <= r and t <= y <= b:
+            left, t, r, b = self.boxes_img[i]
+            if left <= x <= r and t <= y <= b:
                 del self.boxes_img[i]
                 self.hint.setText(f"已选 {len(self.boxes_img)} 个区域（双击可删除）")
                 self._redraw()
@@ -150,11 +150,11 @@ class BoxSelectDialog(QDialog):
         pb = self._to_image_point(b)
         if pa is None or pb is None:
             return None
-        l, r = sorted((pa[0], pb[0]))
+        left, r = sorted((pa[0], pb[0]))
         t, btm = sorted((pa[1], pb[1]))
-        if r - l < 2 or btm - t < 2:
+        if r - left < 2 or btm - t < 2:
             return None
-        return (l, t, r, btm)
+        return (left, t, r, btm)
 
     def _redraw(self) -> None:
         ox, oy, scale, nw, nh = self._layout_metrics()
@@ -171,20 +171,20 @@ class BoxSelectDialog(QDialog):
         selection = QColor(ACCENT)
         selection.setAlpha(50)
         painter.setBrush(selection)
-        for l, t, r, b in self.boxes_img:
-            x1 = ox + int(l * scale)
+        for left, t, r, b in self.boxes_img:
+            x1 = ox + int(left * scale)
             y1 = oy + int(t * scale)
-            w = max(2, int((r - l) * scale))
+            w = max(2, int((r - left) * scale))
             h = max(2, int((b - t) * scale))
             painter.drawRect(x1, y1, w, h)
 
         if self._drag_start and self._drag_end:
             a = self._to_image_rect(self._drag_start, self._drag_end)
             if a:
-                l, t, r, b = a
-                x1 = ox + int(l * scale)
+                left, t, r, b = a
+                x1 = ox + int(left * scale)
                 y1 = oy + int(t * scale)
-                w = max(2, int((r - l) * scale))
+                w = max(2, int((r - left) * scale))
                 h = max(2, int((b - t) * scale))
                 painter.setPen(QColor(ACCENT))
                 active = QColor(ACCENT)

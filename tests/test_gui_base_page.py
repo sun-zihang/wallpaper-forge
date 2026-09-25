@@ -124,7 +124,6 @@ def test_on_task_bookkeeps_outputs_and_failures(qapp, tmp_path):
 
 
 def test_output_mode_value_without_unified_dir_warns(qapp, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from core.tasks import OutputMode
     from gui.pages import base as base_mod
@@ -153,7 +152,6 @@ def test_output_mode_value_without_unified_dir_warns(qapp, monkeypatch):
 
 
 def test_on_batch_done_cancelled_leaves_bar_and_status(qapp, monkeypatch):
-    from gui.pages import base as base_mod
 
     page = _page(qapp)
     statuses = []
@@ -261,8 +259,8 @@ def test_submit_empty_batch_shows_message(qapp, monkeypatch):
 
 
 def test_submit_while_running_shows_message(qapp, monkeypatch):
-    from gui.pages import base as base_mod
     from core.tasks import Task, TaskKind
+    from gui.pages import base as base_mod
 
     page = _page(qapp)
     msgs = []
@@ -282,9 +280,10 @@ def test_submit_while_running_shows_message(qapp, monkeypatch):
 
 
 def test_submit_noop_when_free_space_declined(qapp, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
     from core.tasks import Task, TaskKind
     from gui.pages import base as base_mod
-    from PySide6.QtWidgets import QMessageBox
 
     page = _page(qapp)
     try:

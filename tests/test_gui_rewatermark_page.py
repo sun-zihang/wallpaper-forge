@@ -75,7 +75,6 @@ def test_set_ffmpeg_ok_toggles_banner(qapp):
 
 
 def _rew_page(qapp, tmp_path=None):
-    from gui import settings_store
     from gui.pages.rewatermark_page import RewatermarkPage
 
     if tmp_path is not None:
@@ -115,7 +114,6 @@ def test_selection_changed_labels(qapp, tmp_path, monkeypatch):
 
 
 def test_current_file_requires_single_row(qapp, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from gui import settings_store
     from gui.pages import rewatermark_page as mod
@@ -148,7 +146,6 @@ def test_current_file_requires_single_row(qapp, tmp_path, monkeypatch):
 
 
 def test_start_batch_rejects_missing_boxes(qapp, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from gui import settings_store
     from gui.pages import rewatermark_page as mod
@@ -184,7 +181,6 @@ def test_start_batch_rejects_missing_boxes(qapp, tmp_path, monkeypatch):
 
 
 def test_start_batch_rejects_video_without_ffmpeg(qapp, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from gui import settings_store
     from gui.pages import rewatermark_page as mod
@@ -217,7 +213,6 @@ def test_start_batch_rejects_video_without_ffmpeg(qapp, tmp_path, monkeypatch):
 
 def test_start_batch_builds_image_tasks(qapp, tmp_path, monkeypatch):
     from gui import settings_store
-    from gui.pages import rewatermark_page as mod
     from gui.pages.rewatermark_page import RewatermarkPage
 
     settings_path = tmp_path / "settings.json"
@@ -249,7 +244,6 @@ def test_start_batch_builds_image_tasks(qapp, tmp_path, monkeypatch):
 
 
 def test_select_boxes_rejects_video_without_ffmpeg(qapp, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from gui import settings_store
     from gui.pages import rewatermark_page as mod

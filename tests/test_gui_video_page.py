@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 
@@ -82,7 +80,6 @@ def test_sync_mode_and_frame_mode_visibility(qapp, tmp_path, monkeypatch):
 
 
 def test_apply_settings_clamps_fps_and_fmt(qapp, tmp_path, monkeypatch):
-    from gui import settings_store
 
     page = _page(qapp, tmp_path, monkeypatch)
     try:

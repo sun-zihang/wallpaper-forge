@@ -22,7 +22,7 @@ class ReleaseCheckWorker(QThread):
                 self.finished_ok.emit(None)
         except UpdateError as e:
             self.failed.emit(str(e))
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self.failed.emit(f"检查更新失败：{e}")
 
 
@@ -60,7 +60,7 @@ class DownloadWorker(QThread):
             self.finished_ok.emit(str(self.dest))
         except UpdateError as e:
             self.failed.emit(str(e))
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             self.failed.emit(f"下载失败：{e}")
 
 

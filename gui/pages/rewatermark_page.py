@@ -134,7 +134,7 @@ class RewatermarkPage(BasePage):
             except RewatermarkError as e:
                 QMessageBox.warning(self, "预览失败", str(e))
                 return
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 QMessageBox.warning(self, "预览失败", f"视频处理失败：{e}")
                 return
 
@@ -155,7 +155,7 @@ class RewatermarkPage(BasePage):
             QMessageBox.information(
                 self,
                 "提示",
-                f"以下文件还没有框选区域：\n"
+                "以下文件还没有框选区域：\n"
                 + "\n".join(p.name for p in missing[:5])
                 + ("…" if len(missing) > 5 else ""),
             )

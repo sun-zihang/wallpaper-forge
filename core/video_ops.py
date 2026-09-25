@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 import subprocess
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from core.ffmpeg_finder import find_ffmpeg
 from core.safeio import cleanup_part, needs_part, part_path, replace_part
@@ -85,9 +85,8 @@ def run_ffmpeg(
                                 progress_cb(pct)
                     except (ValueError, ZeroDivisionError):
                         pass
-                elif key == "progress" and val.strip() == "end":
-                    if progress_cb:
-                        progress_cb(100)
+                elif key == "progress" and val.strip() == "end" and progress_cb:
+                    progress_cb(100)
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
@@ -137,7 +136,7 @@ def _cleanup_partial(path: Path | None) -> None:
 def probe_video_duration(src: Path) -> float | None:
     try:
         ff = find_ffmpeg()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     try:
         r = subprocess.run(

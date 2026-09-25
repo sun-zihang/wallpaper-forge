@@ -39,9 +39,8 @@ def split_gif(
             if old.is_file():
                 old.unlink(missing_ok=True)
     outs: list[Path] = []
-    idx = 0
     kept = 0
-    for frame in ImageSequence.Iterator(im):
+    for idx, frame in enumerate(ImageSequence.Iterator(im)):
         if cancel_event is not None and cancel_event.is_set():
             raise GifOpError("已取消")
         if idx % step == 0:
@@ -49,7 +48,6 @@ def split_gif(
             p = out_dir / f"frame_{kept:04d}.png"
             frame.convert("RGBA").save(p)
             outs.append(p)
-        idx += 1
     if not outs:
         raise GifOpError("GIF 中没有可导出的帧")
     return outs

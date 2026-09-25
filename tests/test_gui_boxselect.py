@@ -8,8 +8,8 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 
 
 def test_box_select_missing_image_raises(qapp, tmp_path):
-    from gui.dialogs_boxselect import BoxSelectDialog
     from core.rewatermark import RewatermarkError
+    from gui.dialogs_boxselect import BoxSelectDialog
 
     try:
         BoxSelectDialog(tmp_path / "missing.png")
@@ -69,14 +69,14 @@ def test_box_select_to_image_rect_rejects_tiny_drag(qapp, png_64):
         # identical points → span < 2
         assert dlg._to_image_rect(QPoint(10, 10), QPoint(10, 10)) is None
         # map image-space corners through layout metrics for a valid positive drag
-        ox, oy, scale, nw, nh = dlg._layout_metrics()
+        ox, oy, scale, _nw, _nh = dlg._layout_metrics()
         a = QPoint(ox + int(4 * scale), oy + int(4 * scale))
         b = QPoint(ox + int(40 * scale), oy + int(40 * scale))
         box = dlg._to_image_rect(a, b)
         assert box is not None
-        l, t, r, btm = box
-        assert r - l >= 2 and btm - t >= 2
-        assert 0 <= l < r <= dlg._pix.width()
+        left, t, r, btm = box
+        assert r - left >= 2 and btm - t >= 2
+        assert 0 <= left < r <= dlg._pix.width()
         assert 0 <= t < btm <= dlg._pix.height()
     finally:
         dlg.close()
@@ -89,7 +89,7 @@ def test_box_select_mouse_release_appends_valid_box(qapp, png_64):
 
     dlg = BoxSelectDialog(png_64)
     try:
-        ox, oy, scale, nw, nh = dlg._layout_metrics()
+        ox, oy, scale, _nw, _nh = dlg._layout_metrics()
         start = QPoint(ox + int(4 * scale), oy + int(4 * scale))
         end = QPoint(ox + int(40 * scale), oy + int(40 * scale))
         box = dlg._to_image_rect(start, end)
@@ -123,7 +123,7 @@ def test_box_select_double_click_deletes_box(qapp, png_64):
         box = (4, 4, 30, 30)
         dlg.boxes_img = [box]
         # map image coords → canvas coords via layout metrics
-        ox, oy, scale, nw, nh = dlg._layout_metrics()
+        ox, oy, scale, _nw, _nh = dlg._layout_metrics()
         cx = ox + int(((box[0] + box[2]) // 2) * scale)
         cy = oy + int(((box[1] + box[3]) // 2) * scale)
         event = QMouseEvent(
@@ -170,7 +170,7 @@ def test_box_select_to_image_point_clamps_and_rejects_outside(qapp, png_64):
 
     dlg = BoxSelectDialog(png_64)
     try:
-        ox, oy, scale, nw, nh = dlg._layout_metrics()
+        ox, oy, _scale, nw, nh = dlg._layout_metrics()
         # outside left/top of scaled image
         assert dlg._to_image_point(QPoint(ox - 5, oy + 5)) is None
         assert dlg._to_image_point(QPoint(ox + 5, oy - 5)) is None

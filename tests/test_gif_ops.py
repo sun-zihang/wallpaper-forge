@@ -76,7 +76,7 @@ def test_merge_inplace_same_path(gif_2f, tmp_path):
     out_path = gif_2f  # a.gif
     frames = split_gif(gif_2f, tmp_path / "f")
     # 用 frames[0] 之外再塞一个同名目标：直接 merge 到 gif_2f
-    out = merge_gif(frames + [gif_2f], out_path, duration_ms=50)
+    out = merge_gif([*frames, gif_2f], out_path, duration_ms=50)
     assert out == gif_2f
     assert out.exists()
     assert not part_path(gif_2f).exists()

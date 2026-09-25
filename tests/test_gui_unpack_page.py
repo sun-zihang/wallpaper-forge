@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 
 def _page(qapp, tmp_path, monkeypatch):
     from gui import settings_store
@@ -101,8 +99,7 @@ def test_start_batch_creates_unique_out_dirs_when_not_overwrite(
         a = tmp_path / "a.pkg"
         a.write_bytes(b"x")
         page.table.add_paths([a])
-        # first resolve produces converted/a; pre-create it non-empty so second run numbers
-        conv = tmp_path / "converted"
+        # first resolve produces converted/a; second run must number a fresh out dir
         # start once with overwrite to create base dir contents via resolve only (no write)
         submitted = []
         monkeypatch.setattr(page, "_submit", lambda b: submitted.append(b))

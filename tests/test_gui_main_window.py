@@ -60,7 +60,8 @@ def test_close_declines_when_user_answers_no(qapp, tmp_path, monkeypatch):
 def test_close_cancels_running_tasks_and_saves_geometry(qapp, tmp_path, monkeypatch):
     from PySide6.QtGui import QCloseEvent
 
-    from gui import main_window as mw, settings_store
+    from gui import main_window as mw
+    from gui import settings_store
 
     win = _window(qapp, tmp_path, monkeypatch)
     thread = win.image_page.thread

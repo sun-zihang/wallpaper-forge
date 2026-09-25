@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPainter, QPixmap, QColor
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -19,7 +18,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
-    QComboBox,
 )
 
 from core.annotate import ImageOpError
@@ -102,19 +100,18 @@ class CropDialog(QDialog):
         if event.button() == Qt.LeftButton and self._origin and self._current:
             self.box = self._to_image_box(self._origin, self._current)
             if self.box:
-                l, t, r, b = self.box
-                self.info.setText(f"已选区域：{r - l} × {b - t} 像素")
+                left, t, r, b = self.box
+                self.info.setText(f"已选区域：{r - left} × {b - t} 像素")
         self._redraw()
 
     def _label_geometry(self) -> tuple[int, int, QPixmap]:
-        scaled, scale, nw, nh = self._fit(self.width(), self.height())
         # account for info/buttons roughly: use canvas size
         cw = max(self.canvas.width(), 1)
         ch = max(self.canvas.height(), 1)
-        scaled2, scale, nw, nh = self._fit(cw, ch)
+        scaled, _scale, nw, nh = self._fit(cw, ch)
         ox = (cw - nw) // 2
         oy = (ch - nh) // 2
-        return ox, oy, scaled2
+        return ox, oy, scaled
 
     def _to_image_box(self, a: tuple[int, int], b: tuple[int, int]):
         ox, oy, scaled = self._label_geometry()

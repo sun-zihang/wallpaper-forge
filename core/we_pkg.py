@@ -40,10 +40,11 @@ def read_pkg_index(data: bytes) -> tuple[str, list[PkgEntry]]:
         magic = header.decode("utf-8", errors="ignore").strip("\x00")
     except Exception:
         magic = ""
-    if header_len and not (magic.upper().startswith("PKG") or magic.upper().startswith("PKGM")):
+    if header_len > 1024 and not (
+        magic.upper().startswith("PKG") or magic.upper().startswith("PKGM")
+    ):
         # still attempt parse — some builds embed project path instead
-        if header_len > 1024:
-            raise WePkgError(f"不是有效的 Wallpaper Engine 包（头部: {magic[:40]!r}）")
+        raise WePkgError(f"不是有效的 Wallpaper Engine 包（头部: {magic[:40]!r}）")
     count, pos = _read_u32(data, pos)
     if count > 1_000_000:
         raise WePkgError("不是有效的 Wallpaper Engine 包（文件数异常）")

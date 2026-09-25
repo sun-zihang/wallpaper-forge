@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt, QTimer
@@ -276,10 +277,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app is not None:
             app.removeEventFilter(self)
-            try:
+            with contextlib.suppress(RuntimeError, TypeError):
                 app.focusChanged.disconnect(self._on_focus_changed)
-            except (RuntimeError, TypeError):
-                pass
         self._shortcut_event_filter_installed = False
 
     def _restore_window_state(self) -> None:
@@ -378,7 +377,7 @@ class MainWindow(QMainWindow):
         else:
             self.status_label.setText("就绪")
 
-    def closeEvent(self, event) -> None:  # noqa: N802 - Qt override
+    def closeEvent(self, event) -> None:
         running_pages = [
             p
             for p in (

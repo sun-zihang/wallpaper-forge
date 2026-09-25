@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import struct
 from pathlib import Path
 
@@ -28,7 +27,6 @@ def _extract_mp4_blobs(data: bytes) -> list[bytes]:
             size = struct.unpack_from(">I", data, i - 4)[0]
             start = i - 4
             if size >= 8 and start + size <= len(data):
-                blob = data[start : start + size]
                 # extend if size field is only the ftyp box: try to find next moov/mdat heuristic
                 out.append(_extend_mp4(data, start, start + size))
                 idx = i + 4
@@ -47,10 +45,8 @@ def _extend_mp4(data: bytes, start: int, ftyp_end: int) -> bytes:
         if size < 8 or pos + size > len(data):
             break
         pos += size
-        if typ in (b"moov", b"mdat", b"free", b"wide", b"skip", b"pnot"):
-            # keep going through standard boxes
-            if typ == b"moov":
-                break  # moov often last-ish; include it then stop after mdat+moov seen
+        if typ == b"moov":
+            break  # moov often last-ish; include it then stop after mdat+moov seen
     if pos <= ftyp_end:
         # no clear structure — scan for mdat/moov after ftyp
         for marker in (b"moov", b"mdat"):
@@ -66,7 +62,6 @@ def _extend_mp4(data: bytes, start: int, ftyp_end: int) -> bytes:
 
 def _dedup(blobs: list[bytes]) -> list[bytes]:
     kept: list[bytes] = []
-    spans: list[tuple[int, int]] = []
     # re-scan is hard without offsets; keep longest unique payloads
     seen: set[bytes] = set()
     for b in sorted(blobs, key=len, reverse=True):
@@ -102,7 +97,7 @@ def extract_mpkg(src: Path, out_dir: Path, *, cancel_event=None) -> list[Path]:
 
     # Attempt 1: structured parse
     try:
-        magic, entries = read_pkg_index(data)
+        _magic, entries = read_pkg_index(data)
         # If index parse produced reasonable entries, use extract_pkg path
         if entries and len(entries) < 500_000:
             try:

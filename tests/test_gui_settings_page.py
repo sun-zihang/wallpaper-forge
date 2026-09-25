@@ -8,9 +8,10 @@ from core.ffmpeg_finder import FFmpegNotFound
 
 
 def test_settings_page_about_shows_core_version(qapp, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QLabel
+
     from gui import settings_store
     from gui.pages.settings_page import SettingsPage
-    from PySide6.QtWidgets import QLabel
 
     settings_path = tmp_path / "settings.json"
     settings_path.write_text("{}", encoding="utf-8")

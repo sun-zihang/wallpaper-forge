@@ -7,7 +7,7 @@ import pytest
 
 from core.we_mpkg import WeMpkgError, extract_mpkg, is_mpkg
 from core.we_pkg import WePkgError, extract_pkg, read_pkg_index
-from core.we_tex import WeTexError, extract_embedded, extract_tex
+from core.we_tex import extract_embedded, extract_tex
 
 
 def _build_pkg(files: dict[str, bytes], magic: bytes = b"PKGV0005") -> bytes:
@@ -23,14 +23,10 @@ def _build_pkg(files: dict[str, bytes], magic: bytes = b"PKGV0005") -> bytes:
     def entry_size(name: bytes) -> int:
         return 4 + len(name) + 8
 
-    index_payload = b"".join(
-        struct.pack("<I", len(n.encode())) + n.encode() + b"" for n in names
-    )
     # placeholders for offsets — compute index length first
     count = len(names)
     # iterate to resolve offsets
     # index without offsets values unknown: size = sum(4+namelen+8)
-    index_size = 4 + len(header)  # no - separate
     # actual layout size before data:
     # 4 + len(header) + 4 + sum(4+namelen+8)
     pre = 4 + len(header) + 4 + sum(4 + len(n.encode()) + 8 for n in names)
@@ -66,7 +62,7 @@ def test_read_pkg_index_roundtrip():
 
 def test_read_pkg_index_zero_entries():
     pkg = _build_pkg({})
-    magic, entries = read_pkg_index(pkg)
+    _magic, entries = read_pkg_index(pkg)
     assert entries == []
 
 
@@ -348,7 +344,6 @@ def test_extract_mpkg_empty_carve_raises(tmp_path: Path):
 
 
 def test_extract_mpkg_too_small():
-    src = Path("x.mpkg")
     # write via tmp in test — use monkeypatch-free approach
     import tempfile
 

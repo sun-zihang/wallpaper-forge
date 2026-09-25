@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from PySide6.QtCore import QFileInfo, QItemSelectionModel, QPoint, QSize, Qt, QTimer, Signal
@@ -23,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.styles import ACCENT, BG, BORDER, FAINT, FAIL, MONO_FONT, OK
+from gui.styles import ACCENT, BG, BORDER, FAIL, FAINT, MONO_FONT, OK
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 _VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv"}
@@ -116,10 +117,8 @@ class ImagePreviewDialog(QDialog):
         self.preview_kind = "static"
         pixmap = QPixmap(str(self.image_path))
         size_bytes = 0
-        try:
+        with contextlib.suppress(OSError):
             size_bytes = self.image_path.stat().st_size
-        except OSError:
-            pass
         if (
             self.image_path.suffix.lower() == ".gif"
             and 0 < size_bytes <= _MAX_GIF_PREVIEW_BYTES
@@ -383,9 +382,7 @@ class FileTable(QWidget):
             return False
         if type_value != "all" and self._type_for_path(path) != type_value:
             return False
-        if status_value != "all" and status_item.data(Qt.UserRole) != status_value:
-            return False
-        return True
+        return status_value == "all" or status_item.data(Qt.UserRole) == status_value
 
     def _restore_selection(self) -> None:
         self._filtering = True

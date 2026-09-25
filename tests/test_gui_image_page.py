@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 
 def test_apply_settings_clamps_quality_and_ignores_bad_fmt(qapp, tmp_path, monkeypatch):
     from gui import settings_store
@@ -60,7 +58,6 @@ def test_format_change_persists_and_quality_label_tracks(qapp, tmp_path, monkeyp
 
 
 def test_start_batch_empty_paths_shows_message(qapp, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QMessageBox
 
     from gui import settings_store
     from gui.pages import image_page as mod
@@ -156,8 +153,8 @@ def test_start_batch_submits_convert_task(qapp, tmp_path, monkeypatch):
 
 def test_crop_status_uses_first_of_multi_selection(qapp, tmp_path, monkeypatch):
     from gui import settings_store
-    from gui.pages.image_page import ImagePage
     from gui.dialogs import CropDialog
+    from gui.pages.image_page import ImagePage
 
     settings_path = tmp_path / "settings.json"
     settings_path.write_text("{}", encoding="utf-8")

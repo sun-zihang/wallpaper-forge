@@ -1,4 +1,3 @@
-import pytest
 
 
 def test_select_all_inverse_and_counts(qapp, tmp_path):

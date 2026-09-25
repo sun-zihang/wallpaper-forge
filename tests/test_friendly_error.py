@@ -1,5 +1,5 @@
-from gui.workers import friendly_error
 from core.video_ops import VideoOpError
+from gui.workers import friendly_error
 
 
 def test_friendly_error_appends_stderr_tail():

@@ -47,10 +47,7 @@ def _unique_force(
 ) -> Path:
     n = 0
     while True:
-        if n == 0:
-            cand = path
-        else:
-            cand = path.with_name(f"{path.stem} ({n}){path.suffix}")
+        cand = path if n == 0 else path.with_name(f"{path.stem} ({n}){path.suffix}")
         if overwrite:
             ok = cand.resolve() not in taken
         else:

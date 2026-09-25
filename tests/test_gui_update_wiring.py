@@ -1,6 +1,7 @@
 """Update dialog / worker must thread the release asset SHA256 digest through."""
 
 import hashlib
+from typing import ClassVar
 
 from core.updater import ReleaseInfo
 
@@ -188,7 +189,7 @@ def test_download_update_retries_next_mirror_after_sha256_fail(tmp_path, monkeyp
         payload = bodies[min(len(attempts) - 1, len(bodies) - 1)]
 
         class _Resp:
-            headers = {"Content-Length": str(len(payload))}
+            headers: ClassVar[dict[str, str]] = {"Content-Length": str(len(payload))}
             _payload = payload
             _pos = 0
 

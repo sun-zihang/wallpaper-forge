@@ -1,13 +1,12 @@
 import hashlib
 import json
 import urllib.error
+from typing import ClassVar
 
 import pytest
 
 from core.updater import (
     UpdateError,
-    download_update,
-    fetch_latest_release,
     is_newer,
     manual_download_links,
     mirror_candidates,
@@ -193,7 +192,7 @@ def test_download_update_rejects_bad_sha256(tmp_path, monkeypatch):
 
     def fake_urlopen(req, timeout=None):
         class _Resp:
-            headers = {"Content-Length": str(len(payload))}
+            headers: ClassVar[dict[str, str]] = {"Content-Length": str(len(payload))}
 
             def read(self, n=-1):
                 if getattr(self, "_done", False):
@@ -281,7 +280,7 @@ def test_download_update_cancel_raises_without_mirror_retry(tmp_path, monkeypatc
         attempts.append(getattr(req, "full_url", str(req)))
 
         class _Resp:
-            headers = {"Content-Length": "10"}
+            headers: ClassVar[dict[str, str]] = {"Content-Length": "10"}
 
             def read(self, n=-1):
                 return b"x" * 10
@@ -309,7 +308,7 @@ def test_download_update_incomplete_body_raises(tmp_path, monkeypatch):
 
     def fake_urlopen(req, timeout=None):
         class _Resp:
-            headers = {"Content-Length": "100"}
+            headers: ClassVar[dict[str, str]] = {"Content-Length": "100"}
 
             def read(self, n=-1):
                 if getattr(self, "_done", False):
@@ -359,7 +358,7 @@ def test_download_update_progress_cb_without_content_length(tmp_path, monkeypatc
 
     def fake_urlopen(req, timeout=None):
         class _Resp:
-            headers = {}
+            headers: ClassVar[dict[str, str]] = {}
 
             def read(self, n=-1):
                 if getattr(self, "_pos", 0) >= len(payload):

@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 
 def _setup_sync_submit(page, monkeypatch):
     def sync_submit(batch):
@@ -77,23 +75,23 @@ def test_retry_failed_resubmits_only_failed_subset(qapp, tmp_path, monkeypatch):
 
 
 def test_batch_done_offers_retry_only_with_failed_tasks(qapp):
+    from core.tasks import Task, TaskKind
     from gui.pages.base import BasePage
-    from core.tasks import OutputMode, Task, TaskKind
 
     page = BasePage()
-    box, open_btn, retry_btn = page._build_batch_box(0, 0)
+    box, _open_btn, retry_btn = page._build_batch_box(0, 0)
     assert retry_btn is None
     box.done(0)
 
     task = Task(sources=[Path("x.png")], kind=TaskKind.IMAGE_CONVERT)
     page._failed_tasks = [task]
-    box, open_btn, retry_btn = page._build_batch_box(1, 1)
+    box, _open_btn, retry_btn = page._build_batch_box(1, 1)
     assert retry_btn is not None
     assert retry_btn.text() == "重试失败项"
     box.done(0)
 
     page._failed_tasks = []
-    box, open_btn, retry_btn = page._build_batch_box(1, 1)
+    box, _open_btn, retry_btn = page._build_batch_box(1, 1)
     assert retry_btn is None
     box.done(0)
     page.close()

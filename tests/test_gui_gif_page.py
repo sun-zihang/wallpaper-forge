@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 
 def _page(qapp, tmp_path, monkeypatch):
     from gui import settings_store

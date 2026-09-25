@@ -27,14 +27,14 @@ def validate_boxes(
     for box in boxes:
         if len(box) != 4:
             raise RewatermarkError("区域格式无效")
-        l, t, r, b = (int(v) for v in box)
-        l = max(0, min(l, width - 1))
+        left, t, r, b = (int(v) for v in box)
+        left = max(0, min(left, width - 1))
         t = max(0, min(t, height - 1))
-        r = max(l + 1, min(r, width))
+        r = max(left + 1, min(r, width))
         b = max(t + 1, min(b, height))
-        if r - l < 2 or b - t < 2:
+        if r - left < 2 or b - t < 2:
             raise RewatermarkError("框选区域过小（宽高至少 2 像素）")
-        cleaned.append((l, t, r, b))
+        cleaned.append((left, t, r, b))
     return cleaned
 
 
@@ -47,18 +47,18 @@ def inpaint_image(
 ) -> Path:
     try:
         img = cv2.imread(str(src), cv2.IMREAD_COLOR)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise RewatermarkError(f"无法解码图片：{src.name}（{e}）") from e
     if img is None:
         raise RewatermarkError(f"无法解码图片：{src.name}")
     h, w = img.shape[:2]
     cleaned = validate_boxes(boxes, w, h)
     mask = np.zeros((h, w), dtype=np.uint8)
-    for l, t, r, b in cleaned:
-        mask[t:b, l:r] = 255
+    for left, t, r, b in cleaned:
+        mask[t:b, left:r] = 255
     try:
         out = cv2.inpaint(img, mask, max(1, radius), cv2.INPAINT_TELEA)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise RewatermarkError(f"修复失败：{e}") from e
     dst.parent.mkdir(parents=True, exist_ok=True)
     same = needs_part(src, dst)
@@ -85,11 +85,11 @@ def inpaint_image(
 
 def _delogo_filters(boxes: list[tuple[int, int, int, int]]) -> str:
     parts = []
-    for l, t, r, b in boxes:
-        w = r - l
+    for left, t, r, b in boxes:
+        w = r - left
         h = b - t
         # delogo needs box strictly inside frame with a small margin
-        x = max(0, l - 1)
+        x = max(0, left - 1)
         y = max(0, t - 1)
         parts.append(f"delogo=x={x}:y={y}:w={w + 2}:h={h + 2}")
     return ",".join(parts)
@@ -108,14 +108,14 @@ def remove_video_watermark(
     cleaned = validate_boxes(boxes, frame_width, frame_height)
     # Ensure delogo boxes stay inside the frame (delogo cannot touch borders)
     safe: list[tuple[int, int, int, int]] = []
-    for l, t, r, b in cleaned:
-        l = max(1, l)
+    for left, t, r, b in cleaned:
+        left = max(1, left)
         t = max(1, t)
         r = min(frame_width - 1, r)
         b = min(frame_height - 1, b)
-        if r - l < 2 or b - t < 2:
+        if r - left < 2 or b - t < 2:
             raise RewatermarkError("框选区域过小或贴边，请往内侧挪一点")
-        safe.append((l, t, r, b))
+        safe.append((left, t, r, b))
 
     dst.parent.mkdir(parents=True, exist_ok=True)
     same = needs_part(src, dst)

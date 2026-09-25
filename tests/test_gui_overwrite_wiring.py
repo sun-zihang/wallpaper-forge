@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import pytest
 
-
 _PAGE_KINDS = (
     "image",
     "gif",

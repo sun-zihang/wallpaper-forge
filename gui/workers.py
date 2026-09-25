@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
 
@@ -10,9 +10,14 @@ from core import gif_ops, image_ops, video_ops
 from core.annotate import ImageOpError, add_image_watermark, add_text_watermark, crop_image
 from core.ffmpeg_finder import FFmpegNotFound
 from core.gif_ops import GifOpError
+from core.rewatermark import (
+    RewatermarkError,
+    inpaint_image,
+    probe_video_size,
+    remove_video_watermark,
+)
 from core.tasks import Task, TaskKind
 from core.video_ops import VideoOpError
-from core.rewatermark import RewatermarkError, inpaint_image, probe_video_size, remove_video_watermark
 from core.we_mpkg import WeMpkgError, extract_mpkg
 from core.we_pkg import WePkgError, extract_pkg
 from core.we_tex import WeTexError, extract_tex

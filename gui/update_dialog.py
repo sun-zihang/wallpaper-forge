@@ -10,16 +10,14 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QHBoxLayout,
     QLabel,
     QMessageBox,
     QProgressBar,
-    QPushButton,
     QVBoxLayout,
 )
 
 from core.updater import ReleaseInfo, manual_download_links
-from gui.update_service import DownloadWorker, UpdateService
+from gui.update_service import DownloadWorker
 
 
 class UpdateDialog(QDialog):

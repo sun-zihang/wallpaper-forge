@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 BG = "#14171c"
 PANEL = "#1a1e24"
 PANEL_HI = "#20252d"

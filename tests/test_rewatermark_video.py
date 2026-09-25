@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -14,7 +13,6 @@ from core.rewatermark import (
     extract_preview_frame,
     probe_video_size,
     remove_video_watermark,
-    validate_boxes,
 )
 
 pytestmark = pytest.mark.skipif(not ffmpeg_available(), reason="ffmpeg not found")

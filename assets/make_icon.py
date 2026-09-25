@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_ICO = ROOT / "assets" / "app.ico"
@@ -24,10 +24,7 @@ def _gradient_bg(size: int) -> Image.Image:
     for y in range(size):
         for x in range(size):
             t = (x + y) / max(1, 2 * (size - 1))
-            if t < 0.55:
-                col = _lerp(c0, c1, t / 0.55)
-            else:
-                col = _lerp(c1, c2, (t - 0.55) / 0.45)
+            col = _lerp(c0, c1, t / 0.55) if t < 0.55 else _lerp(c1, c2, (t - 0.55) / 0.45)
             # soft corner vignette-ish highlight top-left
             hl = max(0.0, 1.0 - ((x + y) / max(1.0, float(size) * 1.4)))
             col = _lerp(col, (255, 255, 255), hl * 0.08)
@@ -213,8 +210,6 @@ def make_icon(size: int) -> Image.Image:
             # direction of arc motion (increasing angle): tangent (-sin, cos) but y-down
             tx, ty = -math.sin(a), math.cos(a)
             hs = max(3, int(s * 0.05))
-            p1 = (tipx + int(hs * math.cos(a)), tipy + int(hs * math.sin(a)))
-            p2 = (tipx - int(hs * ty * 0.7) + int(hs * tx * 0.5), tipy - int(hs * (-tx) * 0.7) + int(hs * ty * 0.5))
             # simpler perpendicular base
             px, py = -ty, tx
             b1 = (tipx + int(hs * tx) + int(hs * 0.55 * px), tipy + int(hs * ty) + int(hs * 0.55 * py))
@@ -222,7 +217,6 @@ def make_icon(size: int) -> Image.Image:
             d.polygon([(tipx, tipy), b1, b2], fill=white)
 
         # heads where arcs end (angle 340 and 160 in PIL arc coords)
-        a_end1 = 20  # actually put head at end of drawn arc going cw
         # Arc from 200 to 340: ends at 340
         head(340)
         # Arc 20 to 160: ends at 160

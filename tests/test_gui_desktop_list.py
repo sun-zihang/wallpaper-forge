@@ -32,7 +32,7 @@ def _window(qapp, tmp_path, monkeypatch):
 
 
 def test_search_filter_matches_case_insensitive_substring(qapp, tmp_path):
-    table, paths = _make_table(
+    table, _paths = _make_table(
         qapp, tmp_path, ("Alpha.png", "beta.mp4", "Gamma.jpg")
     )
     try:
@@ -49,7 +49,7 @@ def test_search_filter_matches_case_insensitive_substring(qapp, tmp_path):
 
 
 def test_type_filter_uses_extension_categories(qapp, tmp_path):
-    table, paths = _make_table(
+    table, _paths = _make_table(
         qapp, tmp_path, ("cover.png", "clip.mp4", "loop.gif", "scene.pkg")
     )
     try:
