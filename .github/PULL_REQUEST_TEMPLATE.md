@@ -2,7 +2,7 @@
 
 ## 验证方式
 
-- [ ] `python -m pytest -q --cov=core --cov=gui --cov-fail-under=93`
+- [ ] `python -m pytest -q --cov=core --cov=gui --cov-fail-under=95`
 - [ ] `node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --test-coverage-lines=95 web/tests/*.test.mjs`
 - [ ] `python -m ruff check .` && `python -m ruff format --check .`
 - [ ] `node scripts/check_cdn.mjs`
