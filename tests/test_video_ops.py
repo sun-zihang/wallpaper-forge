@@ -174,6 +174,29 @@ def test_probe_duration_returns_none_without_ffmpeg(monkeypatch):
     assert probe_video_duration(Path("any.mp4")) is None
 
 
+def test_probe_duration_subprocess_error_returns_none(monkeypatch):
+    from core.video_ops import probe_video_duration
+
+    def raise_os(*_a, **_k):
+        raise OSError("spawn failed")
+
+    monkeypatch.setattr("core.video_ops.find_ffmpeg", lambda: Path("ffmpeg"))
+    monkeypatch.setattr("core.video_ops.subprocess.run", raise_os)
+    assert probe_video_duration(Path("any.mp4")) is None
+
+
+def test_probe_duration_no_duration_match_returns_none(monkeypatch):
+    from core.video_ops import probe_video_duration
+
+    class FakeRun:
+        stdout = ""
+        stderr = "Input #0, mov, from 'x.mp4': no duration line here"
+
+    monkeypatch.setattr("core.video_ops.find_ffmpeg", lambda: Path("ffmpeg"))
+    monkeypatch.setattr("core.video_ops.subprocess.run", lambda *a, **k: FakeRun())
+    assert probe_video_duration(Path("any.mp4")) is None
+
+
 def test_cleanup_partial_silent(tmp_path):
     from core.video_ops import _cleanup_partial
 
@@ -183,3 +206,99 @@ def test_cleanup_partial_silent(tmp_path):
     p.write_bytes(b"x")
     _cleanup_partial(p)
     assert not p.exists()
+
+
+def test_convert_video_codec_matrix(tmp_path, monkeypatch):
+    captured: dict[str, list[str]] = {}
+
+    def capture(args, **kw):
+        captured["args"] = list(args)
+
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", capture)
+    monkeypatch.setattr("core.video_ops.probe_video_duration", lambda p: None)
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+
+    convert_video(src, tmp_path / "o.webm", keep_audio=True)
+    args = captured["args"]
+    assert "libvpx-vp9" in args and "libopus" in args
+    assert "-c:a" in args and "-an" not in args
+
+    convert_video(src, tmp_path / "o.mp4", keep_audio=True)
+    args = captured["args"]
+    assert "libx264" in args and "aac" in args
+    assert "-pix_fmt" in args and "yuv420p" in args
+
+    convert_video(src, tmp_path / "o.mkv", keep_audio=False)
+    args = captured["args"]
+    assert "-an" in args and "-c:a" not in args
+    assert "-pix_fmt" not in args  # only mp4/mov force yuv420p
+
+
+def test_extract_frames_clean_existing_skips_foreign_files(tmp_path, monkeypatch):
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    out = tmp_path / "fr"
+    out.mkdir()
+    (out / "notes.txt").write_text("keep", encoding="utf-8")
+    (out / "frame_0009.png").write_bytes(b"stale")
+
+    def fake_run(args, **kw):
+        (out / "frame_0001.png").write_bytes(b"img")
+
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", fake_run)
+    outs = extract_frames(src, out, every_seconds=1, clean_existing=True)
+    assert outs
+    assert (out / "notes.txt").exists()  # non-image foreign file untouched
+    assert not (out / "frame_0009.png").exists()
+    assert (out / "frame_0001.png").exists()
+
+
+def test_extract_frames_at_seconds_success(tmp_path, monkeypatch):
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    out = tmp_path / "fr"
+    captured: list[list[str]] = []
+
+    def fake_run(args, **kw):
+        captured.append(list(args))
+        Path(args[-1]).write_bytes(b"img")
+
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", fake_run)
+    outs = extract_frames(src, out, at_seconds=[1.5, 2.5])
+    assert len(outs) == 2
+    assert outs[0].name == "at_1.5s_01.png"
+    assert outs[1].name == "at_2.5s_02.png"
+    assert captured[0][0] == "-ss" and captured[0][1] == "1.5"
+    assert captured[1][1] == "2.5"
+
+
+def test_extract_frames_at_seconds_cancel_before_each_shot(tmp_path, monkeypatch):
+    import threading
+
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    ev = threading.Event()
+    ev.set()
+    monkeypatch.setattr(
+        "core.video_ops.run_ffmpeg",
+        lambda *a, **k: pytest.fail("must not run ffmpeg when cancelled"),
+    )
+    with pytest.raises(VideoOpError, match="已取消"):
+        extract_frames(src, tmp_path / "fr", at_seconds=[1.0], cancel_event=ev)
+
+
+def test_extract_frames_at_seconds_all_shots_empty_raises(tmp_path, monkeypatch):
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", lambda *a, **k: None)
+    with pytest.raises(VideoOpError, match="未能截取任何帧"):
+        extract_frames(src, tmp_path / "fr", at_seconds=[1.0, 2.0])
+
+
+def test_extract_frames_every_seconds_no_output_raises(tmp_path, monkeypatch):
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"x")
+    monkeypatch.setattr("core.video_ops.run_ffmpeg", lambda *a, **k: None)
+    with pytest.raises(VideoOpError, match="未能截取任何帧"):
+        extract_frames(src, tmp_path / "fr", every_seconds=1)

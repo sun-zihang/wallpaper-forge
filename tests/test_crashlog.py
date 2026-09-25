@@ -91,3 +91,90 @@ def test_write_crash_log_accepts_non_exception_context(tmp_path: Path):
     path = write_crash_log(e, tmp_path / "nested" / "base")
     assert path.is_file()
     assert "custom" in path.read_text(encoding="utf-8")
+
+
+def test_excepthook_falls_back_to_appdata_path(qapp, monkeypatch):
+    from gui import crashlog as mod
+    from gui.crashlog import install_crash_handler
+
+    def boom(*_a, **_k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(mod, "write_crash_log", boom)
+    monkeypatch.setattr(mod, "_expected_log_path", boom)
+    criticals = []
+    monkeypatch.setattr(
+        mod.QMessageBox,
+        "critical",
+        staticmethod(lambda *a, **k: criticals.append(a)),
+    )
+    old = sys.excepthook
+    try:
+        install_crash_handler()
+        try:
+            raise ValueError("fallback-one")
+        except ValueError:
+            info = sys.exc_info()
+        sys.excepthook(*info)  # must not raise
+        assert criticals
+        shown = criticals[0][2]
+        assert "WallpaperConverter" in shown
+        assert "last_error.log" in shown
+    finally:
+        sys.excepthook = old
+
+
+def test_excepthook_final_fallback_when_home_unavailable(qapp, monkeypatch):
+    from gui import crashlog as mod
+    from gui.crashlog import install_crash_handler
+
+    def boom(*_a, **_k):
+        raise OSError("nope")
+
+    def no_home():
+        raise OSError("home unavailable")
+
+    monkeypatch.setattr(mod, "write_crash_log", boom)
+    monkeypatch.setattr(mod, "_expected_log_path", boom)
+    monkeypatch.setattr(mod.Path, "home", staticmethod(no_home))
+    criticals = []
+    monkeypatch.setattr(
+        mod.QMessageBox,
+        "critical",
+        staticmethod(lambda *a, **k: criticals.append(a)),
+    )
+    old = sys.excepthook
+    try:
+        install_crash_handler()
+        try:
+            raise ValueError("fallback-two")
+        except ValueError:
+            info = sys.exc_info()
+        sys.excepthook(*info)  # must not raise
+        assert criticals
+        shown = criticals[0][2]
+        assert "last_error.log" in shown
+        assert "WallpaperConverter" not in shown  # home branch skipped
+    finally:
+        sys.excepthook = old
+
+
+def test_excepthook_swallows_dialog_failure(qapp, tmp_path, monkeypatch):
+    from gui import crashlog as mod
+    from gui.crashlog import install_crash_handler
+
+    def bad_dialog(*_a, **_k):
+        raise RuntimeError("dialog backend down")
+
+    monkeypatch.setattr(mod, "settings_dir", lambda: tmp_path)
+    monkeypatch.setattr(mod.QMessageBox, "critical", staticmethod(bad_dialog))
+    old = sys.excepthook
+    try:
+        install_crash_handler()
+        try:
+            raise ValueError("dialog-crash")
+        except ValueError:
+            info = sys.exc_info()
+        sys.excepthook(*info)  # must not raise despite dialog failure
+    finally:
+        sys.excepthook = old
