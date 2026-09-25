@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run pytest
-        run: python -m pytest -q
+        run: python -m pytest -q --cov=core --cov=gui --cov-report=term --cov-fail-under=90
         env:
           QT_QPA_PLATFORM: offscreen
 

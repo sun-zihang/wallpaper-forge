@@ -38,7 +38,7 @@ python -m pytest -v
 python -m ruff check .
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 111 个 Node 测试；GitHub Actions 在每次推送上跑桌面（Windows pytest）、网页（Ubuntu Node）、ruff 静态检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 111 个 Node 测试；GitHub Actions 在每次推送上跑桌面（Windows pytest，覆盖率门禁 ≥90%）、网页（Ubuntu Node）、ruff 静态检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。
 
 ## 打包
 
