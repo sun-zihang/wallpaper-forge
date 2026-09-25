@@ -1,0 +1,36 @@
+name: Bug 报告
+description: 报告桌面版或网页版的问题
+title: "[bug] "
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 出现位置
+      options:
+        - 桌面版 (Windows)
+        - 网页版
+        - 安装 / 更新
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 复现步骤、期望行为、实际行为
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 期望……，实际……
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本号
+      description: 桌面版在"帮助-关于"查看，网页版在页脚查看
+      placeholder: 0.7.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 报错信息
+      description: 可留空；桌面版崩溃日志在 %LOCALAPPDATA%\WallpaperConverter\logs
