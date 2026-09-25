@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   desktop:
     name: desktop tests (windows)
@@ -37,6 +40,12 @@ jobs:
           node-version: "24"
       - name: Run node tests
         run: node --test web/tests/*.test.mjs
+      - name: JS syntax check
+        run: |
+          set -e
+          for f in $(find web \( -name '*.js' -o -name '*.mjs' \)); do
+            node --check "$f"
+          done
 
   lint:
     name: lint (ruff)

@@ -16,3 +16,6 @@ build/Output/
 .DS_Store
 Thumbs.db
 vendor/_dl/
+.coverage
+.coverage.*
+htmlcov/
