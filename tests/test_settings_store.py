@@ -118,9 +118,7 @@ def test_auto_check_update_default_true():
 def test_settings_dir_is_under_roaming_and_creatable(tmp_path, monkeypatch):
     from gui import settings_store
 
-    monkeypatch.setattr(
-        settings_store.Path, "home", staticmethod(lambda: tmp_path)
-    )
+    monkeypatch.setattr(settings_store.Path, "home", staticmethod(lambda: tmp_path))
     # settings_dir uses Path.home() / "AppData" / ...
     d = settings_store.settings_dir()
     assert d == tmp_path / "AppData" / "Roaming" / "WallpaperConverter"

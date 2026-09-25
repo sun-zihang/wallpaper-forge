@@ -157,20 +157,14 @@ def test_main_window_drag_drop_forwards_to_current_table(qapp, tmp_path, monkeyp
         nested.write_bytes(b"x")
         ignored.write_bytes(b"x")
         mime = QMimeData()
-        mime.setUrls(
-            [QUrl.fromLocalFile(str(image)), QUrl.fromLocalFile(str(tmp_path / "folder"))]
-        )
+        mime.setUrls([QUrl.fromLocalFile(str(image)), QUrl.fromLocalFile(str(tmp_path / "folder"))])
 
-        enter = QDragEnterEvent(
-            QPoint(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier
-        )
+        enter = QDragEnterEvent(QPoint(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
         win.dragEnterEvent(enter)
         assert enter.isAccepted()
         assert "拖拽" in win.status_label.text()
 
-        drop = QDropEvent(
-            QPointF(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier
-        )
+        drop = QDropEvent(QPointF(10, 10), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
         win.dropEvent(drop)
         assert {p.name for p in win.image_page.table.all_paths()} == {
             "image.png",

@@ -1,5 +1,3 @@
-
-
 def test_select_all_inverse_and_counts(qapp, tmp_path):
     from gui.widgets.file_table import FileTable
 
@@ -94,9 +92,7 @@ def test_watermark_reports_count_for_multi_selection(qapp, tmp_path, monkeypatch
     page.table.add_paths(files)
     page.table.table.selectAll()
 
-    monkeypatch.setattr(
-        module.WatermarkDialog, "get_params", staticmethod(lambda parent: None)
-    )
+    monkeypatch.setattr(module.WatermarkDialog, "get_params", staticmethod(lambda parent: None))
 
     page._watermark()
 

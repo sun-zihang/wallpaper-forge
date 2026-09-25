@@ -115,7 +115,6 @@ def test_is_mpkg_magic_and_generic_pkgm():
 def test_extract_mpkg_cancel_after_index_before_carve(tmp_path: Path, monkeypatch):
     import threading
 
-
     src = tmp_path / "c.mpkg"
     # large enough to pass size check; structured parse fails (WePkgError)
     src.write_bytes(b"PKGM0014" + b"\x11" * 64)

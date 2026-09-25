@@ -34,16 +34,12 @@ img2_path = FIX / "second.png"
 Image.new("RGB", (64, 64), (255, 0, 0)).save(img2_path)
 
 gif_path = FIX / "anim.gif"
-frames = [
-    Image.new("RGB", (64, 64), (i * 60 % 256, 100, 255 - i * 60)) for i in range(4)
-]
+frames = [Image.new("RGB", (64, 64), (i * 60 % 256, 100, 255 - i * 60)) for i in range(4)]
 frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=80, loop=0)
 
 png_bytes = png_path.read_bytes()
 tex_path = FIX / "sample.tex"
-tex_path.write_bytes(
-    b"\x00" * 16 + struct.pack("<I", len(png_bytes)) + png_bytes + b"\x00" * 8
-)
+tex_path.write_bytes(b"\x00" * 16 + struct.pack("<I", len(png_bytes)) + png_bytes + b"\x00" * 8)
 
 big_path = FIX / "big.mp4"
 need = 100 * 1024 * 1024 + 1
@@ -72,10 +68,14 @@ def _make_tiny_mp4() -> bool:
     try:
         r = subprocess.run(
             [
-                "ffmpeg", "-y",
-                "-f", "lavfi",
-                "-i", "testsrc=duration=1:size=64x48:rate=10",
-                "-pix_fmt", "yuv420p",
+                "ffmpeg",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=duration=1:size=64x48:rate=10",
+                "-pix_fmt",
+                "yuv420p",
                 str(tiny_path),
             ],
             capture_output=True,
@@ -116,9 +116,9 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: console_errors.append(f"pageerror: {e}"))
     page.on(
         "console",
-        lambda m: console_errors.append(f"console.{m.type}: {m.text}")
-        if m.type == "error"
-        else None,
+        lambda m: (
+            console_errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None
+        ),
     )
 
     # 1. home
@@ -126,9 +126,7 @@ with sync_playwright() as p:
     page.wait_for_load_state("networkidle")
     check(page.locator(".card").count() == 4, "home has 4 cards")
     check("不会上传" in page.content(), "home privacy copy")
-    check(
-        page.locator('#app a[href*="releases"]').count() == 1, "home desktop release link"
-    )
+    check(page.locator('#app a[href*="releases"]').count() == 1, "home desktop release link")
     check(page.locator(".rail nav a").count() == 5, "rail has 5 nav items")
     check(
         page.locator("#footer .mono").first.inner_text().startswith("v"),

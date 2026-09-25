@@ -212,15 +212,11 @@ def test_download_update_rejects_bad_sha256(tmp_path, monkeypatch):
     dest = tmp_path / "WallpaperConverter-Setup-9.9.9.exe"
 
     with pytest.raises(UpdateError, match="校验失败"):
-        updater.download_update(
-            "https://example.com/x.exe", dest, expected_sha256=bad
-        )
+        updater.download_update("https://example.com/x.exe", dest, expected_sha256=bad)
     assert not dest.exists()
     assert not dest.with_suffix(dest.suffix + ".part").exists()
 
-    got = updater.download_update(
-        "https://example.com/x.exe", dest, expected_sha256=good
-    )
+    got = updater.download_update("https://example.com/x.exe", dest, expected_sha256=good)
     assert got.read_bytes() == payload
 
 
@@ -296,9 +292,7 @@ def test_download_update_cancel_raises_without_mirror_retry(tmp_path, monkeypatc
     monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
     dest = tmp_path / "setup.exe"
     with pytest.raises(UpdateError, match="已取消"):
-        updater.download_update(
-            "https://example.com/x.exe", dest, cancel_event=cancel
-        )
+        updater.download_update("https://example.com/x.exe", dest, cancel_event=cancel)
     assert len(attempts) == 1
     assert not dest.exists()
 

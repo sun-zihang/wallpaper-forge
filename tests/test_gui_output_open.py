@@ -14,9 +14,7 @@ def base_page(qapp):
     qapp.processEvents()
 
 
-def test_completion_dialog_open_folder_uses_real_output(
-    base_page, tmp_path, monkeypatch
-):
+def test_completion_dialog_open_folder_uses_real_output(base_page, tmp_path, monkeypatch):
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWidgets import QMessageBox
 
@@ -124,9 +122,7 @@ def test_open_path_selects_file_via_explorer(base_page, tmp_path, monkeypatch):
     assert calls == [["explorer.exe", "/select,", str(out)]]
 
 
-def test_open_path_opens_folder_via_qdesktopservices(
-    base_page, tmp_path, monkeypatch
-):
+def test_open_path_opens_folder_via_qdesktopservices(base_page, tmp_path, monkeypatch):
     from PySide6.QtGui import QDesktopServices
 
     folder = tmp_path / "unified"

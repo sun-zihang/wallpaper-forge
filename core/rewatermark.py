@@ -185,9 +185,7 @@ def probe_video_size(src: Path) -> tuple[int, int]:
 
 def extract_preview_frame(src: Path, dest: Path, *, at: float = 0.0) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    run_ffmpeg(
-        ["-ss", str(at), "-i", str(src), "-frames:v", "1", "-q:v", "2", str(dest)]
-    )
+    run_ffmpeg(["-ss", str(at), "-i", str(src), "-frames:v", "1", "-q:v", "2", str(dest)])
     if not dest.is_file():
         raise RewatermarkError("无法提取视频预览帧")
     return dest

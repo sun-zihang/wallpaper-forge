@@ -63,9 +63,7 @@ def test_extract_preview(watermarked_video, tmp_path: Path):
 def test_remove_video_watermark(watermarked_video, tmp_path: Path):
     out = tmp_path / "clean.mp4"
     boxes = [(100, 4, 155, 28)]
-    remove_video_watermark(
-        watermarked_video, out, boxes, frame_width=160, frame_height=120
-    )
+    remove_video_watermark(watermarked_video, out, boxes, frame_width=160, frame_height=120)
     assert out.is_file() and out.stat().st_size > 0
     w, h = probe_video_size(out)
     assert (w, h) == (160, 120)

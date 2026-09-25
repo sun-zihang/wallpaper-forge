@@ -20,9 +20,7 @@ def test_write_crash_log_creates_dirs_and_content(tmp_path: Path):
     assert "boom-message" in text
 
 
-def test_install_crash_handler_writes_log_and_shows_dialog(
-    qapp, tmp_path, monkeypatch
-):
+def test_install_crash_handler_writes_log_and_shows_dialog(qapp, tmp_path, monkeypatch):
     from gui import crashlog as mod
     from gui.crashlog import install_crash_handler
 

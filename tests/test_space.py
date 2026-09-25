@@ -77,9 +77,7 @@ def test_all_zero_sizes_returns_none(tmp_path: Path):
     assert free_space_warning([src], [tmp_path / "out" / "a.jpg"]) is None
 
 
-def test_output_ancestor_is_file_falls_back_to_source_parent(
-    tmp_path: Path, monkeypatch
-):
+def test_output_ancestor_is_file_falls_back_to_source_parent(tmp_path: Path, monkeypatch):
     src = tmp_path / "a.png"
     src.write_bytes(b"x" * 2048)
     blocker = tmp_path / "out"

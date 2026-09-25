@@ -105,9 +105,7 @@ def test_text_watermark_empty_rejected(png_64, tmp_path):
 
 def test_text_watermark_unknown_position(png_64, tmp_path):
     try:
-        add_text_watermark(
-            png_64, tmp_path / "w.png", text="hi", position="bottom_middle"
-        )
+        add_text_watermark(png_64, tmp_path / "w.png", text="hi", position="bottom_middle")
         raise AssertionError("should raise")
     except ImageOpError as exc:
         assert "未知水印位置" in str(exc)
@@ -118,9 +116,7 @@ def test_image_watermark_scale_bounds(png_64, tmp_path):
     Image.new("RGBA", (8, 8), (255, 0, 0, 200)).save(mark)
     for scale in (0.04, 1.01):
         try:
-            add_image_watermark(
-                png_64, tmp_path / "w2.png", mark=mark, scale=scale
-            )
+            add_image_watermark(png_64, tmp_path / "w2.png", mark=mark, scale=scale)
             raise AssertionError(f"should raise for scale={scale}")
         except ImageOpError as exc:
             assert "水印缩放比例" in str(exc)
@@ -131,9 +127,7 @@ def test_image_watermark_opacity_bounds(png_64, tmp_path):
     Image.new("RGBA", (8, 8), (255, 0, 0, 200)).save(mark)
     for opacity in (-0.01, 1.01):
         try:
-            add_image_watermark(
-                png_64, tmp_path / "w2.png", mark=mark, scale=0.5, opacity=opacity
-            )
+            add_image_watermark(png_64, tmp_path / "w2.png", mark=mark, scale=0.5, opacity=opacity)
             raise AssertionError(f"should raise for opacity={opacity}")
         except ImageOpError as exc:
             assert "透明度" in str(exc)
@@ -162,9 +156,7 @@ def test_all_five_positions_render(png_64, tmp_path):
         "center",
     ):
         out = tmp_path / f"w_{pos}.png"
-        add_image_watermark(
-            png_64, out, mark=mark, scale=0.3, position=pos
-        )
+        add_image_watermark(png_64, out, mark=mark, scale=0.3, position=pos)
         assert Image.open(out).size == (64, 48)
 
 

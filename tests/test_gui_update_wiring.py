@@ -70,7 +70,9 @@ def test_dialog_on_done_oserror_reenables_update_button(qapp, monkeypatch):
         "critical",
         staticmethod(lambda *args: errors.append(args)),
     )
-    monkeypatch.setattr(mod.subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(OSError("no install")))
+    monkeypatch.setattr(
+        mod.subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(OSError("no install"))
+    )
 
     dialog = mod.UpdateDialog(_info(None))
     try:

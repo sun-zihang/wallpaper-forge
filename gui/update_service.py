@@ -47,6 +47,7 @@ class DownloadWorker(QThread):
         from core.updater import download_update
 
         try:
+
             def cb(done: int, total: int) -> None:
                 self.progressed.emit(done, total)
 

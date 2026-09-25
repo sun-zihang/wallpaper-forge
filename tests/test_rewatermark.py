@@ -142,18 +142,14 @@ def test_remove_video_watermark_empty_output(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(vops, "probe_video_duration", lambda p: None)
     with pytest.raises(RewatermarkError, match="输出为空"):
         # same path → uses .part; empty part must be cleaned, source preserved
-        remove_video_watermark(
-            src, src, [(10, 10, 40, 40)], frame_width=100, frame_height=80
-        )
+        remove_video_watermark(src, src, [(10, 10, 40, 40)], frame_width=100, frame_height=80)
     assert src.read_bytes() == b"x" * 32
     assert not part_path(src).exists()
 
     # different path: raises but empty dst may remain (documented behaviour)
     dst = tmp_path / "out.mp4"
     with pytest.raises(RewatermarkError, match="输出为空"):
-        remove_video_watermark(
-            src, dst, [(10, 10, 40, 40)], frame_width=100, frame_height=80
-        )
+        remove_video_watermark(src, dst, [(10, 10, 40, 40)], frame_width=100, frame_height=80)
     assert dst.exists() and dst.stat().st_size == 0
 
 

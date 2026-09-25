@@ -96,9 +96,7 @@ def test_close_second_prompt_declines_when_stuck_confirmed(qapp, tmp_path, monke
     cancelled = []
     monkeypatch.setattr(thread, "cancel", lambda: cancelled.append(True))
     monkeypatch.setattr(thread, "wait", lambda ms: False)
-    calls = _patch_question(
-        monkeypatch, [mw.QMessageBox.Yes, mw.QMessageBox.No]
-    )
+    calls = _patch_question(monkeypatch, [mw.QMessageBox.Yes, mw.QMessageBox.No])
     ev = QCloseEvent()
     try:
         win.closeEvent(ev)
@@ -135,9 +133,7 @@ def test_close_second_prompt_accepts_and_waits_again(qapp, tmp_path, monkeypatch
         _teardown(win, qapp)
 
 
-def test_shortcut_add_files_and_dirs_dispatch_to_current_page(
-    qapp, tmp_path, monkeypatch
-):
+def test_shortcut_add_files_and_dirs_dispatch_to_current_page(qapp, tmp_path, monkeypatch):
     win = _window(qapp, tmp_path, monkeypatch)
     calls = []
     monkeypatch.setattr(win.image_page, "_add_files", lambda: calls.append("files"))
@@ -199,9 +195,7 @@ def test_drag_enter_ignored_without_local_paths(qapp, tmp_path, monkeypatch):
     win = _window(qapp, tmp_path, monkeypatch)
     mime = QMimeData()
     try:
-        enter = QDragEnterEvent(
-            QPoint(5, 5), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier
-        )
+        enter = QDragEnterEvent(QPoint(5, 5), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
         win.dragEnterEvent(enter)
         assert not enter.isAccepted()
         assert "拖拽" not in win.status_label.text()
@@ -230,9 +224,7 @@ def test_drop_ignored_on_settings_page(qapp, tmp_path, monkeypatch):
         )
         win.dragEnterEvent(enter)
         assert not enter.isAccepted()
-        drop = QDropEvent(
-            QPointF(1, 1), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier
-        )
+        drop = QDropEvent(QPointF(1, 1), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
         win.dropEvent(drop)
         assert not drop.isAccepted()
         assert win._drop_status_before is None
@@ -257,9 +249,7 @@ def test_on_no_update_manual_shows_info_auto_stays_silent(qapp, tmp_path, monkey
     from PySide6.QtWidgets import QMessageBox
 
     infos = []
-    monkeypatch.setattr(
-        QMessageBox, "information", staticmethod(lambda *args: infos.append(args))
-    )
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *args: infos.append(args)))
     win = _window(qapp, tmp_path, monkeypatch)
     try:
         win._manual_check = True
@@ -276,15 +266,11 @@ def test_on_no_update_manual_shows_info_auto_stays_silent(qapp, tmp_path, monkey
         _teardown(win, qapp)
 
 
-def test_on_update_check_failed_manual_warns_auto_stays_silent(
-    qapp, tmp_path, monkeypatch
-):
+def test_on_update_check_failed_manual_warns_auto_stays_silent(qapp, tmp_path, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     warnings = []
-    monkeypatch.setattr(
-        QMessageBox, "warning", staticmethod(lambda *args: warnings.append(args))
-    )
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *args: warnings.append(args)))
     win = _window(qapp, tmp_path, monkeypatch)
     try:
         win._manual_check = True
@@ -327,9 +313,7 @@ def test_on_update_available_shows_dialog_and_resets_flag(qapp, tmp_path, monkey
         _teardown(win, qapp)
 
 
-def test_restore_state_tolerates_corrupt_geometry_and_page(
-    qapp, tmp_path, monkeypatch
-):
+def test_restore_state_tolerates_corrupt_geometry_and_page(qapp, tmp_path, monkeypatch):
     win = _window(
         qapp,
         tmp_path,
@@ -374,9 +358,7 @@ def test_refresh_ffmpeg_missing_and_ok(qapp, tmp_path, monkeypatch):
         _teardown(win, qapp)
 
 
-def test_shortcut_state_wrappers_and_event_filter_pass_through(
-    qapp, tmp_path, monkeypatch
-):
+def test_shortcut_state_wrappers_and_event_filter_pass_through(qapp, tmp_path, monkeypatch):
     from PySide6.QtCore import QEvent
 
     win = _window(qapp, tmp_path, monkeypatch)

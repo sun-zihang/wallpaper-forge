@@ -13,9 +13,7 @@ def test_apply_settings_clamps_quality_and_ignores_bad_fmt(qapp, tmp_path, monke
 
     page = ImagePage()
     try:
-        page.apply_settings(
-            {"last_image_format": "NOT_A_FMT", "default_quality": "bad"}
-        )
+        page.apply_settings({"last_image_format": "NOT_A_FMT", "default_quality": "bad"})
         assert page.fmt.currentText() == "JPG"  # invalid fmt ignored
         assert page.quality.value() == 90
         assert page.quality_label.text() == "90"
@@ -69,7 +67,9 @@ def test_start_batch_empty_paths_shows_message(qapp, tmp_path, monkeypatch):
 
     msgs = []
     monkeypatch.setattr(
-        mod.QMessageBox if hasattr(mod, "QMessageBox") else __import__("PySide6.QtWidgets", fromlist=["QMessageBox"]).QMessageBox,
+        mod.QMessageBox
+        if hasattr(mod, "QMessageBox")
+        else __import__("PySide6.QtWidgets", fromlist=["QMessageBox"]).QMessageBox,
         "information",
         staticmethod(lambda *a, **k: msgs.append(str(a[2] if len(a) > 2 else k))),
     )

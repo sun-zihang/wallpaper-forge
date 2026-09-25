@@ -17,6 +17,7 @@ def _build_pkg(files: dict[str, bytes], magic: bytes = b"PKGV0005") -> bytes:
     names = list(files.keys())
     # data block laid out in order
     blobs = [files[n] for n in names]
+
     # offsets relative to data block start — computed after we know index size
     # We assemble: u32 hlen | header | u32 count | entries | data
     # entry size depends on name bytes
@@ -90,7 +91,13 @@ def test_read_pkg_index_rejects_absurd_file_count():
 def test_read_pkg_index_rejects_truncated_entry():
     header = b"PKGV0005"
     # count=1 but name_len extends past buffer
-    data = struct.pack("<I", len(header)) + header + struct.pack("<I", 1) + struct.pack("<I", 100) + b"ab"
+    data = (
+        struct.pack("<I", len(header))
+        + header
+        + struct.pack("<I", 1)
+        + struct.pack("<I", 100)
+        + b"ab"
+    )
     with pytest.raises(WePkgError, match="索引损坏"):
         read_pkg_index(data)
 
@@ -355,11 +362,7 @@ def test_extract_mpkg_too_small():
 
 
 def test_tex_embedded_png():
-    png = (
-        b"\x89PNG\r\n\x1a\n"
-        + b"IHDR" + b"\x00" * 13
-        + b"IEND" + b"\x00" * 4
-    )
+    png = b"\x89PNG\r\n\x1a\n" + b"IHDR" + b"\x00" * 13 + b"IEND" + b"\x00" * 4
     # length prefix
     blob = b"\x00" * 16 + struct.pack("<I", len(png)) + png + b"\x00" * 8
     ext, payload = extract_embedded(blob)

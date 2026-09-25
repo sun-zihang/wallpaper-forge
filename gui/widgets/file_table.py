@@ -65,9 +65,7 @@ class _PreviewImage(QLabel):
         if self._source.isNull() or self.width() <= 0 or self.height() <= 0:
             return
         self.setPixmap(
-            self._source.scaled(
-                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
+            self._source.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         )
 
     def resizeEvent(self, event) -> None:
@@ -100,9 +98,7 @@ class _PreviewMovie(QLabel):
         pix = QPixmap.fromImage(frame)
         if pix.isNull():
             return
-        self.setPixmap(
-            pix.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        )
+        self.setPixmap(pix.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -119,10 +115,7 @@ class ImagePreviewDialog(QDialog):
         size_bytes = 0
         with contextlib.suppress(OSError):
             size_bytes = self.image_path.stat().st_size
-        if (
-            self.image_path.suffix.lower() == ".gif"
-            and 0 < size_bytes <= _MAX_GIF_PREVIEW_BYTES
-        ):
+        if self.image_path.suffix.lower() == ".gif" and 0 < size_bytes <= _MAX_GIF_PREVIEW_BYTES:
             candidate = QMovie(str(self.image_path))
             if candidate.isValid():
                 candidate.setCacheMode(QMovie.CacheAll)
@@ -227,9 +220,7 @@ class FileTable(QWidget):
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["文件", "格式", "大小", "状态", "缩略图"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(
-            3, QHeaderView.ResizeToContents
-        )
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
         self.table.horizontalHeader().resizeSection(4, 52)
         self.table.setIconSize(QSize(28, 28))
@@ -240,9 +231,7 @@ class FileTable(QWidget):
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.table.itemSelectionChanged.connect(self._update_hint)
         self.table.itemSelectionChanged.connect(self._update_preview_state)
-        self.table.verticalScrollBar().valueChanged.connect(
-            self._load_visible_thumbnails
-        )
+        self.table.verticalScrollBar().valueChanged.connect(self._load_visible_thumbnails)
         self.select_all_btn.clicked.connect(self.select_all)
         self.invert_btn.clicked.connect(self.invert_selection)
         self.preview_btn.clicked.connect(self.preview_selected)
@@ -440,9 +429,7 @@ class FileTable(QWidget):
 
     def _update_preview_state(self) -> None:
         path = self._selected_preview_path()
-        self.preview_btn.setEnabled(
-            path is not None and path.suffix.lower() in _IMAGE_EXTS
-        )
+        self.preview_btn.setEnabled(path is not None and path.suffix.lower() in _IMAGE_EXTS)
 
     def preview_selected(self) -> None:
         path = self._selected_preview_path()
@@ -475,9 +462,7 @@ class FileTable(QWidget):
             top = 0
         bottom = self.table.indexAt(viewport.rect().bottomLeft()).row()
         if bottom < top:
-            row_height = max(
-                1, self.table.rowHeight(top) if top < self.table.rowCount() else 1
-            )
+            row_height = max(1, self.table.rowHeight(top) if top < self.table.rowCount() else 1)
             bottom = min(
                 self.table.rowCount() - 1,
                 top + max(0, viewport.height() // row_height),

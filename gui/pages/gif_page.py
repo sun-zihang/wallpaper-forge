@@ -75,9 +75,7 @@ class GifPage(BasePage):
             self.table.set_accept_exts({".gif"})
             self.start_btn.setText("开始拆帧")
         else:
-            self.table.set_accept_exts(
-                {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
-            )
+            self.table.set_accept_exts({".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"})
             self.start_btn.setText("开始合帧")
 
     def start_batch(self) -> None:
@@ -134,7 +132,10 @@ class GifPage(BasePage):
             # merge all into one gif named after first frame stem
             base_src = imgs[0]
             outs = resolve_outputs(
-                [base_src], ".gif", out_mode, self.unified_dir,
+                [base_src],
+                ".gif",
+                out_mode,
+                self.unified_dir,
                 overwrite=self.overwrite_check.isChecked(),
             )
             if not self._confirm_overwrite(imgs, outs):

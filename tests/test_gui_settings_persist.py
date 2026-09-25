@@ -37,9 +37,7 @@ def test_image_format_round_trips_through_settings(qapp, tmp_path, monkeypatch):
     qapp.processEvents()
 
 
-def test_mode_and_dir_write_through_but_loading_does_not_save(
-    qapp, tmp_path, monkeypatch
-):
+def test_mode_and_dir_write_through_but_loading_does_not_save(qapp, tmp_path, monkeypatch):
     from gui.pages import base as base_mod
     from gui.pages.base import BasePage
 

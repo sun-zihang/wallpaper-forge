@@ -103,9 +103,7 @@ class RewatermarkPage(BasePage):
         paths = self.table.selected_or_all()
         if len(paths) == 1:
             n = len(self._boxes.get(paths[0], []))
-            self.boxes_label.setText(
-                f"当前文件已框选 {n} 个区域" if n else "当前文件未框选"
-            )
+            self.boxes_label.setText(f"当前文件已框选 {n} 个区域" if n else "当前文件未框选")
         else:
             self.boxes_label.setText("选中单个文件可查看/编辑框选")
 

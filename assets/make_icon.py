@@ -16,9 +16,9 @@ def _lerp(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[i
 
 def _gradient_bg(size: int) -> Image.Image:
     # Diagonal brand gradient: indigo -> sky -> cyan
-    c0 = (67, 56, 202)   # indigo-700
-    c1 = (37, 99, 235)   # blue-600
-    c2 = (8, 145, 178)   # cyan-700
+    c0 = (67, 56, 202)  # indigo-700
+    c1 = (37, 99, 235)  # blue-600
+    c2 = (8, 145, 178)  # cyan-700
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     px = img.load()
     for y in range(size):
@@ -91,7 +91,9 @@ def _draw_card(
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     x0, y0, x1, y1 = box
-    d.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=max(1, int(radius * 0.12)))
+    d.rounded_rectangle(
+        box, radius=radius, fill=fill, outline=outline, width=max(1, int(radius * 0.12))
+    )
     if landscape:
         pad = max(1, int((x1 - x0) * 0.12))
         _draw_landscape(d, (x0 + pad, y0 + pad, x1 - pad, y1 - pad), scale)
@@ -129,9 +131,15 @@ def _arrow_head(
     tx, ty = -math.sin(a), math.cos(a)
     # outward normal
     nx, ny = math.cos(a), math.sin(a)
-    left = (tip_x - int(size * tx) + int(size * 0.35 * nx), tip_y - int(size * ty) + int(size * 0.35 * ny))
-    right = (tip_x - int(size * tx) - int(size * 0.35 * nx), tip_y - int(size * ty) - int(size * 0.35 * ny))
-    d.polygon([ (tip_x, tip_y), left, right ], fill=color)
+    left = (
+        tip_x - int(size * tx) + int(size * 0.35 * nx),
+        tip_y - int(size * ty) + int(size * 0.35 * ny),
+    )
+    right = (
+        tip_x - int(size * tx) - int(size * 0.35 * nx),
+        tip_y - int(size * ty) - int(size * 0.35 * ny),
+    )
+    d.polygon([(tip_x, tip_y), left, right], fill=color)
 
 
 def make_icon(size: int) -> Image.Image:
@@ -212,8 +220,14 @@ def make_icon(size: int) -> Image.Image:
             hs = max(3, int(s * 0.05))
             # simpler perpendicular base
             px, py = -ty, tx
-            b1 = (tipx + int(hs * tx) + int(hs * 0.55 * px), tipy + int(hs * ty) + int(hs * 0.55 * py))
-            b2 = (tipx + int(hs * tx) - int(hs * 0.55 * px), tipy + int(hs * ty) - int(hs * 0.55 * py))
+            b1 = (
+                tipx + int(hs * tx) + int(hs * 0.55 * px),
+                tipy + int(hs * ty) + int(hs * 0.55 * py),
+            )
+            b2 = (
+                tipx + int(hs * tx) - int(hs * 0.55 * px),
+                tipy + int(hs * ty) - int(hs * 0.55 * py),
+            )
             d.polygon([(tipx, tipy), b1, b2], fill=white)
 
         # heads where arcs end (angle 340 and 160 in PIL arc coords)

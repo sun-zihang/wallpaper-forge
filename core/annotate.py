@@ -50,9 +50,7 @@ def crop_image(src: Path, dst: Path, box: tuple[int, int, int, int]) -> Path:
     im = _open_rgba(src)
     left, top, right, bottom = box
     if not (0 <= left < right <= im.width and 0 <= top < bottom <= im.height):
-        raise ImageOpError(
-            f"裁剪区域无效: 必须在 0..{im.width} × 0..{im.height} 范围内"
-        )
+        raise ImageOpError(f"裁剪区域无效: 必须在 0..{im.width} × 0..{im.height} 范围内")
     out = im.crop((left, top, right, bottom))
     dst.parent.mkdir(parents=True, exist_ok=True)
     fmt = Image.registered_extensions().get(dst.suffix.lower())

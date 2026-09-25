@@ -126,9 +126,7 @@ class BasePage(QWidget):
         return self._settings.get("last_dir") or ""
 
     def _pick_out(self) -> None:
-        dir_ = QFileDialog.getExistingDirectory(
-            self, "选择统一输出目录", self._last_dir()
-        )
+        dir_ = QFileDialog.getExistingDirectory(self, "选择统一输出目录", self._last_dir())
         if dir_:
             self.unified_dir = Path(dir_)
             self.unified_edit.setText(str(self.unified_dir))
@@ -217,9 +215,7 @@ class BasePage(QWidget):
     def _on_task(self, task) -> None:
         status = getattr(task, "status", "pending")
         error = getattr(task, "error", "") or ""
-        outputs = [
-            o for o in (getattr(task, "outputs", []) or []) if isinstance(o, Path)
-        ]
+        outputs = [o for o in (getattr(task, "outputs", []) or []) if isinstance(o, Path)]
         sources = [Path(s) for s in getattr(task, "sources", [])]
         if status == "done":
             for o in outputs:

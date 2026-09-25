@@ -44,9 +44,7 @@ def test_never_points_at_source_file(tmp_path: Path):
 def test_overwrite_allows_same_path_as_source(tmp_path: Path):
     src = tmp_path / "a.png"
     src.write_bytes(b"x")
-    outs = resolve_outputs(
-        [src], "png", OutputMode.UNIFIED, tmp_path, overwrite=True
-    )
+    outs = resolve_outputs([src], "png", OutputMode.UNIFIED, tmp_path, overwrite=True)
     assert outs == [src]
 
 
@@ -56,9 +54,7 @@ def test_overwrite_keeps_existing_output_path(tmp_path: Path):
     outdir.mkdir()
     (outdir / "a.jpg").write_bytes(b"old")
     src.write_bytes(b"x")
-    outs = resolve_outputs(
-        [src], "jpg", OutputMode.UNIFIED, outdir, overwrite=True
-    )
+    outs = resolve_outputs([src], "jpg", OutputMode.UNIFIED, outdir, overwrite=True)
     assert outs == [outdir / "a.jpg"]
 
 
@@ -68,9 +64,7 @@ def test_overwrite_still_dedupes_within_batch(tmp_path: Path):
     b.parent.mkdir()
     a.write_bytes(b"1")
     b.write_bytes(b"2")
-    outs = resolve_outputs(
-        [a, b], "jpg", OutputMode.UNIFIED, tmp_path / "out", overwrite=True
-    )
+    outs = resolve_outputs([a, b], "jpg", OutputMode.UNIFIED, tmp_path / "out", overwrite=True)
     assert outs[0].name == "a.jpg"
     assert outs[1].name == "a (1).jpg"
 
@@ -106,9 +100,7 @@ def test_resolve_out_dir_overwrite_conflicts_with_file_same_name(tmp_path: Path)
     d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
     d.parent.mkdir(parents=True, exist_ok=True)
     d.write_bytes(b"not-a-dir")
-    d2 = resolve_out_dir(
-        src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True
-    )
+    d2 = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True)
     assert d2.name == "anim_frames (1)"
 
 
@@ -161,9 +153,7 @@ def test_resolve_out_dir_overwrite_reuses_nonempty(tmp_path: Path):
     d = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames")
     d.mkdir(parents=True)
     (d / "frame_0001.png").write_bytes(b"x")
-    d2 = resolve_out_dir(
-        src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True
-    )
+    d2 = resolve_out_dir(src, OutputMode.BESIDE, None, name_suffix="_frames", overwrite=True)
     assert d2 == d
 
 
@@ -201,9 +191,7 @@ def test_empty_source_list_returns_empty():
 
 def test_resolve_out_dir_unified_requires_dir_regardless_of_taken(tmp_path: Path):
     try:
-        resolve_out_dir(
-            tmp_path / "x.gif", OutputMode.UNIFIED, None, taken=set()
-        )
+        resolve_out_dir(tmp_path / "x.gif", OutputMode.UNIFIED, None, taken=set())
         raise AssertionError("should raise")
     except ValueError as exc:
         assert "unified_dir" in str(exc)

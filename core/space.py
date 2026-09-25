@@ -25,9 +25,7 @@ def _existing_ancestor(path: Path) -> Path | None:
     return probe
 
 
-def free_space_warning(
-    sources: list[Path], outputs: list[Path] | None = None
-) -> str | None:
+def free_space_warning(sources: list[Path], outputs: list[Path] | None = None) -> str | None:
     """Return a warning message when free space likely cannot hold the batch.
 
     Heuristic: needs roughly the total size of the selected sources. Returns
@@ -60,7 +58,6 @@ def free_space_warning(
         return None
     if free < total:
         return (
-            f"输出磁盘剩余 {_fmt(free)}，所选文件合计约 {_fmt(total)}，"
-            "空间可能不足。仍要开始吗？"
+            f"输出磁盘剩余 {_fmt(free)}，所选文件合计约 {_fmt(total)}，空间可能不足。仍要开始吗？"
         )
     return None

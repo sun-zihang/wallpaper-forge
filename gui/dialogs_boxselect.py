@@ -36,9 +36,7 @@ class BoxSelectDialog(QDialog):
         self._drag_end: QPoint | None = None
 
         layout = QVBoxLayout(self)
-        self.hint = QLabel(
-            "按住左键拖拽画框，可画多个；双击已有框可删除。确认后点「确定」。"
-        )
+        self.hint = QLabel("按住左键拖拽画框，可画多个；双击已有框可删除。确认后点「确定」。")
         self.hint.setObjectName("mutedText")
         layout.addWidget(self.hint)
 

@@ -50,6 +50,8 @@ jobs:
         run: pip install ruff==0.16.9
       - name: ruff check
         run: python -m ruff check .
+      - name: ruff format --check
+        run: python -m ruff format --check .
 
   cdn-pins:
     name: cdn pins reachable

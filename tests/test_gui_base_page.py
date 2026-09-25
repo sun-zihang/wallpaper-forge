@@ -159,7 +159,9 @@ def test_on_batch_done_cancelled_leaves_bar_and_status(qapp, monkeypatch):
         page.progress.setValue(37)
         monkeypatch.setattr(page, "_on_status", lambda t: statuses.append(t))
         monkeypatch.setattr(
-            page, "_ask_batch_done", lambda ok, failed: (_ for _ in ()).throw(AssertionError("should not ask"))
+            page,
+            "_ask_batch_done",
+            lambda ok, failed: (_ for _ in ()).throw(AssertionError("should not ask")),
         )
         page.start_btn.setEnabled(False)
         page.cancel_btn.setEnabled(True)

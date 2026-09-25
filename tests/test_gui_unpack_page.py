@@ -89,9 +89,7 @@ def test_start_batch_declined_overwrite_no_submit(qapp, tmp_path, monkeypatch):
         qapp.processEvents()
 
 
-def test_start_batch_creates_unique_out_dirs_when_not_overwrite(
-    qapp, tmp_path, monkeypatch
-):
+def test_start_batch_creates_unique_out_dirs_when_not_overwrite(qapp, tmp_path, monkeypatch):
     page = _page(qapp, tmp_path, monkeypatch)
     try:
         # two same-stem different-ext would collide differently; use taken via same name impossible

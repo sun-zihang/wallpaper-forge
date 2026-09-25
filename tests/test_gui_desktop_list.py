@@ -32,9 +32,7 @@ def _window(qapp, tmp_path, monkeypatch):
 
 
 def test_search_filter_matches_case_insensitive_substring(qapp, tmp_path):
-    table, _paths = _make_table(
-        qapp, tmp_path, ("Alpha.png", "beta.mp4", "Gamma.jpg")
-    )
+    table, _paths = _make_table(qapp, tmp_path, ("Alpha.png", "beta.mp4", "Gamma.jpg"))
     try:
         table.search_edit.setText("alpha")
         assert [r for r in range(3) if not table.table.isRowHidden(r)] == [0]
@@ -49,9 +47,7 @@ def test_search_filter_matches_case_insensitive_substring(qapp, tmp_path):
 
 
 def test_type_filter_uses_extension_categories(qapp, tmp_path):
-    table, _paths = _make_table(
-        qapp, tmp_path, ("cover.png", "clip.mp4", "loop.gif", "scene.pkg")
-    )
+    table, _paths = _make_table(qapp, tmp_path, ("cover.png", "clip.mp4", "loop.gif", "scene.pkg"))
     try:
         table.type_filter.setCurrentText("图片")
         assert [r for r in range(4) if not table.table.isRowHidden(r)] == [0]
@@ -86,9 +82,7 @@ def test_status_filter_matches_current_status_text(qapp, tmp_path):
 
 
 def test_filtering_does_not_change_selection_contracts(qapp, tmp_path):
-    table, paths = _make_table(
-        qapp, tmp_path, ("keep.png", "hidden.mp4", "other.pkg")
-    )
+    table, paths = _make_table(qapp, tmp_path, ("keep.png", "hidden.mp4", "other.pkg"))
     try:
         table.table.selectRow(1)
         table.search_edit.setText("keep")

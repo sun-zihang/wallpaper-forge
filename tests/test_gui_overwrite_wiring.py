@@ -127,9 +127,7 @@ def test_overwrite_check_exists_and_defaults_unchecked(base_page, qapp):
     assert base_page.overwrite_check.checkState() == Qt.Unchecked
 
 
-def test_overwrite_check_is_not_loaded_or_applied_from_settings(
-    base_page, tmp_path, monkeypatch
-):
+def test_overwrite_check_is_not_loaded_or_applied_from_settings(base_page, tmp_path, monkeypatch):
     from gui import settings_store
 
     settings_path = tmp_path / "settings.json"
@@ -175,9 +173,7 @@ def test_confirm_overwrite_skips_dialog_when_unchecked(base_page, monkeypatch, t
     assert calls == []
 
 
-def test_confirm_overwrite_skips_dialog_without_source_collision(
-    base_page, monkeypatch, tmp_path
-):
+def test_confirm_overwrite_skips_dialog_without_source_collision(base_page, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QMessageBox
 
     calls = []
@@ -233,9 +229,7 @@ def test_confirm_overwrite_uses_safe_dialog_for_source_collision(
 
 @pytest.mark.parametrize("kind", _PAGE_KINDS)
 @pytest.mark.parametrize("checked", [False, True], ids=["unchecked", "checked"])
-def test_start_batch_passes_overwrite_to_page_resolver(
-    kind, checked, page_case
-):
+def test_start_batch_passes_overwrite_to_page_resolver(kind, checked, page_case):
     case = page_case(kind)
     case.page.overwrite_check.setChecked(checked)
 
@@ -250,9 +244,7 @@ def test_start_batch_passes_overwrite_to_page_resolver(
 
 
 @pytest.mark.parametrize("kind", _PAGE_KINDS)
-def test_start_batch_does_not_submit_after_overwrite_cancel(
-    kind, page_case, monkeypatch
-):
+def test_start_batch_does_not_submit_after_overwrite_cancel(kind, page_case, monkeypatch):
     case = page_case(kind)
     case.page.overwrite_check.setChecked(True)
     confirmations = []

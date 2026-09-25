@@ -46,9 +46,7 @@ def test_convert_to_webm(tiny_mp4, tmp_path):
 
 
 def test_video_to_gif(tiny_mp4, tmp_path):
-    out = video_to_gif(
-        tiny_mp4, tmp_path / "o.gif", fps=5, width=32, max_duration=1
-    )
+    out = video_to_gif(tiny_mp4, tmp_path / "o.gif", fps=5, width=32, max_duration=1)
     assert out.exists()
 
 

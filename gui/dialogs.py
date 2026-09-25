@@ -64,7 +64,9 @@ class CropDialog(QDialog):
 
     def _fit(self, w: int, h: int) -> tuple[QPixmap, float, int, int]:
         available = self.canvas.size()
-        scale = min(available.width() / self._pix.width(), available.height() / self._pix.height(), 1.0)
+        scale = min(
+            available.width() / self._pix.width(), available.height() / self._pix.height(), 1.0
+        )
         scale = max(scale, 0.01)
         nw = max(1, int(self._pix.width() * scale))
         nh = max(1, int(self._pix.height() * scale))

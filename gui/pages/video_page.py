@@ -55,7 +55,9 @@ class VideoPage(BasePage):
         super().__init__(_VIDEO_EXTS)
         self._ffmpeg_ok = True
 
-        self.banner = QLabel("未检测到 ffmpeg，视频功能不可用。请安装 ffmpeg 或设置 WALLPAPER_FORGE_FFMPEG。")
+        self.banner = QLabel(
+            "未检测到 ffmpeg，视频功能不可用。请安装 ffmpeg 或设置 WALLPAPER_FORGE_FFMPEG。"
+        )
         self.banner.setObjectName("banner")
         self.banner.hide()
 

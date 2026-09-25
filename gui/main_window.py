@@ -132,11 +132,7 @@ class MainWindow(QMainWindow):
         if table is None:
             event.ignore()
             return
-        paths = [
-            Path(url.toLocalFile())
-            for url in event.mimeData().urls()
-            if url.toLocalFile()
-        ]
+        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if url.toLocalFile()]
         if paths:
             table.add_paths(paths)
             event.acceptProposedAction()
@@ -173,12 +169,8 @@ class MainWindow(QMainWindow):
         self.add_folder_shortcut = self._make_shortcut(
             "add_folder", "Ctrl+Shift+O", self._shortcut_add_dirs
         )
-        self.start_shortcut = self._make_shortcut(
-            "start", "Ctrl+Enter", self._shortcut_start
-        )
-        self.cancel_shortcut = self._make_shortcut(
-            "cancel", "Esc", self._shortcut_cancel
-        )
+        self.start_shortcut = self._make_shortcut("start", "Ctrl+Enter", self._shortcut_start)
+        self.cancel_shortcut = self._make_shortcut("cancel", "Esc", self._shortcut_cancel)
         self.select_all_shortcut = self._make_shortcut(
             "select_all", "Ctrl+A", self._shortcut_select_all
         )
@@ -423,11 +415,7 @@ class MainWindow(QMainWindow):
         from gui.settings_store import save_settings
 
         save_settings(
-            {
-                "window_geometry": base64.b64encode(bytes(self.saveGeometry())).decode(
-                    "ascii"
-                )
-            }
+            {"window_geometry": base64.b64encode(bytes(self.saveGeometry())).decode("ascii")}
         )
         event.accept()
 

@@ -118,7 +118,13 @@ def fetch_latest_release(timeout: float = 12.0) -> ReleaseInfo:
         try:
             body = _http_get(url, timeout=timeout)
             return parse_latest_release(body.decode("utf-8", errors="replace"))
-        except (urllib.error.URLError, TimeoutError, OSError, UpdateError, json.JSONDecodeError) as e:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            UpdateError,
+            json.JSONDecodeError,
+        ) as e:
             last_err = e
             continue
     raise UpdateError(f"无法获取最新版本信息：{last_err}")
