@@ -38,7 +38,7 @@ def convert_image(
     im = _open_rgba(src)
     if max_width and max_width > 0 and im.width > max_width:
         ratio = max_width / im.width
-        im = im.resize((max_width, max(1, round(im.height * ratio))), Image.LANCZOS)
+        im = im.resize((max_width, max(1, round(im.height * ratio))), Image.Resampling.LANCZOS)
     dst.parent.mkdir(parents=True, exist_ok=True)
     save_kw: dict = {}
     if ext in _QUALITY_EXTS:

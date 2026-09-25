@@ -12,6 +12,12 @@ extend-exclude = [
     "site-packages",
 ]
 
+[tool.mypy]
+python_version = "3.13"
+files = ["core"]
+check_untyped_defs = true
+warn_unused_ignores = true
+
 [tool.ruff.lint]
 select = [
     "E",      # pycodestyle errors

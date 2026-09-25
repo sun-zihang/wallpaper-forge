@@ -37,7 +37,7 @@ def _paste_pos(
     return (canvas_w - mark_w) // 2, (canvas_h - mark_h) // 2
 
 
-def _load_font(size: int) -> ImageFont.ImageFont:
+def _load_font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
     for name in ("arial.ttf", "msyh.ttc", "segoeui.ttf"):
         try:
             return ImageFont.truetype(name, size)
@@ -74,7 +74,7 @@ def add_text_watermark(
     base = _open_rgba(src).convert("RGBA")
     font = _load_font(font_size)
     bbox = ImageDraw.Draw(Image.new("RGBA", (1, 1))).textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    tw, th = int(bbox[2] - bbox[0]), int(bbox[3] - bbox[1])
     layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
     x, y = _paste_pos(base.width, base.height, tw, th, position, margin)
     draw = ImageDraw.Draw(layer)
@@ -105,7 +105,7 @@ def add_image_watermark(
     mark_im = _open_rgba(mark).convert("RGBA")
     mw = max(1, round(base.width * scale))
     mh = max(1, round(mark_im.height * (mw / mark_im.width)))
-    mark_im = mark_im.resize((mw, mh), Image.LANCZOS)
+    mark_im = mark_im.resize((mw, mh), Image.Resampling.LANCZOS)
     if opacity < 1.0:
         alpha = mark_im.getchannel("A").point(lambda a: int(a * opacity))
         mark_im.putalpha(alpha)

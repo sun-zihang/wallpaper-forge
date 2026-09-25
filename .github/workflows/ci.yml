@@ -29,6 +29,8 @@ jobs:
         run: python -m pytest -q --cov=core --cov=gui --cov-report=term --cov-fail-under=98
         env:
           QT_QPA_PLATFORM: offscreen
+      - name: Run mypy (core)
+        run: python -m mypy core
 
   web:
     name: web tests (node)

@@ -40,6 +40,7 @@ python main.py
 ```bash
 python -m pytest -q --cov=core --cov=gui --cov-fail-under=98
 python -m ruff check . && python -m ruff format --check .
+python -m mypy core
 node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --test-coverage-lines=98 web/tests/*.test.mjs
 node scripts/check_cdn.mjs
 ```

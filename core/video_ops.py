@@ -55,6 +55,7 @@ def run_ffmpeg(
     stderr_lines: list[str] = []
     last_pct = -1
     kill_reason: str | None = None
+    duration_s = duration or 0.0
 
     def _read_stderr() -> None:
         assert proc.stderr is not None
@@ -78,7 +79,7 @@ def run_ffmpeg(
                 if key == "out_time_us":
                     try:
                         secs = int(float(val)) / 1_000_000.0
-                        pct = int(max(0, min(100, secs * 100.0 / float(duration))))
+                        pct = int(max(0, min(100, secs * 100.0 / duration_s)))
                         if pct != last_pct:
                             last_pct = pct
                             if progress_cb:
