@@ -192,6 +192,23 @@ def test_no_progress_mode_cancel_pre_set(monkeypatch, tmp_path):
     assert not cleanup.exists()
 
 
+def test_progress_cb_exception_kills_live_process(monkeypatch, tmp_path):
+    proc = FakeProc(stdout_lines=["out_time_us=1000000\n"], returncode=None)
+    _patch(monkeypatch, proc)
+
+    def boom(_pct):
+        raise RuntimeError("callback exploded")
+
+    with pytest.raises(RuntimeError, match="callback exploded"):
+        run_ffmpeg(
+            ["-i", "a.mp4", "o.mp4"],
+            progress_cb=boom,
+            duration=10.0,
+            cleanup=tmp_path / "o.mp4",
+        )
+    assert proc.killed  # finally block must terminate the still-running proc
+
+
 def test_popen_oserror_wrapped(monkeypatch):
     def boom(cmd, **kw):
         raise FileNotFoundError("no ffmpeg binary")

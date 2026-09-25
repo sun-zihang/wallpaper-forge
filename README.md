@@ -45,7 +45,7 @@ node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --
 node scripts/check_cdn.mjs
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 164 个 Node 测试（`web/lib/**` 行覆盖 100%）；GitHub Actions 在每次推送上跑桌面（Windows pytest，561 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 164 个 Node 测试（`web/lib/**` 行覆盖 100%）；GitHub Actions 在每次推送上跑桌面（Windows pytest，562 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
 
 ## 打包
 
@@ -66,7 +66,7 @@ iscc build/installer.iss
 
 ## 下载
 
-最新版：**[v0.7.1](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.7.1)**（依赖升级 PySide6 6.11 / Pillow 12.3 / OpenCV 5，ruff + mypy 全量门禁，561 个测试覆盖率 99.6%；网页版已上线 GitHub Pages）
+最新版：**[v0.7.1](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.7.1)**（依赖升级 PySide6 6.11 / Pillow 12.3 / OpenCV 5，ruff + mypy 全量门禁，562 个测试覆盖率 99.6%；网页版已上线 GitHub Pages）
 
 国内若 GitHub 较慢，优先用镜像直链（任选其一，粘贴到浏览器）：
 
