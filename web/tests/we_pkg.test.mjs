@@ -161,3 +161,21 @@ test("empty index extracts nothing", () => {
   const { files } = extractPkg(pkg);
   assert.equal(files.length, 0);
 });
+
+test("oversized non-PKG header magic rejected", () => {
+  const enc = new TextEncoder();
+  const data = new Uint8Array(1200);
+  new DataView(data.buffer).setUint32(0, 1100, true);
+  data.set(enc.encode("ZZZZ".padEnd(1100, "A")), 4);
+  assert.throws(() => readPkgIndex(data), (e) => {
+    assert.equal(e.label, "PKG 解包失败");
+    assert.match(e.detail, /头部: ZZZZ/);
+    return true;
+  });
+  // headerLen <= 1024 with a non-PKG magic falls through (short probes allowed)
+  const short = new Uint8Array(64);
+  new DataView(short.buffer).setUint32(0, 8, true);
+  short.set(enc.encode("PROBE001"), 4);
+  const { magic } = readPkgIndex(short);
+  assert.equal(magic, "PROBE001");
+});

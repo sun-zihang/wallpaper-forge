@@ -116,9 +116,9 @@ function canvasFromBuffer(buffer, width, height) {
   return canvas;
 }
 
-export async function splitGif(file, { step = 1, token } = {}) {
+export async function splitGif(file, { step = 1, token, gifuct } = {}) {
   if (step < 1) throw new AppError("GIF 处理失败", "抽稀步长至少为 1");
-  const { frames } = await loadGifFrames(file, { token });
+  const { frames } = await loadGifFrames(file, { token, gifuct });
   const base = (file.name || "a.gif").replace(/\.gif$/i, "");
   const files = [];
   let kept = 0;

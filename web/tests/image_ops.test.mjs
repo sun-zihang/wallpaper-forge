@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OUT_EXTS, IMAGE_EXTS, OUT_FORMATS, outputExtFor, qualityExts, canvasToBmp } from "../lib/image_ops.js";
+import { OUT_EXTS, IMAGE_EXTS, OUT_FORMATS, outputExtFor, qualityExts, canvasToBmp, convertImage, loadImageBitmap } from "../lib/image_ops.js";
 
 function fakeCanvas(w, h, rgba) {
   return {
@@ -82,4 +82,130 @@ test("bmp rows are padded to 4 bytes and stored bottom-up in BGR", async () => {
   assert.deepEqual([...buf.subarray(54 + w * 3, 54 + rowBytes)], [0, 0, 0]);
   const secondRow = buf.subarray(54 + rowBytes, 54 + rowBytes + w * 3);
   assert.deepEqual([...secondRow], [3, 2, 1, 6, 5, 4, 9, 8, 7]);
+});
+
+function installCanvasEnv(t, { bitmapW = 100, bitmapH = 50, failDecode = false, blobNull = false } = {}) {
+  const state = { canvases: [], closed: 0, bitmapError: null };
+  const origDoc = globalThis.document;
+  const origCreate = globalThis.createImageBitmap;
+  globalThis.document = {
+    createElement(tag) {
+      assert.equal(tag, "canvas");
+      const calls = [];
+      const ctx = {
+        imageSmoothingQuality: "low",
+        drawImage(...a) {
+          calls.push(["drawImage", ...a]);
+        },
+        getImageData(x, y, w2, h2) {
+          const data = new Uint8ClampedArray(w2 * h2 * 4);
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] = (i + 1) % 256;
+            data[i + 1] = (i + 2) % 256;
+            data[i + 2] = (i + 3) % 256;
+            data[i + 3] = 255;
+          }
+          return { data, width: w2, height: h2 };
+        },
+        _calls: calls,
+      };
+      const cv = {
+        width: 0,
+        height: 0,
+        _ctx: ctx,
+        _toBlobCalls: [],
+        getContext(kind) {
+          assert.equal(kind, "2d");
+          return ctx;
+        },
+        toBlob(cb, type, quality) {
+          cv._toBlobCalls.push({ type, quality });
+          if (blobNull) cb(null);
+          else cb(new Blob([new Uint8Array([7])], { type: type || "image/png" }));
+        },
+      };
+      state.canvases.push(cv);
+      return cv;
+    },
+  };
+  globalThis.createImageBitmap = async () => {
+    if (failDecode) throw new Error("decode failed");
+    return {
+      width: bitmapW,
+      height: bitmapH,
+      close() {
+        state.closed += 1;
+      },
+    };
+  };
+  t.after(() => {
+    globalThis.document = origDoc;
+    if (origCreate === undefined) delete globalThis.createImageBitmap;
+    else globalThis.createImageBitmap = origCreate;
+  });
+  return state;
+}
+
+test("loadImageBitmap wraps decode failures as AppError", async (t) => {
+  const state = installCanvasEnv(t, { failDecode: true });
+  await assert.rejects(
+    () => loadImageBitmap({ name: "photo.png" }),
+    (e) => {
+      assert.equal(e.label, "图片处理失败");
+      assert.match(e.detail, /无法读取图片: photo\.png/);
+      return true;
+    },
+  );
+  await assert.rejects(() => loadImageBitmap({}), /无法读取图片: /);
+  assert.equal(state.closed, 0);
+});
+
+test("convertImage scales to maxWidth and converts to BMP", async (t) => {
+  const state = installCanvasEnv(t, { bitmapW: 400, bitmapH: 200 });
+  const out = await convertImage({ name: "shot.final.png" }, { format: "bmp", maxWidth: 100 });
+  assert.equal(out.filename, "shot.final.bmp");
+  assert.equal(out.width, 100);
+  assert.equal(out.height, 50);
+  assert.equal(out.blob.type, "image/bmp");
+  assert.equal(state.closed, 1, "bitmap released");
+  assert.equal(state.canvases.length, 1);
+  const draw = state.canvases[0]._ctx._calls[0];
+  assert.deepEqual(draw.slice(1).slice(-2), [100, 50]);
+});
+
+test("convertImage PNG omits quality; JPG clamps quality into 0..1", async (t) => {
+  const state = installCanvasEnv(t);
+  const png = await convertImage({ name: "a.png" }, { format: "PNG" });
+  assert.equal(png.filename, "a.png");
+  assert.equal(png.blob.type, "image/png");
+  assert.equal(state.canvases[0]._toBlobCalls[0].quality, undefined);
+  const jpg = await convertImage({ name: "b.jpg" }, { format: "jpg", quality: 200 });
+  assert.equal(jpg.filename, "b.jpg");
+  assert.equal(state.canvases[1]._toBlobCalls[0].type, "image/jpeg");
+  assert.equal(state.canvases[1]._toBlobCalls[0].quality, 1);
+  const webp = await convertImage({ name: "c.webp" }, { format: "WebP", quality: -5 });
+  assert.equal(state.canvases[2]._toBlobCalls[0].quality, 0.01);
+});
+
+test("convertImage defaults format to PNG and names bare inputs", async (t) => {
+  installCanvasEnv(t);
+  const out = await convertImage({}, {});
+  assert.equal(out.filename, "image.png");
+  assert.equal(out.blob.type, "image/png");
+  assert.equal(out.width, 100);
+  assert.equal(out.height, 50);
+});
+
+test("convertImage rejects when canvas.toBlob yields nothing", async (t) => {
+  installCanvasEnv(t, { blobNull: true });
+  await assert.rejects(() => convertImage({ name: "x.png" }, { format: "png" }), /保存失败/);
+});
+
+test("convertImage encodes the GIF branch as animation/gif", async (t) => {
+  installCanvasEnv(t, { bitmapW: 4, bitmapH: 4 });
+  const out = await convertImage({ name: "anim.gif" }, { format: "GIF" });
+  assert.equal(out.filename, "anim.gif");
+  assert.equal(out.blob.type, "image/gif");
+  const bytes = new Uint8Array(await out.blob.arrayBuffer());
+  assert.equal(String.fromCharCode(...bytes.slice(0, 6)), "GIF89a");
 });

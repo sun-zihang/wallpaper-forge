@@ -38,8 +38,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Run node tests
-        run: node --test web/tests/*.test.mjs
+      - name: Run node tests (coverage gate ≥95%)
+        run: >
+          node --test --experimental-test-coverage
+          --test-coverage-include='web/lib/**'
+          --test-coverage-lines=95
+          web/tests/*.test.mjs
       - name: JS syntax check
         run: |
           set -e

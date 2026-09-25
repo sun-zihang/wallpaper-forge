@@ -15,7 +15,7 @@ python -m http.server 8765 -d web
 测试（与 CI 一致；**勿给 glob 加引号**，bash 下带引号的 `**` 不会展开）：
 
 ```bash
-node --test web/tests/*.test.mjs
+node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --test-coverage-lines=95 web/tests/*.test.mjs
 ```
 
 CDN 钉版可达性另有 `node scripts/check_cdn.mjs`（读取 `web/lib/cdn.js` 里的镜像列表逐一 HEAD）。
