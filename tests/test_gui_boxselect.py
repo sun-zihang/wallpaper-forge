@@ -185,3 +185,170 @@ def test_box_select_to_image_point_clamps_and_rejects_outside(qapp, png_64):
         dlg.close()
         dlg.deleteLater()
         qapp.processEvents()
+
+
+def _canvas_pt(dlg, ix: int, iy: int) -> QPoint:
+    ox, oy, scale, _nw, _nh = dlg._layout_metrics()
+    return QPoint(ox + int(ix * scale), oy + int(iy * scale))
+
+
+def _mouse_event(kind, pos, button, buttons):
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QMouseEvent
+
+    if kind == "move":
+        kind = QEvent.Type.MouseMove
+    return QMouseEvent(kind, QPointF(pos), button, buttons, Qt.NoModifier)
+
+
+def test_box_select_full_mouse_drag_flow(qapp, png_64):
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    dlg = BoxSelectDialog(png_64)
+    try:
+        dlg.show()
+        qapp.processEvents()
+        dlg.resize(900, 640)  # resizeEvent -> _redraw
+        qapp.processEvents()
+        start = _canvas_pt(dlg, 6, 6)
+        end = _canvas_pt(dlg, 44, 44)
+        dlg.mousePressEvent(
+            _mouse_event(QMouseEvent.Type.MouseButtonPress, start, Qt.LeftButton, Qt.LeftButton)
+        )
+        assert dlg._drag_start == start
+        dlg.mouseMoveEvent(_mouse_event("move", end, Qt.NoButton, Qt.LeftButton))
+        assert dlg._drag_end == end
+        dlg.mouseReleaseEvent(
+            _mouse_event(QMouseEvent.Type.MouseButtonRelease, end, Qt.LeftButton, Qt.NoButton)
+        )
+        assert len(dlg.boxes_img) == 1
+        left, t, r, b = dlg.boxes_img[0]
+        assert r - left >= 2 and b - t >= 2
+        assert 0 <= left < r <= dlg._pix.width()
+        assert 0 <= t < b <= dlg._pix.height()
+        assert f"已选 {len(dlg.boxes_img)} 个区域" in dlg.hint.text()
+        # drag state cleared after release
+        assert dlg._drag_start is None and dlg._drag_end is None
+    finally:
+        dlg.close()
+        dlg.deleteLater()
+        qapp.processEvents()
+
+
+def test_box_select_release_without_drag_is_noop(qapp, png_64):
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    dlg = BoxSelectDialog(png_64)
+    try:
+        # right-button release short-circuits
+        dlg.mouseReleaseEvent(
+            _mouse_event(
+                QMouseEvent.Type.MouseButtonRelease,
+                QPoint(10, 10),
+                Qt.RightButton,
+                Qt.RightButton,
+            )
+        )
+        # left-button release with no drag state also short-circuits
+        dlg._drag_start = None
+        dlg.mouseReleaseEvent(
+            _mouse_event(
+                QMouseEvent.Type.MouseButtonRelease,
+                QPoint(10, 10),
+                Qt.LeftButton,
+                Qt.NoButton,
+            )
+        )
+        assert dlg.boxes_img == []
+    finally:
+        dlg.close()
+        dlg.deleteLater()
+        qapp.processEvents()
+
+
+def test_box_select_release_tiny_drag_appends_nothing(qapp, png_64):
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    dlg = BoxSelectDialog(png_64)
+    try:
+        # two in-image points 1px apart → span < 2 → box None
+        start = _canvas_pt(dlg, 10, 10)
+        end = _canvas_pt(dlg, 11, 10)
+        dlg._drag_start = start
+        dlg._drag_end = end
+        dlg.mouseReleaseEvent(
+            _mouse_event(QMouseEvent.Type.MouseButtonRelease, end, Qt.LeftButton, Qt.NoButton)
+        )
+        assert dlg.boxes_img == []
+        assert dlg._drag_start is None
+    finally:
+        dlg.close()
+        dlg.deleteLater()
+        qapp.processEvents()
+
+
+def test_box_select_release_validation_error_sets_hint(qapp, png_64, monkeypatch):
+    from core.rewatermark import RewatermarkError
+    from gui import dialogs_boxselect as module
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    def bad_validate(boxes, w, h):
+        raise RewatermarkError("框超出图片范围")
+
+    monkeypatch.setattr(module, "validate_boxes", bad_validate)
+    dlg = BoxSelectDialog(png_64)
+    try:
+        start = _canvas_pt(dlg, 6, 6)
+        end = _canvas_pt(dlg, 44, 44)
+        dlg._drag_start = start
+        dlg._drag_end = end
+        dlg.mouseReleaseEvent(
+            _mouse_event(QMouseEvent.Type.MouseButtonRelease, end, Qt.LeftButton, Qt.NoButton)
+        )
+        assert dlg.boxes_img == []
+        assert "框超出图片范围" in dlg.hint.text()
+    finally:
+        dlg.close()
+        dlg.deleteLater()
+        qapp.processEvents()
+
+
+def test_box_select_right_press_and_move_without_drag_are_noop(qapp, png_64):
+    from PySide6.QtGui import QMouseEvent
+
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    dlg = BoxSelectDialog(png_64)
+    try:
+        dlg._drag_start = None
+        # right-button press short-circuits
+        dlg.mousePressEvent(
+            _mouse_event(
+                QMouseEvent.Type.MouseButtonPress,
+                QPoint(5, 5),
+                Qt.RightButton,
+                Qt.RightButton,
+            )
+        )
+        assert dlg._drag_start is None
+        # move with no drag state short-circuits
+        dlg.mouseMoveEvent(_mouse_event("move", QPoint(9, 9), Qt.NoButton, Qt.LeftButton))
+        assert dlg._drag_end is None
+    finally:
+        dlg.close()
+        dlg.deleteLater()
+        qapp.processEvents()
+
+
+def test_box_select_get_boxes_accepted_and_rejected(qapp, png_64, monkeypatch):
+    from gui.dialogs_boxselect import BoxSelectDialog
+
+    def fake_exec(self):
+        self.boxes_img = [(4, 4, 30, 30)]
+        return QDialog.Accepted
+
+    monkeypatch.setattr(BoxSelectDialog, "exec", fake_exec)
+    assert BoxSelectDialog.get_boxes(None, png_64) == [(4, 4, 30, 30)]
+
+    monkeypatch.setattr(BoxSelectDialog, "exec", lambda self: QDialog.Rejected)
+    assert BoxSelectDialog.get_boxes(None, png_64) is None
