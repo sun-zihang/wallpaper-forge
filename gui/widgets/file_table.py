@@ -56,16 +56,20 @@ class _PreviewImage(QLabel):
     def __init__(self, pixmap: QPixmap, parent=None):
         super().__init__(parent)
         self._source = pixmap
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(320, 240)
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self._fit()
 
     def _fit(self) -> None:
         if self._source.isNull() or self.width() <= 0 or self.height() <= 0:
             return
         self.setPixmap(
-            self._source.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._source.scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
         )
 
     def resizeEvent(self, event) -> None:
@@ -80,9 +84,9 @@ class _PreviewMovie(QLabel):
     def __init__(self, movie: QMovie, parent=None):
         super().__init__(parent)
         self._movie = movie
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(320, 240)
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         movie.frameChanged.connect(self._on_frame)
         movie.start()
 
@@ -98,7 +102,13 @@ class _PreviewMovie(QLabel):
         pix = QPixmap.fromImage(frame)
         if pix.isNull():
             return
-        self.setPixmap(pix.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.setPixmap(
+            pix.scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -118,7 +128,7 @@ class ImagePreviewDialog(QDialog):
         if self.image_path.suffix.lower() == ".gif" and 0 < size_bytes <= _MAX_GIF_PREVIEW_BYTES:
             candidate = QMovie(str(self.image_path))
             if candidate.isValid():
-                candidate.setCacheMode(QMovie.CacheAll)
+                candidate.setCacheMode(QMovie.CacheMode.CacheAll)
                 self.movie = candidate
                 self.preview_kind = "movie"
         if self.movie is None and pixmap.isNull():
@@ -128,7 +138,7 @@ class ImagePreviewDialog(QDialog):
 
         layout = QVBoxLayout(self)
         if self.movie is not None:
-            self.image = _PreviewMovie(self.movie)
+            self.image: _PreviewImage | _PreviewMovie = _PreviewMovie(self.movie)
         else:
             self.image = _PreviewImage(pixmap)
         self.image.setObjectName("previewImage")
@@ -141,8 +151,8 @@ class ImagePreviewDialog(QDialog):
         self.info.setObjectName("mutedText")
         layout.addWidget(self.info)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.button(QDialogButtonBox.Close).setText("关闭")
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText("关闭")
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -177,7 +187,7 @@ class FileTable(QWidget):
         self._selection_rows: set[int] = set()
         self._filtering = False
         self.output_map: dict[str, Path] = {}
-        self._icon_provider = QFileIconProvider(self)
+        self._icon_provider = QFileIconProvider()
         self._thumbnail_cache: dict[tuple[str, int, int], QIcon] = {}
         self._thumbnail_row_keys: dict[int, tuple[str, int, int]] = {}
         self._preview_dialog: ImagePreviewDialog | None = None
@@ -219,14 +229,16 @@ class FileTable(QWidget):
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["文件", "格式", "大小", "状态", "缩略图"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            3, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.table.horizontalHeader().resizeSection(4, 52)
         self.table.setIconSize(QSize(28, 28))
         self.table.verticalHeader().setDefaultSectionSize(32)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.doubleClicked.connect(self._open_output)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.table.itemSelectionChanged.connect(self._update_hint)
@@ -294,7 +306,7 @@ class FileTable(QWidget):
         self.table.setItem(row, 1, QTableWidgetItem(p.suffix.lstrip(".").upper()))
         self.table.setItem(row, 2, self._item(_format_size(size_bytes)))
         status = self._item("等待")
-        status.setData(Qt.UserRole, "pending")
+        status.setData(Qt.ItemDataRole.UserRole, "pending")
         status.setForeground(QColor(FAINT))
         self.table.setItem(row, 3, status)
         self.table.setItem(row, 4, QTableWidgetItem())
@@ -319,7 +331,8 @@ class FileTable(QWidget):
             for row in range(self.table.rowCount()):
                 selection.select(
                     model.index(row, 0),
-                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                    QItemSelectionModel.SelectionFlag.Select
+                    | QItemSelectionModel.SelectionFlag.Rows,
                 )
             self._selection_rows = set(range(self.table.rowCount()))
         finally:
@@ -339,7 +352,8 @@ class FileTable(QWidget):
                 if r not in current:
                     selection.select(
                         model.index(r, 0),
-                        QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                        QItemSelectionModel.SelectionFlag.Select
+                        | QItemSelectionModel.SelectionFlag.Rows,
                     )
             self._selection_rows = set(range(total)) - current
         finally:
@@ -371,7 +385,7 @@ class FileTable(QWidget):
             return False
         if type_value != "all" and self._type_for_path(path) != type_value:
             return False
-        return status_value == "all" or status_item.data(Qt.UserRole) == status_value
+        return status_value == "all" or status_item.data(Qt.ItemDataRole.UserRole) == status_value
 
     def _restore_selection(self) -> None:
         self._filtering = True
@@ -383,7 +397,8 @@ class FileTable(QWidget):
                 if 0 <= row < self.table.rowCount():
                     selection.select(
                         model.index(row, 0),
-                        QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                        QItemSelectionModel.SelectionFlag.Select
+                        | QItemSelectionModel.SelectionFlag.Rows,
                     )
         finally:
             self._filtering = False
@@ -539,7 +554,7 @@ class FileTable(QWidget):
         elif detail and status == "cancelled":
             text = detail
         item.setText(text)
-        item.setData(Qt.UserRole, status)
+        item.setData(Qt.ItemDataRole.UserRole, status)
         item.setForeground(QColor(_STATUS_COLORS.get(status, FAINT)))
 
     def reset_statuses(self) -> None:

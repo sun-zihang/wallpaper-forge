@@ -41,14 +41,16 @@ class BoxSelectDialog(QDialog):
         layout.addWidget(self.hint)
 
         self.canvas = QLabel()
-        self.canvas.setAlignment(Qt.AlignCenter)
+        self.canvas.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.canvas.setMinimumSize(480, 320)
         self.canvas.setStyleSheet(f"background: {BG}; border: 1px solid {BORDER};")
         layout.addWidget(self.canvas, 1)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("确定")
-        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("确定")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -73,7 +75,10 @@ class BoxSelectDialog(QDialog):
         key = (nw, nh)
         if self._scaled_cache is None or self._scaled_key != key:
             self._scaled_cache = self._pix.scaled(
-                nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                nw,
+                nh,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             self._scaled_key = key
         return self._scaled_cache
@@ -83,7 +88,7 @@ class BoxSelectDialog(QDialog):
         self._redraw()
 
     def mousePressEvent(self, event) -> None:
-        if event.button() != Qt.LeftButton:
+        if event.button() != Qt.MouseButton.LeftButton:
             return
         pos = event.position().toPoint()
         # double-click delete handled in mouseDoubleClickEvent
@@ -98,7 +103,7 @@ class BoxSelectDialog(QDialog):
         self._redraw()
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() != Qt.LeftButton or self._drag_start is None:
+        if event.button() != Qt.MouseButton.LeftButton or self._drag_start is None:
             return
         start, end = self._drag_start, self._drag_end or self._drag_start
         self._drag_start = None
@@ -206,6 +211,6 @@ class BoxSelectDialog(QDialog):
             dlg = BoxSelectDialog(image_path, title, parent)
         except RewatermarkError:
             return None
-        if dlg.exec() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             return list(dlg.boxes_img)
         return None

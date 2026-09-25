@@ -272,7 +272,7 @@ def test_submit_while_running_shows_message(qapp, monkeypatch):
             "information",
             staticmethod(lambda *a, **k: msgs.append(a[2] if len(a) > 2 else k)),
         )
-        monkeypatch.setattr(page.thread, "isRunning", lambda: True)
+        monkeypatch.setattr(page.batch_thread, "isRunning", lambda: True)
         batch = [Task(sources=[Path("C:/a.png")], kind=TaskKind.IMAGE_CONVERT)]
         page._submit(batch)
         assert msgs and "已有任务在进行中" in str(msgs[0])
@@ -305,7 +305,7 @@ def test_submit_noop_when_free_space_declined(qapp, tmp_path, monkeypatch):
             staticmethod(lambda *a, **k: QMessageBox.No),
         )
         submitted = []
-        monkeypatch.setattr(page.thread, "submit", lambda b: submitted.append(b))
+        monkeypatch.setattr(page.batch_thread, "submit", lambda b: submitted.append(b))
         batch = [Task(sources=[src], kind=TaskKind.IMAGE_CONVERT)]
         batch[0].outputs = [out]
         page._submit(batch)
@@ -326,7 +326,7 @@ def test_submit_accepts_when_free_space_ok_and_enough(qapp, tmp_path, monkeypatc
         out = tmp_path / "out.webp"
         monkeypatch.setattr(space_mod, "free_space_warning", lambda s, o: None)
         submitted = []
-        monkeypatch.setattr(page.thread, "submit", lambda b: submitted.append(list(b)))
+        monkeypatch.setattr(page.batch_thread, "submit", lambda b: submitted.append(list(b)))
         batch = [Task(sources=[src], kind=TaskKind.IMAGE_CONVERT)]
         batch[0].outputs = [out]
         page.start_btn.setEnabled(True)

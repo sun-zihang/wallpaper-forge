@@ -42,7 +42,7 @@ def test_close_declines_when_user_answers_no(qapp, tmp_path, monkeypatch):
     from gui import main_window as mw
 
     win = _window(qapp, tmp_path, monkeypatch)
-    thread = win.image_page.thread
+    thread = win.image_page.batch_thread
     monkeypatch.setattr(thread, "isRunning", lambda: True)
     cancelled = []
     monkeypatch.setattr(thread, "cancel", lambda: cancelled.append(True))
@@ -66,7 +66,7 @@ def test_close_cancels_running_tasks_and_saves_geometry(qapp, tmp_path, monkeypa
     from gui import settings_store
 
     win = _window(qapp, tmp_path, monkeypatch)
-    thread = win.image_page.thread
+    thread = win.image_page.batch_thread
     monkeypatch.setattr(thread, "isRunning", lambda: True)
     cancelled = []
     monkeypatch.setattr(thread, "cancel", lambda: cancelled.append(True))
@@ -93,7 +93,7 @@ def test_close_second_prompt_declines_when_stuck_confirmed(qapp, tmp_path, monke
     from gui import main_window as mw
 
     win = _window(qapp, tmp_path, monkeypatch)
-    thread = win.image_page.thread
+    thread = win.image_page.batch_thread
     monkeypatch.setattr(thread, "isRunning", lambda: True)
     cancelled = []
     monkeypatch.setattr(thread, "cancel", lambda: cancelled.append(True))
@@ -118,7 +118,7 @@ def test_close_second_prompt_accepts_and_waits_again(qapp, tmp_path, monkeypatch
     from gui import main_window as mw
 
     win = _window(qapp, tmp_path, monkeypatch)
-    thread = win.image_page.thread
+    thread = win.image_page.batch_thread
     monkeypatch.setattr(thread, "isRunning", lambda: True)
     cancelled = []
     monkeypatch.setattr(thread, "cancel", lambda: cancelled.append(True))

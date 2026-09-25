@@ -38,8 +38,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._version = version
         self._manual_check = False
-        self._drop_status_before = None
-        self.shortcuts = {}
+        self._drop_status_before: str | None = None
+        self.shortcuts: dict[str, QShortcut] = {}
         self._shortcut_event_filter_installed = False
         self.setAcceptDrops(True)
         self.setWindowTitle(f"Wallpaper Converter {version} — 壁纸格式转换")
@@ -157,7 +157,7 @@ class MainWindow(QMainWindow):
 
     def _make_shortcut(self, name: str, key: str, callback) -> QShortcut:
         shortcut = QShortcut(QKeySequence(key), self)
-        shortcut.setContext(Qt.WindowShortcut)
+        shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         shortcut.activated.connect(callback)
         self.shortcuts[name] = shortcut
         return shortcut
@@ -180,9 +180,9 @@ class MainWindow(QMainWindow):
         self.shortcut_cancel = self.cancel_shortcut
         self.shortcut_select_all = self.select_all_shortcut
         for page in self._processing_pages():
-            page.thread.started.connect(self._sync_shortcut_state)
-            page.thread.finished.connect(self._sync_shortcut_state)
-            page.thread.batch_finished.connect(self._sync_shortcut_state_on_batch)
+            page.batch_thread.started.connect(self._sync_shortcut_state)
+            page.batch_thread.finished.connect(self._sync_shortcut_state)
+            page.batch_thread.batch_finished.connect(self._sync_shortcut_state_on_batch)
         self._sync_shortcut_state()
 
     def _shortcut_add_files(self) -> None:
@@ -206,16 +206,16 @@ class MainWindow(QMainWindow):
             table.select_all()
 
     def _batch_is_running(self) -> bool:
-        thread = getattr(self._current_page(), "thread", None)
-        # Pages without a worker (e.g. settings) fall back to QObject.thread(),
-        # a bound method rather than a QThread — treat that as "not running".
-        if not callable(getattr(thread, "isRunning", None)):
+        thread = getattr(self._current_page(), "batch_thread", None)
+        # Pages without a worker (e.g. settings) expose no batch_thread.
+        is_running = getattr(thread, "isRunning", None)
+        if not callable(is_running):
             return False
-        return bool(thread.isRunning())
+        return bool(is_running())
 
     def _modal_dialog_is_open(self) -> bool:
         app = QApplication.instance()
-        if app is None:
+        if not isinstance(app, QApplication):
             return False
         if app.activeModalWidget() is not None:
             return True
@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
 
     def _install_shortcut_event_filter(self) -> None:
         app = QApplication.instance()
-        if app is None or self._shortcut_event_filter_installed:
+        if not isinstance(app, QApplication) or self._shortcut_event_filter_installed:
             return
         app.installEventFilter(self)
         app.focusChanged.connect(self._on_focus_changed)
@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
         if not self._shortcut_event_filter_installed:
             return
         app = QApplication.instance()
-        if app is not None:
+        if isinstance(app, QApplication):
             app.removeEventFilter(self)
             with contextlib.suppress(RuntimeError, TypeError):
                 app.focusChanged.disconnect(self._on_focus_changed)
@@ -379,43 +379,43 @@ class MainWindow(QMainWindow):
                 self.unpack_page,
                 self.rewatermark_page,
             )
-            if p.thread.isRunning()
+            if p.batch_thread.isRunning()
         ]
         if running_pages:
             ret = QMessageBox.question(
                 self,
                 "确认退出",
                 "仍有任务正在处理，退出将取消未完成的任务。\n确定要退出吗？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
-            if ret != QMessageBox.Yes:
+            if ret != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
             for p in running_pages:
-                p.thread.cancel()
-            stuck = [p for p in running_pages if not p.thread.wait(3000)]
+                p.batch_thread.cancel()
+            stuck = [p for p in running_pages if not p.batch_thread.wait(3000)]
             if stuck:
                 ret = QMessageBox.question(
                     self,
                     "仍在处理",
                     f"有 {len(stuck)} 个任务没有在 3 秒内停止。\n"
                     "继续退出会中断处理，未完成的输出可能不完整。\n仍要退出吗？",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
                 )
-                if ret != QMessageBox.Yes:
+                if ret != QMessageBox.StandardButton.Yes:
                     event.ignore()
                     return
                 for p in stuck:
-                    p.thread.wait(1000)
+                    p.batch_thread.wait(1000)
         self._remove_shortcut_event_filter()
         import base64
 
         from gui.settings_store import save_settings
 
         save_settings(
-            {"window_geometry": base64.b64encode(bytes(self.saveGeometry())).decode("ascii")}
+            {"window_geometry": base64.b64encode(self.saveGeometry().data()).decode("ascii")}
         )
         event.accept()
 

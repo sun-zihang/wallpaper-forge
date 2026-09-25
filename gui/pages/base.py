@@ -96,12 +96,12 @@ class BasePage(QWidget):
         self.cancel_btn.clicked.connect(self._cancel)
         self.table.open_output_requested.connect(self._open_path)
 
-        self.thread = BatchThread(self)
-        self.thread.progress.connect(self._on_progress)
-        self.thread.progress_pct.connect(self._on_progress_pct)
-        self.thread.task_finished.connect(self._on_task)
-        self.thread.batch_finished.connect(self._on_batch_done)
-        self.thread.status_text.connect(self._on_status)
+        self.batch_thread = BatchThread(self)
+        self.batch_thread.progress.connect(self._on_progress)
+        self.batch_thread.progress_pct.connect(self._on_progress_pct)
+        self.batch_thread.task_finished.connect(self._on_task)
+        self.batch_thread.batch_finished.connect(self._on_batch_done)
+        self.batch_thread.status_text.connect(self._on_status)
         self._last_ok = 0
         self._last_failed = 0
 
@@ -189,7 +189,7 @@ class BasePage(QWidget):
             QMessageBox.information(self, "提示", "还没有已完成的输出文件")
 
     def _cancel(self) -> None:
-        self.thread.cancel()
+        self.batch_thread.cancel()
 
     def _on_progress(self, i: int, total: int, name: str) -> None:
         # coarse per-file step; fine-grained percent comes from progress_pct
@@ -260,17 +260,17 @@ class BasePage(QWidget):
         box.setWindowTitle("批量完成")
         msg = f"成功 {ok} 个" + (f"，失败/取消 {failed} 个" if failed else "")
         if failed:
-            box.setIcon(QMessageBox.Warning)
+            box.setIcon(QMessageBox.Icon.Warning)
             box.setText(msg + "。\n可在列表状态列查看详情。")
         else:
-            box.setIcon(QMessageBox.Information)
+            box.setIcon(QMessageBox.Icon.Information)
             box.setText(msg + "。")
-        open_btn = box.addButton("打开输出文件夹", QMessageBox.ActionRole)
+        open_btn = box.addButton("打开输出文件夹", QMessageBox.ButtonRole.ActionRole)
         open_btn.setEnabled(bool(self.last_outputs))
         retry_btn = None
         if failed and self._failed_tasks:
-            retry_btn = box.addButton("重试失败项", QMessageBox.ActionRole)
-        box.addButton(QMessageBox.Ok)
+            retry_btn = box.addButton("重试失败项", QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Ok)
         return box, open_btn, retry_btn
 
     def _ask_batch_done(self, ok: int, failed: int) -> str:
@@ -310,7 +310,7 @@ class BasePage(QWidget):
         if not batch:
             QMessageBox.information(self, "提示", "没有可处理的文件")
             return
-        if self.thread.isRunning():
+        if self.batch_thread.isRunning():
             QMessageBox.information(self, "提示", "已有任务在进行中")
             return
         from core.space import free_space_warning
@@ -323,10 +323,10 @@ class BasePage(QWidget):
                 self,
                 "磁盘空间可能不足",
                 warn,
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
-            if ret != QMessageBox.Yes:
+            if ret != QMessageBox.StandardButton.Yes:
                 return
         self.table.reset_statuses()
         self.progress.setValue(0)
@@ -334,7 +334,7 @@ class BasePage(QWidget):
         self.cancel_btn.setEnabled(True)
         self.last_outputs = []
         self._failed_tasks = []
-        self.thread.submit(batch)
+        self.batch_thread.submit(batch)
 
     def _confirm_overwrite(self, sources: list[Path], outs: list[Path]) -> bool:
         from core.tasks import would_overwrite_sources
@@ -349,10 +349,10 @@ class BasePage(QWidget):
             self,
             "确认覆盖",
             f"将直接覆盖 {n} 个源文件，此操作不可恢复。\n继续？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        return ret == QMessageBox.Yes
+        return ret == QMessageBox.StandardButton.Yes
 
     def start_batch(self) -> None:
         raise NotImplementedError

@@ -69,7 +69,7 @@ class SettingsPage(QWidget):
         frow = QHBoxLayout(ff_box)
         self.ff_label = QLabel("检测中…")
         self.ff_label.setWordWrap(True)
-        self.ff_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.ff_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         frow.addWidget(self.ff_label, 1)
         self.recheck = QPushButton("重新检测")
         self.recheck.setObjectName("secondary")
@@ -101,9 +101,9 @@ class SettingsPage(QWidget):
             "Ctrl+A  全选文件　　双击文件  打开输出位置",
             "空格  预览选中的图片",
         ):
-            row = QLabel(line)
-            row.setObjectName("mutedText")
-            kv.addWidget(row)
+            lbl = QLabel(line)
+            lbl.setObjectName("mutedText")
+            kv.addWidget(lbl)
 
         save_btn = QPushButton("保存设置")
         save_btn.clicked.connect(self._save)
@@ -114,7 +114,7 @@ class SettingsPage(QWidget):
         root.addWidget(keys)
         root.addWidget(about)
         root.addStretch(1)
-        root.addWidget(save_btn, alignment=Qt.AlignRight)
+        root.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
         self._unified_dir: Path | None = None
         self._load()

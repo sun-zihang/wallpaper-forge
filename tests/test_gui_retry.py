@@ -3,11 +3,11 @@ from pathlib import Path
 
 def _setup_sync_submit(page, monkeypatch):
     def sync_submit(batch):
-        page.thread._batch = list(batch)
-        page.thread.runner.run_batch(page.thread._batch)
-        page.thread._batch = []
+        page.batch_thread._batch = list(batch)
+        page.batch_thread.runner.run_batch(page.batch_thread._batch)
+        page.batch_thread._batch = []
 
-    monkeypatch.setattr(page.thread, "submit", sync_submit)
+    monkeypatch.setattr(page.batch_thread, "submit", sync_submit)
 
 
 def _patch_dialog(monkeypatch, offered):

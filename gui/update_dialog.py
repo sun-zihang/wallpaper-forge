@@ -35,7 +35,7 @@ class UpdateDialog(QDialog):
             "点击「立即更新」将优先走国内镜像下载安装包，失败自动回退官方源；"
             "下载完成后校验 SHA256，通过再退出本程序并开始安装。"
         )
-        label.setTextFormat(Qt.RichText)
+        label.setTextFormat(Qt.TextFormat.RichText)
         label.setWordWrap(True)
         layout.addWidget(label)
 
@@ -46,8 +46,8 @@ class UpdateDialog(QDialog):
         layout.addWidget(self.bar)
 
         buttons = QDialogButtonBox()
-        self.update_btn = buttons.addButton("立即更新", QDialogButtonBox.AcceptRole)
-        buttons.addButton("取消", QDialogButtonBox.RejectRole)
+        self.update_btn = buttons.addButton("立即更新", QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.addButton("取消", QDialogButtonBox.ButtonRole.RejectRole)
         self.update_btn.clicked.connect(self._start_update)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -92,7 +92,8 @@ class UpdateDialog(QDialog):
             return
         from PySide6.QtWidgets import QApplication
 
-        QApplication.instance().quit()
+        if (app := QApplication.instance()) is not None:
+            app.quit()
 
     def _on_failed(self, message: str) -> None:
         self.bar.hide()
@@ -100,7 +101,7 @@ class UpdateDialog(QDialog):
         links = manual_download_links(self.info.download_url)
         numbered = "\n".join(f"  {i}. {u}" for i, u in enumerate(links, 1))
         box = QMessageBox(self)
-        box.setIcon(QMessageBox.Warning)
+        box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle("下载失败")
         box.setText(message)
         box.setInformativeText(
@@ -110,8 +111,8 @@ class UpdateDialog(QDialog):
             f"发布页：{self.info.html_url}"
         )
         box.setDetailedText("\n".join(links))
-        mirror_btn = box.addButton("浏览器打开镜像", QMessageBox.ActionRole)
-        box.addButton(QMessageBox.Close)
+        mirror_btn = box.addButton("浏览器打开镜像", QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Close)
         box.exec()
         if box.clickedButton() is mirror_btn and links:
             QDesktopServices.openUrl(QUrl(links[0]))

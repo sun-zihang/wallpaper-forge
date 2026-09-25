@@ -41,7 +41,7 @@ class CropDialog(QDialog):
 
         layout = QVBoxLayout(self)
         self.canvas = QLabel()
-        self.canvas.setAlignment(Qt.AlignCenter)
+        self.canvas.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.canvas.setMinimumSize(400, 300)
         self.canvas.setStyleSheet(f"background: {BG}; border: 1px solid {BORDER};")
         layout.addWidget(self.canvas, 1)
@@ -50,9 +50,11 @@ class CropDialog(QDialog):
         self.info.setObjectName("mutedText")
         layout.addWidget(self.info)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("确定")
-        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("确定")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -74,7 +76,12 @@ class CropDialog(QDialog):
         if self._scaled_cache is not None and self._scaled_key == key:
             scaled = self._scaled_cache
         else:
-            scaled = self._pix.scaled(nw, nh, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled = self._pix.scaled(
+                nw,
+                nh,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
             self._scaled_cache = scaled
             self._scaled_key = key
         return scaled, scale, nw, nh
@@ -84,7 +91,7 @@ class CropDialog(QDialog):
         self._redraw()
 
     def mousePressEvent(self, event) -> None:
-        if event.button() != Qt.LeftButton:
+        if event.button() != Qt.MouseButton.LeftButton:
             return
         pos = event.position().toPoint()
         self._origin = (pos.x(), pos.y())
@@ -99,7 +106,7 @@ class CropDialog(QDialog):
         self._redraw()
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton and self._origin and self._current:
+        if event.button() == Qt.MouseButton.LeftButton and self._origin and self._current:
             self.box = self._to_image_box(self._origin, self._current)
             if self.box:
                 left, t, r, b = self.box
@@ -170,7 +177,7 @@ class CropDialog(QDialog):
             dlg = CropDialog(image_path, parent)
         except ImageOpError:
             return None
-        if dlg.exec() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             return dlg.box
         return None
 
@@ -198,7 +205,7 @@ class WatermarkDialog(QDialog):
         self.font_size.setValue(32)
         g.addWidget(self.font_size, 1, 1)
         g.addWidget(QLabel("透明度"), 2, 0)
-        self.text_opacity = QSlider(Qt.Horizontal)
+        self.text_opacity = QSlider(Qt.Orientation.Horizontal)
         self.text_opacity.setRange(10, 100)
         self.text_opacity.setValue(70)
         g.addWidget(self.text_opacity, 2, 1)
@@ -219,12 +226,12 @@ class WatermarkDialog(QDialog):
         browse.clicked.connect(self._browse_mark)
         g2.addWidget(browse, 0, 2)
         g2.addWidget(QLabel("相对宽度"), 1, 0)
-        self.mark_scale = QSlider(Qt.Horizontal)
+        self.mark_scale = QSlider(Qt.Orientation.Horizontal)
         self.mark_scale.setRange(5, 100)
         self.mark_scale.setValue(20)
         g2.addWidget(self.mark_scale, 1, 1, 1, 2)
         g2.addWidget(QLabel("透明度"), 2, 0)
-        self.mark_opacity = QSlider(Qt.Horizontal)
+        self.mark_opacity = QSlider(Qt.Orientation.Horizontal)
         self.mark_opacity.setRange(10, 100)
         self.mark_opacity.setValue(80)
         g2.addWidget(self.mark_opacity, 2, 1, 1, 2)
@@ -235,9 +242,11 @@ class WatermarkDialog(QDialog):
 
         layout.addWidget(tabs)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("确定")
-        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("确定")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -291,6 +300,6 @@ class WatermarkDialog(QDialog):
     @staticmethod
     def get_params(parent) -> dict | None:
         dlg = WatermarkDialog(parent)
-        if dlg.exec() == QDialog.Accepted:
+        if dlg.exec() == QDialog.DialogCode.Accepted:
             return dlg.params
         return None

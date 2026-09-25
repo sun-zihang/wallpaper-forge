@@ -52,7 +52,7 @@ class ImagePage(BasePage):
         self.scale_enable.toggled.connect(self.scale_w.setEnabled)
 
         row.addWidget(QLabel("质量："))
-        self.quality = QSlider(Qt.Horizontal)
+        self.quality = QSlider(Qt.Orientation.Horizontal)
         self.quality.setRange(1, 100)
         self.quality.setValue(90)
         self.quality.setFixedWidth(140)

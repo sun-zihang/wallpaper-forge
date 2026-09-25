@@ -96,7 +96,7 @@ class VideoPage(BasePage):
         self.gif_dur = QDoubleSpinBox()
         self.gif_dur.setRange(0, 3600)
         self.gif_dur.setDecimals(1)
-        self.gif_widgets = [
+        self.gif_widgets: list[tuple[QLabel, QWidget]] = [
             (self.lbl_gif_fps, self.gif_fps),
             (self.lbl_gif_w, self.gif_w),
             (self.lbl_gif_dur, self.gif_dur),
@@ -118,7 +118,7 @@ class VideoPage(BasePage):
         self.frame_ext = QComboBox()
         self.frame_ext.addItems(["png", "jpg", "webp"])
         self.lbl_ext = QLabel("图片格式：")
-        self.frame_widgets = [
+        self.frame_widgets: list[tuple[QLabel, QWidget]] = [
             (self.lbl_frame_mode, self.frame_mode),
             (self.lbl_every, self.every),
             (self.lbl_at_seconds, self.at_seconds_edit),
@@ -133,7 +133,10 @@ class VideoPage(BasePage):
         self.t_end = QDoubleSpinBox()
         self.t_end.setRange(0.1, 86400)
         self.t_end.setValue(5)
-        self.trim_widgets = [(self.lbl_start, self.t_start), (self.lbl_end, self.t_end)]
+        self.trim_widgets: list[tuple[QLabel, QWidget]] = [
+            (self.lbl_start, self.t_start),
+            (self.lbl_end, self.t_end),
+        ]
 
         for pair_list in (self.gif_widgets, self.frame_widgets, self.trim_widgets):
             for lbl, w in pair_list:
@@ -200,7 +203,7 @@ class VideoPage(BasePage):
     def set_ffmpeg_ok(self, ok: bool) -> None:
         self._ffmpeg_ok = ok
         self.banner.setVisible(not ok)
-        self.start_btn.setEnabled(ok and not self.thread.isRunning())
+        self.start_btn.setEnabled(ok and not self.batch_thread.isRunning())
 
     def start_batch(self) -> None:
         if not ffmpeg_available():
