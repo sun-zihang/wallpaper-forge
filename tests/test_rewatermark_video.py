@@ -92,3 +92,17 @@ def test_cancel(watermarked_video, tmp_path: Path):
             frame_height=120,
             cancel_event=ev,
         )
+
+
+def test_remove_video_watermark_inplace_replaces_part(watermarked_video, tmp_path: Path):
+    import shutil
+
+    src = tmp_path / "inplace.mp4"
+    shutil.copy2(watermarked_video, src)
+    boxes = [(100, 4, 155, 28)]
+    out = remove_video_watermark(src, src, boxes, frame_width=160, frame_height=120)
+    assert out == src
+    assert src.is_file() and src.stat().st_size > 0
+    assert not src.with_suffix(".mp4.part").exists()
+    w, h = probe_video_size(src)
+    assert (w, h) == (160, 120)

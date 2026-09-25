@@ -381,3 +381,82 @@ def test_download_update_progress_cb_without_content_length(tmp_path, monkeypatc
     assert got.read_bytes() == payload
     assert calls
     assert all(total == 0 for _, total in calls)
+
+
+def test_http_get_builds_request_and_returns_body(monkeypatch):
+    from core import updater
+
+    seen: dict = {}
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"payload"
+
+    def fake_urlopen(req, timeout=None):
+        seen["url"] = req.full_url
+        seen["timeout"] = timeout
+        seen["ua"] = req.get_header("User-agent")
+        return _Resp()
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    assert updater._http_get("https://example.invalid/api", 7.5) == b"payload"
+    assert seen["url"] == "https://example.invalid/api"
+    assert seen["timeout"] == 7.5
+    assert seen["ua"] == "WallpaperConverter-Updater"
+
+
+def test_download_update_network_error_exhausts_mirrors(tmp_path, monkeypatch):
+    from core import updater
+
+    def fake_urlopen(req, timeout=None):
+        raise urllib.error.URLError("connection reset")
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    dest = tmp_path / "x.exe"
+    with pytest.raises(UpdateError, match="下载更新失败"):
+        updater.download_update("https://example.invalid/x.exe", dest)
+    assert not dest.exists()
+
+
+def test_download_update_progress_with_content_length(tmp_path, monkeypatch):
+    from core import updater
+
+    payload = b"z" * 100
+
+    class _Resp:
+        headers: ClassVar[dict[str, str]] = {"Content-Length": "100"}
+
+        def __init__(self):
+            self._pos = 0
+
+        def read(self, n=-1):
+            block = payload[self._pos : self._pos + n]
+            self._pos += len(block)
+            return block
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda req, timeout=None: _Resp())
+    calls = []
+    dest = tmp_path / "setup.exe"
+    got = updater.download_update(
+        "https://example.invalid/setup.exe",
+        dest,
+        progress_cb=lambda done, total: calls.append((done, total)),
+        chunk=4,
+    )
+    assert got == dest
+    assert dest.read_bytes() == payload
+    assert calls
+    assert calls[0][1] == 100
+    assert calls[-1] == (100, 100)

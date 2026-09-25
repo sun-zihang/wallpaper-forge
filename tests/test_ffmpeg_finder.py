@@ -63,3 +63,20 @@ def test_frozen_candidates_use_exe_dir(tmp_path: Path, monkeypatch):
     assert exe.parent / "_internal" / "ffmpeg.exe" in found
     # sibling missing, bin missing, _internal present → _internal wins
     assert find_ffmpeg() == tmp_path / "_internal" / "ffmpeg.exe"
+
+
+def test_candidates_include_path_which(tmp_path, monkeypatch):
+    from core import ffmpeg_finder as ff
+
+    fake = tmp_path / "which-ffmpeg"
+    monkeypatch.setattr(ff.shutil, "which", lambda name: str(fake))
+    found = ff._candidates()
+    assert fake in found
+
+
+def test_available_false_when_no_candidate(monkeypatch):
+    from core import ffmpeg_finder as ff
+
+    find_ffmpeg.cache_clear()
+    monkeypatch.setattr(ff, "_candidates", lambda: [])
+    assert ffmpeg_available() is False

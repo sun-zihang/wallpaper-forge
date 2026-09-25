@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run pytest
-        run: python -m pytest -q --cov=core --cov=gui --cov-report=term --cov-fail-under=95
+        run: python -m pytest -q --cov=core --cov=gui --cov-report=term --cov-fail-under=98
         env:
           QT_QPA_PLATFORM: offscreen
 
@@ -38,11 +38,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Run node tests (coverage gate ≥95%)
+      - name: Run node tests (coverage gate ≥98%)
         run: >
           node --test --experimental-test-coverage
           --test-coverage-include='web/lib/**'
-          --test-coverage-lines=95
+          --test-coverage-lines=98
           web/tests/*.test.mjs
       - name: JS syntax check
         run: |

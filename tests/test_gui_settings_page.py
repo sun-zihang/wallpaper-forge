@@ -131,3 +131,34 @@ def test_settings_page_loads_unified_dir_from_settings(qapp, tmp_path, monkeypat
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def test_settings_page_pick_unified_dir(qapp, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    from gui import settings_store
+    from gui.pages.settings_page import SettingsPage
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(settings_store, "_settings_path", lambda: settings_path)
+
+    chosen = tmp_path / "unified"
+    chosen.mkdir()
+    monkeypatch.setattr(
+        QFileDialog,
+        "getExistingDirectory",
+        staticmethod(lambda *a, **k: str(chosen)),
+    )
+    page = SettingsPage()
+    try:
+        page._pick()
+        assert page._unified_dir == chosen
+        assert page.dir_label.text() == str(chosen)
+
+        monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: ""))
+        page._pick()
+        assert page._unified_dir == chosen
+    finally:
+        page.deleteLater()
+        qapp.processEvents()

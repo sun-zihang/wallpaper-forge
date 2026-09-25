@@ -222,3 +222,58 @@ def test_download_update_retries_next_mirror_after_sha256_fail(tmp_path, monkeyp
     assert len(attempts) >= 2, attempts
     assert got.read_bytes() == good
     assert not dest.with_suffix(dest.suffix + ".part").exists()
+
+
+def test_dialog_on_done_launches_installer_and_quits(qapp, monkeypatch):
+    from gui import update_dialog as mod
+
+    launched = []
+    quit_calls = []
+
+    class FakeApp:
+        @staticmethod
+        def instance():
+            return FakeApp()
+
+        def quit(self):
+            quit_calls.append(True)
+
+    monkeypatch.setattr(mod.subprocess, "Popen", lambda *a, **k: launched.append(a))
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication", FakeApp)
+    dialog = mod.UpdateDialog(_info(None))
+    try:
+        dialog._on_done("C:\\setup.exe")
+        assert launched and launched[0][0] == ["C:\\setup.exe"]
+        assert quit_calls == [True]
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()
+
+
+def test_dialog_on_failed_mirror_button_opens_first_link(qapp, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from gui import update_dialog as mod
+
+    opened = []
+    monkeypatch.setattr(mod.QDesktopServices, "openUrl", lambda url: opened.append(url))
+
+    def fake_exec(self):
+        # Click every ActionRole button (Qt's details button shares the role);
+        # the last click wins and becomes clickedButton().
+        for b in self.buttons():
+            if self.buttonRole(b) == QMessageBox.ActionRole:
+                b.click()
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    dialog = mod.UpdateDialog(_info(None))
+    try:
+        dialog._on_failed("download failed")
+        assert opened
+        assert str(opened[0].toString()).startswith("https://")
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        qapp.processEvents()

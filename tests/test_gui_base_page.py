@@ -340,3 +340,87 @@ def test_submit_accepts_when_free_space_ok_and_enough(qapp, tmp_path, monkeypatc
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def test_set_ffmpeg_ok_base_is_noop(qapp):
+    page = _page(qapp)
+    try:
+        page.set_ffmpeg_ok(True)
+        page.set_ffmpeg_ok(False)
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_add_files_and_dirs_via_dialog(qapp, tmp_path, monkeypatch):
+    from gui.pages import base as base_mod
+
+    page = _page(qapp)
+    f = tmp_path / "x.png"
+    f.write_bytes(b"png-bytes")
+    d = tmp_path / "sub"
+    d.mkdir()
+    (d / "a.png").write_bytes(b"png-bytes")
+    saved = []
+    monkeypatch.setattr(
+        base_mod.QFileDialog,
+        "getOpenFileNames",
+        staticmethod(lambda *a, **k: ([str(f)], "")),
+    )
+    monkeypatch.setattr(
+        base_mod.QFileDialog,
+        "getExistingDirectory",
+        staticmethod(lambda *a, **k: str(d)),
+    )
+    monkeypatch.setattr(base_mod, "save_settings", lambda patch: saved.append(patch))
+    try:
+        page._add_files()
+        assert page.table.selected_or_all() == [f]
+        assert any(p.get("last_dir") == str(tmp_path) for p in saved)
+
+        page._add_dirs()
+        assert d / "a.png" in page.table.selected_or_all()
+        assert any(p.get("last_dir") == str(d) for p in saved)
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_open_out_without_outputs_shows_hint(qapp, monkeypatch):
+    from gui.pages import base as base_mod
+
+    page = _page(qapp)
+    msgs = []
+    monkeypatch.setattr(
+        base_mod.QMessageBox,
+        "information",
+        staticmethod(lambda *a, **k: msgs.append(a)),
+    )
+    try:
+        page._open_out()
+        assert msgs
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_retry_failed_noop_when_empty(qapp):
+    page = _page(qapp)
+    try:
+        assert page._failed_tasks == []
+        page._retry_failed()  # returns before start_batch (which raises NotImplementedError)
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_start_batch_not_implemented(qapp):
+    import pytest
+
+    page = _page(qapp)
+    try:
+        with pytest.raises(NotImplementedError):
+            page.start_batch()
+    finally:
+        page.deleteLater()
+        qapp.processEvents()

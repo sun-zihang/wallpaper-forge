@@ -477,3 +477,51 @@ def test_mpkg_drops_converted_tex_intermediate(tmp_path: Path):
     assert not (out_dir / "scene.tex").exists()
     assert all(p.suffix.lower() != ".tex" for p in outs)
     assert not (out_dir / "scene (1).png").exists()
+
+
+def test_read_pkg_index_truncated_count_field():
+    data = struct.pack("<I", 4) + b"abcd"  # header, then EOF before file_count
+    with pytest.raises(WePkgError):
+        read_pkg_index(data)
+
+
+def test_read_pkg_index_oversized_non_pkg_magic_rejected():
+    # header_len within bounds but > 1024 with non-PKG magic → header check
+    data = struct.pack("<I", 1100) + b"Z" * 1100
+    with pytest.raises(WePkgError):
+        read_pkg_index(data)
+
+
+def test_extract_embedded_mp4_invalid_box_size_uses_tail():
+    from core.we_tex import MP4_FTYP
+
+    # u32 before "ftyp" = 0 (invalid box size) → fallback span to buffer end
+    data = b"xxxx" + struct.pack(">I", 0) + MP4_FTYP + b"isom" + b"\x00" * 32
+    ext, payload = extract_embedded(data)
+    assert ext == ".mp4"
+    assert payload is not None
+    assert len(payload) >= 16
+
+
+def test_extract_embedded_mp4_tiny_payload_returns_none():
+    from core.we_tex import MP4_FTYP
+
+    # valid box_size=8 → payload 8 bytes (< 16) → rejected
+    data = b"xxxx" + struct.pack(">I", 8) + MP4_FTYP + b"isom"
+    ext, payload = extract_embedded(data)
+    assert ext is None
+    assert payload is None
+
+
+def test_post_process_keeps_tex_when_extract_raises(tmp_path, monkeypatch):
+    from core import we_mpkg
+
+    junk = tmp_path / "a.tex"
+    junk.write_bytes(b"not a real tex")
+
+    def boom(*a, **k):
+        raise RuntimeError("bad tex")
+
+    monkeypatch.setattr("core.we_tex.extract_tex", boom)
+    outs = we_mpkg._post_process([junk], tmp_path)
+    assert outs == [junk]

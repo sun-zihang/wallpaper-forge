@@ -94,3 +94,20 @@ def test_crop_inplace(tmp_path: Path):
     out = crop_image(src, src, (0, 0, 32, 24))
     assert out == src
     assert Image.open(src).size == (32, 24)
+
+
+def test_needs_part_oserror_returns_false(tmp_path: Path, monkeypatch):
+    def boom(self):
+        raise OSError("resolve failed")
+
+    monkeypatch.setattr(Path, "resolve", boom)
+    assert needs_part(tmp_path / "a.png", tmp_path / "b.png") is False
+    assert needs_part(tmp_path / "a.png", tmp_path / "a.png") is False
+
+
+def test_cleanup_part_oserror_is_silent(tmp_path: Path, monkeypatch):
+    def boom(self):
+        raise OSError("is_file failed")
+
+    monkeypatch.setattr(Path, "is_file", boom)
+    cleanup_part(tmp_path / "x.png.part")  # must not raise

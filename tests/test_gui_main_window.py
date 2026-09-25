@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 
 def _window(qapp, tmp_path, monkeypatch, settings: dict | None = None):
     from gui import settings_store
@@ -371,3 +373,110 @@ def test_shortcut_state_wrappers_and_event_filter_pass_through(qapp, tmp_path, m
         assert win.eventFilter(win, QEvent(QEvent.Type.Paint)) is False
     finally:
         _teardown(win, qapp)
+
+
+def test_drop_event_ignores_remote_only_urls(qapp, tmp_path, monkeypatch):
+    from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
+    from PySide6.QtGui import QDropEvent
+
+    win = _window(qapp, tmp_path, monkeypatch)
+    mime = QMimeData()
+    mime.setUrls([QUrl("https://example.invalid/wallpaper.png")])
+    try:
+        drop = QDropEvent(QPointF(1, 1), Qt.CopyAction, mime, Qt.LeftButton, Qt.NoModifier)
+        win.dropEvent(drop)
+        assert not drop.isAccepted()
+        assert win._drop_status_before is None
+    finally:
+        _teardown(win, qapp)
+
+
+def test_modal_dialog_none_app_returns_false(qapp, tmp_path, monkeypatch):
+    from gui import main_window as mw
+
+    class _NoApp:
+        @staticmethod
+        def instance():
+            return None
+
+    win = _window(qapp, tmp_path, monkeypatch)
+    orig = mw.QApplication
+    try:
+        assert win._modal_dialog_is_open() is False
+        monkeypatch.setattr(mw, "QApplication", _NoApp)
+        assert win._modal_dialog_is_open() is False
+    finally:
+        mw.QApplication = orig
+        _teardown(win, qapp)
+
+
+def test_sync_shortcut_state_noop_without_shortcut_attr():
+    from types import SimpleNamespace
+
+    from gui.main_window import MainWindow
+
+    MainWindow._sync_shortcut_state(SimpleNamespace())
+
+
+def test_install_shortcut_event_filter_twice_is_noop(qapp, tmp_path, monkeypatch):
+    win = _window(qapp, tmp_path, monkeypatch)
+    try:
+        assert win._shortcut_event_filter_installed is True
+        win._install_shortcut_event_filter()
+        assert win._shortcut_event_filter_installed is True
+    finally:
+        _teardown(win, qapp)
+
+
+def test_auto_check_update_schedules_single_shot(qapp, tmp_path, monkeypatch):
+    from PySide6.QtCore import QTimer
+
+    scheduled = []
+    orig_single_shot = QTimer.singleShot
+    monkeypatch.setattr(
+        QTimer, "singleShot", staticmethod(lambda delay, fn: scheduled.append(delay))
+    )
+    win = _window(qapp, tmp_path, monkeypatch, settings={"auto_check_update": True})
+    try:
+        assert 2000 in scheduled
+    finally:
+        QTimer.singleShot = orig_single_shot
+        _teardown(win, qapp)
+
+
+def test_run_sets_up_app_and_exits(monkeypatch):
+    from gui import main_window as mw
+
+    created: dict = {}
+
+    class FakeApp:
+        def __init__(self, argv):
+            created["argv"] = argv
+
+        def setStyleSheet(self, style):
+            created["style"] = bool(style)
+
+        def setApplicationName(self, name):
+            created["name"] = name
+
+        def exec(self):
+            return 7
+
+    class FakeWin:
+        def __init__(self, version):
+            created["version"] = version
+
+        def show(self):
+            created["shown"] = True
+
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication", FakeApp)
+    monkeypatch.setattr("gui.crashlog.install_crash_handler", lambda: created.update(crash=True))
+    monkeypatch.setattr(mw, "MainWindow", FakeWin)
+    with pytest.raises(SystemExit) as ei:
+        mw.run("9.9.9-test")
+    assert ei.value.code == 7
+    assert created["name"] == "WallpaperConverter"
+    assert created["style"] is True
+    assert created["version"] == "9.9.9-test"
+    assert created["shown"] is True
+    assert created["crash"] is True

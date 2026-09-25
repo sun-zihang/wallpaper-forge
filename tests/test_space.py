@@ -105,3 +105,18 @@ def test_existing_ancestor_returns_existing_dir_or_file(tmp_path: Path):
 
     # missing leaf under an existing dir still walks up
     assert _existing_ancestor(tmp_path / "no" / "such" / "a.jpg") == tmp_path
+
+
+def test_existing_ancestor_walks_to_root_returns_none(monkeypatch):
+    from core.space import _existing_ancestor
+
+    monkeypatch.setattr(Path, "exists", lambda self: False)
+    # relative path walks up to "." whose parent is itself → None
+    assert _existing_ancestor(Path("a/b/c")) is None
+
+
+def test_free_space_warning_no_existing_ancestor_returns_none(tmp_path, monkeypatch):
+    src = tmp_path / "a.png"
+    src.write_bytes(b"x" * 10)
+    monkeypatch.setattr(Path, "exists", lambda self: False)
+    assert free_space_warning([src], [tmp_path / "out" / "b.png"]) is None

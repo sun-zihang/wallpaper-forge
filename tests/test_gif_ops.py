@@ -140,3 +140,34 @@ def test_split_step_negative_raises(gif_2f, tmp_path):
         raise AssertionError("should raise")
     except GifOpError as exc:
         assert "抽稀步长至少为 1" in str(exc)
+
+
+def test_split_no_kept_frames_raises(gif_2f, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from core import gif_ops
+
+    monkeypatch.setattr(gif_ops, "ImageSequence", SimpleNamespace(Iterator=lambda im: iter(())))
+    try:
+        split_gif(gif_2f, tmp_path / "empty")
+        raise AssertionError("should raise")
+    except GifOpError as exc:
+        assert "没有可导出的帧" in str(exc)
+
+
+def test_merge_inplace_save_error_cleans_part(gif_2f, tmp_path, monkeypatch):
+    from PIL import Image
+
+    before = gif_2f.read_bytes()
+
+    def boom(self, *a, **k):
+        raise OSError("cannot save")
+
+    monkeypatch.setattr(Image.Image, "save", boom)
+    try:
+        merge_gif([gif_2f], gif_2f, duration_ms=50)
+        raise AssertionError("should raise")
+    except OSError as exc:
+        assert "cannot save" in str(exc)
+    assert not part_path(gif_2f).exists()
+    assert gif_2f.read_bytes() == before

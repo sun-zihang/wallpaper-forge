@@ -147,3 +147,59 @@ def test_update_service_check_async_skips_when_already_running(qapp):
     svc._check = FakeWorker()
     svc.check_async()
     assert started == []
+
+
+def test_download_worker_cancel_sets_event(tmp_path):
+    from gui.update_service import DownloadWorker
+
+    worker = DownloadWorker("https://example.com/x.exe", tmp_path / "x.exe")
+    assert not worker._cancel.is_set()
+    worker.cancel()
+    assert worker._cancel.is_set()
+
+
+def test_download_worker_emits_progress(monkeypatch, tmp_path):
+    from gui import update_service as svc
+
+    def fake_download_update(url, dest, *, progress_cb=None, **kwargs):
+        progress_cb(50, 100)
+        return dest
+
+    monkeypatch.setattr("core.updater.download_update", fake_download_update)
+    worker = svc.DownloadWorker("https://example.com/x.exe", tmp_path / "x.exe")
+    got = []
+    worker.progressed.connect(lambda done, total: got.append((done, total)))
+    oks = []
+    worker.finished_ok.connect(oks.append)
+    worker.run()
+    assert got == [(50, 100)]
+    assert oks == [str(tmp_path / "x.exe")]
+
+
+def test_check_async_spawns_and_starts_worker(qapp, monkeypatch):
+    from gui import update_service as svc
+
+    started = []
+
+    class _Sig:
+        def connect(self, fn):
+            pass
+
+    class FakeCheck:
+        def __init__(self, current_version, parent=None):
+            self.current_version = current_version
+            self.finished_ok = _Sig()
+            self.failed = _Sig()
+
+        def isRunning(self):
+            return False
+
+        def start(self):
+            started.append(self.current_version)
+
+    monkeypatch.setattr(svc, "ReleaseCheckWorker", FakeCheck)
+    service = svc.UpdateService("0.6.3")
+    service.check_async()
+    assert service._check is not None
+    assert service._check.current_version == "0.6.3"
+    assert started == ["0.6.3"]

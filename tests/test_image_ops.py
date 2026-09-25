@@ -190,3 +190,46 @@ def test_bad_suffix_message_mentions_format(png_64, tmp_path):
     except ImageOpError as exc:
         assert "不支持的输出格式" in str(exc)
         assert ".xyz" in str(exc)
+
+
+def test_save_imageoperror_passthrough(png_64, tmp_path, monkeypatch):
+    def boom(self, *a, **k):
+        raise ImageOpError("内部保存失败")
+
+    monkeypatch.setattr(Image.Image, "save", boom)
+    try:
+        convert_image(png_64, tmp_path / "out.png")
+        raise AssertionError("should raise")
+    except ImageOpError as exc:
+        assert "内部保存失败" in str(exc)
+
+
+def test_save_generic_error_wrapped(png_64, tmp_path, monkeypatch):
+    def boom(self, *a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Image.Image, "save", boom)
+    try:
+        convert_image(png_64, tmp_path / "out.png")
+        raise AssertionError("should raise")
+    except ImageOpError as exc:
+        assert "保存失败" in str(exc)
+        assert "disk full" in str(exc)
+
+
+def test_load_font_falls_back_to_default(monkeypatch):
+    from PIL import ImageFont
+
+    from core import annotate
+
+    real_truetype = ImageFont.truetype
+    candidates = ("arial.ttf", "msyh.ttc", "segoeui.ttf")
+
+    def boom(name, *a, **k):
+        if name in candidates:
+            raise OSError("no font file")
+        return real_truetype(name, *a, **k)
+
+    monkeypatch.setattr(annotate.ImageFont, "truetype", boom)
+    font = annotate._load_font(14)
+    assert font is not None

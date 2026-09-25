@@ -170,3 +170,66 @@ def test_remove_video_watermark_maps_cancel(monkeypatch, tmp_path: Path):
         remove_video_watermark(
             src, tmp_path / "o.mp4", [(10, 10, 40, 40)], frame_width=100, frame_height=80
         )
+
+
+def test_inpaint_imread_exception_maps_to_rewatermark_error(tmp_path, monkeypatch):
+    from core import rewatermark as rw
+
+    def boom(*a, **k):
+        raise RuntimeError("decoder exploded")
+
+    monkeypatch.setattr(rw.cv2, "imread", boom)
+    with pytest.raises(RewatermarkError, match="无法解码图片"):
+        rw.inpaint_image(tmp_path / "a.png", tmp_path / "b.png", [(0, 0, 4, 4)])
+
+
+def test_inpaint_cv2_inpaint_failure_maps_error(watermarked_png, tmp_path, monkeypatch):
+    from core import rewatermark as rw
+
+    def boom(*a, **k):
+        raise RuntimeError("inpaint exploded")
+
+    monkeypatch.setattr(rw.cv2, "inpaint", boom)
+    with pytest.raises(RewatermarkError, match="修复失败"):
+        rw.inpaint_image(watermarked_png, tmp_path / "out.png", [(0, 0, 4, 4)])
+
+
+def test_inpaint_imwrite_false_raises_save_failed(watermarked_png, tmp_path, monkeypatch):
+    from core import rewatermark as rw
+
+    monkeypatch.setattr(rw.cv2, "imwrite", lambda *a, **k: False)
+    with pytest.raises(RewatermarkError, match="保存失败"):
+        rw.inpaint_image(watermarked_png, tmp_path / "out.png", [(0, 0, 4, 4)])
+
+
+def test_inplace_inpaint_unknown_ext_falls_back_to_png(tmp_path):
+    src = tmp_path / "shot.ppm"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(src)
+    out = inpaint_image(src, src, [(4, 4, 12, 12)])
+    assert out == src
+    assert src.is_file()
+    assert not part_path(src).exists()
+
+
+def test_inplace_imencode_failure_cleans_part(tmp_path, monkeypatch):
+    from core import rewatermark as rw
+
+    src = tmp_path / "in.png"
+    Image.new("RGB", (24, 24), (1, 2, 3)).save(src)
+    before = src.read_bytes()
+    monkeypatch.setattr(rw.cv2, "imencode", lambda *a, **k: (False, None))
+    with pytest.raises(RewatermarkError, match="保存失败"):
+        rw.inpaint_image(src, src, [(2, 2, 8, 8)])
+    assert not part_path(src).exists()
+    assert src.read_bytes() == before
+
+
+def test_remove_video_watermark_border_clamp_rejects(tmp_path):
+    with pytest.raises(RewatermarkError, match="贴边"):
+        remove_video_watermark(
+            tmp_path / "a.mp4",
+            tmp_path / "b.mp4",
+            [(0, 0, 2, 2)],
+            frame_width=100,
+            frame_height=80,
+        )

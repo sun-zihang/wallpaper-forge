@@ -262,3 +262,45 @@ def test_trim_single_submits(qapp, tmp_path, monkeypatch):
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def test_gif_mode_overwrite_declined_returns(qapp, tmp_path, monkeypatch):
+    from gui.pages import video_page as mod
+
+    page = _page(qapp, tmp_path, monkeypatch)
+    try:
+        src = tmp_path / "a.mp4"
+        src.write_bytes(b"\x00" * 8)
+        page.table.add_paths([src])
+        page.mode.setCurrentIndex(1)  # gif
+
+        submitted = []
+        monkeypatch.setattr(mod, "ffmpeg_available", lambda: True)
+        monkeypatch.setattr(page, "_submit", lambda b: submitted.append(b))
+        monkeypatch.setattr(page, "_confirm_overwrite", lambda s, o: False)
+        page.start_batch()
+        assert submitted == []
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_trim_mode_overwrite_declined_returns(qapp, tmp_path, monkeypatch):
+    from gui.pages import video_page as mod
+
+    page = _page(qapp, tmp_path, monkeypatch)
+    try:
+        src = tmp_path / "a.mp4"
+        src.write_bytes(b"\x00" * 8)
+        page.table.add_paths([src])
+        page.mode.setCurrentIndex(3)  # trim
+
+        submitted = []
+        monkeypatch.setattr(mod, "ffmpeg_available", lambda: True)
+        monkeypatch.setattr(page, "_submit", lambda b: submitted.append(b))
+        monkeypatch.setattr(page, "_confirm_overwrite", lambda s, o: False)
+        page.start_batch()
+        assert submitted == []
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
