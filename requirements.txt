@@ -3,5 +3,5 @@ Pillow>=10.3
 pytest>=8.0
 pytest-cov>=5.0
 pyinstaller>=6.6
-opencv-python-headless>=4.9
+opencv-python-headless>=5.0.0.93
 ruff==0.16.9
