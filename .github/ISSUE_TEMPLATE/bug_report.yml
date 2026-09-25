@@ -28,7 +28,7 @@ body:
     attributes:
       label: 版本号
       description: 桌面版在"帮助-关于"查看，网页版在页脚查看
-      placeholder: 0.7.0
+      placeholder: 0.7.1
   - type: textarea
     id: logs
     attributes:

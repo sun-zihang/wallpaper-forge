@@ -2,7 +2,7 @@
 ; Build: iscc build\installer.iss
 
 #define MyAppName "Wallpaper Converter"
-#define MyAppVersion "0.7.0"
+#define MyAppVersion "0.7.1"
 #define MyAppPublisher "wallpaper-forge"
 #define MyAppURL "https://github.com/sun-zihang/wallpaper-forge"
 #define MyAppExeName "WallpaperConverter.exe"

@@ -66,21 +66,21 @@ iscc build/installer.iss
 
 ## 下载
 
-最新版：**[v0.7.0](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.7.0)**（安装向导全中文化、自动更新 SHA256 校验、解包路径穿越修复、设置页 Esc 崩溃修复；网页版已上线 GitHub Pages）
+最新版：**[v0.7.1](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.7.1)**（依赖升级 PySide6 6.11 / Pillow 12.3 / OpenCV 5，ruff + mypy 全量门禁，561 个测试覆盖率 99.6%；网页版已上线 GitHub Pages）
 
 国内若 GitHub 较慢，优先用镜像直链（任选其一，粘贴到浏览器）：
 
 | 来源 | 直链 |
 |------|------|
-| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.0/WallpaperConverter-Setup-0.7.0.exe |
-| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.0/WallpaperConverter-Setup-0.7.0.exe |
-| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.0/WallpaperConverter-Setup-0.7.0.exe |
-| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.0/WallpaperConverter-Setup-0.7.0.exe |
-| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.0/WallpaperConverter-Setup-0.7.0.exe |
+| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.1/WallpaperConverter-Setup-0.7.1.exe |
+| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.1/WallpaperConverter-Setup-0.7.1.exe |
+| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.1/WallpaperConverter-Setup-0.7.1.exe |
+| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.1/WallpaperConverter-Setup-0.7.1.exe |
+| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.7.1/WallpaperConverter-Setup-0.7.1.exe |
 
 应用内「检查更新 → 立即更新」同样按上表顺序优先走镜像；全部失败时会在提示框里列出可复制的镜像链接。
 
-校验下载完整性：每个 Release 均附 `SHA256SUMS.txt`，本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.7.0.exe -Algorithm SHA256` 对比其中哈希即可。
+校验下载完整性：每个 Release 均附 `SHA256SUMS.txt`，本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.7.1.exe -Algorithm SHA256` 对比其中哈希即可。
 
 发布页（含历史版本）：https://github.com/sun-zihang/wallpaper-forge/releases
 
