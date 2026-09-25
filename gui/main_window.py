@@ -214,7 +214,11 @@ class MainWindow(QMainWindow):
 
     def _batch_is_running(self) -> bool:
         thread = getattr(self._current_page(), "thread", None)
-        return bool(thread is not None and thread.isRunning())
+        # Pages without a worker (e.g. settings) fall back to QObject.thread(),
+        # a bound method rather than a QThread — treat that as "not running".
+        if not callable(getattr(thread, "isRunning", None)):
+            return False
+        return bool(thread.isRunning())
 
     def _modal_dialog_is_open(self) -> bool:
         app = QApplication.instance()
