@@ -890,3 +890,36 @@ table.compare td.no { color: var(--ink-faint); }
   color: var(--ink-faint);
   font-size: 13px;
 }
+
+/* ---------- animation system (section 7) ---------- */
+.page-head {
+  animation: page-in 0.2s ease-out;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.onboarding-card,
+.error-modal-card,
+.shortcut-help-card {
+  animation: modal-in 0.25s ease-out;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.toast {
+  animation: toast-in 0.2s ease-out;
+}
+.img-files.hot {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+.btn {
+  transition: filter 0.15s, border-color 0.15s, background 0.15s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-head, .onboarding-card, .error-modal-card, .shortcut-help-card, .toast {
+    animation: none;
+  }
+}
