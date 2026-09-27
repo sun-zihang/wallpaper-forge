@@ -1,8 +1,9 @@
 // web/pages/settings.js
-import { setStatus } from "../app.js";
+import { setStatus, getRenderToken } from "../app.js";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, applyTheme } from "../lib/settings.js";
 
 export function mountSettings(root) {
+  const pageToken = getRenderToken();
   const s = loadSettings();
   root.innerHTML = `
     <div class="page-head">
@@ -113,6 +114,7 @@ export function mountSettings(root) {
   applyTheme(s.theme);
 
   async function refreshUsage() {
+    if (pageToken !== getRenderToken()) return;
     try {
       if (navigator.storage && navigator.storage.estimate) {
         const est = await navigator.storage.estimate();
@@ -128,6 +130,7 @@ export function mountSettings(root) {
   refreshUsage();
 
   $("clearCache").addEventListener("click", async () => {
+    if (pageToken !== getRenderToken()) return;
     err.textContent = "";
     try {
       if (typeof caches !== "undefined" && caches.keys) {

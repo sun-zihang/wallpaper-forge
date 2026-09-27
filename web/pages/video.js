@@ -519,7 +519,7 @@ export function mountVideo(root) {
         return;
       }
       for (let i = 0; i < files.length; i++) {
-        if (token.cancelled || jobs.cancelled) {
+        if (stale() || token.cancelled || jobs.cancelled) {
           jobs.setStatus(i, "cancelled", "已取消");
           continue;
         }
@@ -529,6 +529,7 @@ export function mountVideo(root) {
           const out = await processOne(files[i], $("mode").value, (p) =>
             jobs.setProgress(batchPct(i, p, files.length))
           );
+          if (stale()) return;
           if (out) {
             outputs.push(out);
             jobs.setStatus(i, "done");
