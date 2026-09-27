@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "threatModel": {
+    "inherit": true,
+    "assets": [
+      "自动更新通道：启动时从 GitHub Release 拉取版本信息并下载安装包（core/updater.py），安装前强制 SHA256 校验"
+    ],
+    "attackerControlledInputs": [],
+    "trustBoundaries": [
+      "应用 → api.github.com / github.com / 镜像站：只读 HTTPS 拉取版本与安装包；出站 URL 一律先经 core/updater.py::_validate_url 静态白名单校验（https + 受信主机 + 镜像内层 URL 复检）",
+      "测试进程：offscreen Qt 桩与 monkeypatch 替换，无网络、仅写 pytest 临时目录"
+    ],
+    "securityInvariants": [
+      "出站请求 URL 必须命中 _validate_url 静态白名单（api.github.com / github.com / objects.githubusercontent.com / release-assets.githubusercontent.com / 四个镜像主机），否则抛出 UpdateError",
+      "安装包 SHA256 与 Release 摘要一致才会启动安装",
+      "子进程仅限 ffmpeg/ffprobe 二进制且 argv 列表传参（shell=False），见 core/video_ops.py、core/rewatermark.py",
+      "任何测试不得发起真实网络请求"
+    ],
+    "exclusions": [
+      "tests/ — 测试桩：FakeDialog/FakeApp 定义 Qt exec() 事件循环方法、monkeypatch 动态替换模块属性与 Qt 类，均为标准 pytest 惯例；不触网、不写项目目录",
+      "scripts/ — 开发与巡检脚本（smoke_web/截图/CDN 检查）：仅在仓库 fixtures 与系统临时目录生成测试数据"
+    ]
+  },
+  "network": {
+    "allowedProtocols": [
+      "https:"
+    ],
+    "allowedHosts": [
+      "api.github.com",
+      "github.com",
+      "objects.githubusercontent.com",
+      "release-assets.githubusercontent.com",
+      "ghproxy.net",
+      "gh-proxy.com",
+      "mirror.ghproxy.com",
+      "ghfast.top"
+    ],
+    "blockPrivateNetworks": true,
+    "maxRedirects": 5
+  },
+  "command": {
+    "forbidShell": false,
+    "allowedBinaries": [
+      "ffmpeg.exe",
+      "ffprobe.exe",
+      "ffmpeg",
+      "ffprobe"
+    ]
+  },
+  "path": {
+    "allowedWriteRoots": [],
+    "requireBasename": true
+  },
+  "data": {
+    "allowedSortFields": [],
+    "requireOwnerScope": true
+  }
+}
