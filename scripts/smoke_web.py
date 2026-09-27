@@ -214,7 +214,7 @@ with sync_playwright() as p:
 
     # 5. video — oversize rejected before engine load
     page.click('nav a[href="#/video"]')
-    page.wait_for_selector("#fps", state="attached")
+    page.wait_for_selector("#mode", state="attached")
     page.set_input_files("#files", str(big_path))
     page.click("#start")
     page.wait_for_timeout(500)

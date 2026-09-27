@@ -2,6 +2,7 @@
 import { assertVideoLimits, probeVideoDuration, durationTooLongError, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "../lib/video_limits.js";
 import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../lib/video_bridge.js";
 import { validateVideoFile } from "../lib/validate.js";
+import { validateSelection } from "../lib/selection.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
