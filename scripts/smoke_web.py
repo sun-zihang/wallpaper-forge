@@ -115,6 +115,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     ctx = browser.new_context(accept_downloads=True)
     page = ctx.new_page()
+    page.add_init_script("localStorage.setItem('wc.onboarded','1')")
     page.on("pageerror", lambda e: console_errors.append(f"pageerror: {e}"))
     page.on(
         "console",
