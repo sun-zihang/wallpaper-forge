@@ -126,7 +126,7 @@ with sync_playwright() as p:
     # 1. home
     page.goto(BASE + "/index.html")
     page.wait_for_load_state("networkidle")
-    check(page.locator(".card").count() == 4, "home has 4 cards")
+    check(page.locator(".card").count() == 6, "home has 6 cards")
     check("不会上传" in page.content(), "home privacy copy")
     check(page.locator('#app a[href*="releases"]').count() == 1, "home desktop release link")
     check(page.locator(".rail nav a").count() == 6, "rail has 6 nav items")

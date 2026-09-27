@@ -20,7 +20,12 @@ function anchor(href) {
 }
 
 function installAppDom() {
-  const root = { innerHTML: "" };
+  const root = {
+    innerHTML: "",
+    querySelector() {
+      return { addEventListener() {}, classList: { add() {}, remove() {} } };
+    },
+  };
   const status = { textContent: "就绪" };
   const navAnchors = [anchor("#/"), anchor("#/image"), anchor("#/gif")];
   const hashChange = [];

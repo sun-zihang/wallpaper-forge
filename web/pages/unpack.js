@@ -72,6 +72,15 @@ export function mountUnpack(root) {
     },
   });
 
+  if (window.__wcHandoff && window.__wcHandoff.length) {
+    const handoff = window.__wcHandoff;
+    window.__wcHandoff = null;
+    const dt = new DataTransfer();
+    for (const f of handoff) dt.items.add(f);
+    $("files").files = dt.files;
+    $("files").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   $("start").addEventListener("click", async () => {
     if (running || zipping) return;
     $("err").textContent = "";

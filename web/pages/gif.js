@@ -106,6 +106,15 @@ export function mountGif(root) {
     },
   });
 
+  if (window.__wcHandoff && window.__wcHandoff.length) {
+    const handoff = window.__wcHandoff;
+    window.__wcHandoff = null;
+    const dt = new DataTransfer();
+    for (const f of handoff) dt.items.add(f);
+    $("files").files = dt.files;
+    $("files").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   function syncMode() {
     const split = $("mode").value === "split";
     $("wstep").hidden = !split;

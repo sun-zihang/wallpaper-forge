@@ -136,6 +136,15 @@ export function mountImage(root) {
     },
   });
 
+  if (window.__wcHandoff && window.__wcHandoff.length) {
+    const handoff = window.__wcHandoff;
+    window.__wcHandoff = null;
+    const dt = new DataTransfer();
+    for (const f of handoff) dt.items.add(f);
+    $("files").files = dt.files;
+    $("files").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
   const settings = loadSettings();
   try {
