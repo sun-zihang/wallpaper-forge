@@ -19,3 +19,7 @@ vendor/_dl/
 .coverage
 .coverage.*
 htmlcov/
+.mimosa/hook-state/
+.mimosa/hook-status/
+.mimosa/finding-ledger/
+.mimosa/reports/
