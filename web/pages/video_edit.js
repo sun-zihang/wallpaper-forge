@@ -1,6 +1,6 @@
 // web/pages/video_edit.js
 import { TimelineModel, Track, Clip, createDefaultParams } from "../lib/video_edit/model.js";
-import { EditEngine, SplitClipCommand, RemoveClipCommand, MoveClipCommand, AdjustParamsCommand } from "../lib/video_edit/engine.js";
+import { EditEngine, SplitClipCommand, RemoveClipCommand, MoveClipCommand, TrimClipCommand, AdjustParamsCommand } from "../lib/video_edit/engine.js";
 import { PreviewCalculator } from "../lib/video_edit/preview.js";
 import { WebAdapter } from "../lib/video_edit/web/adapter.js";
 import { WebPreviewRenderer } from "../lib/video_edit/web/renderer.js";
@@ -109,6 +109,8 @@ export function mountVideoEdit(root, deps = {}) {
     renderGen: 0,
   };
 
+  let selectedClipEl = null;
+
   function stale() {
     return token !== getRenderToken();
   }
@@ -199,7 +201,7 @@ export function mountVideoEdit(root, deps = {}) {
   function addFiles(files) {
     const check = validateSelection(files, { extensions: VIDEO_EXTENSIONS });
     if (!check.ok) {
-      els.err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+      showError(new Error(check.errors.map((e) => `${e.name}：${e.reason}`).join("\n")));
       return;
     }
     const added = check.files.map((f) => ({ file: f, url: URL.createObjectURL(f), duration: null }));
@@ -278,6 +280,7 @@ export function mountVideoEdit(root, deps = {}) {
   function renderTimeline() {
     const tracksEl = els.tracks;
     tracksEl.innerHTML = "";
+    selectedClipEl = null;
     const dur = timelineDuration();
     for (const track of timeline.tracks) {
       const trackEl = document.createElement("div");
@@ -291,7 +294,9 @@ export function mountVideoEdit(root, deps = {}) {
       lane.className = "tl-lane";
       lane.dataset.trackId = track.id;
       for (const clip of track.clips) {
-        lane.appendChild(buildClipEl(clip, track, dur));
+        const clipEl = buildClipEl(clip, track, dur);
+        lane.appendChild(clipEl);
+        if (clip.id === state.selectedClipId) selectedClipEl = clipEl;
       }
       lane.addEventListener("pointerdown", (ev) => {
         if (ev.target !== lane) return;
@@ -330,9 +335,8 @@ export function mountVideoEdit(root, deps = {}) {
 
     el.addEventListener("click", (ev) => {
       ev.stopPropagation?.();
-      selectClip(clip.id);
+      selectClip(clip.id, el);
     });
-    el.addEventListener("dblclick", () => splitClipAtPlayhead(clip));
     el.addEventListener("contextmenu", (ev) => {
       ev.preventDefault?.();
       showClipMenu(clip);
@@ -393,28 +397,34 @@ export function mountVideoEdit(root, deps = {}) {
     const dur = timelineDuration();
     const startSourceIn = clip.sourceIn;
     const startSourceOut = clip.sourceOut;
+    let newSourceIn = startSourceIn;
+    let newSourceOut = startSourceOut;
     const move = (e) => {
       const dx = (e.clientX - startX) * secPerPx;
       if (edge === "left") {
-        clip.sourceIn = Math.max(0, Math.min(startSourceIn + dx, startSourceOut - MIN_TRIM_SEC));
+        newSourceIn = Math.max(0, Math.min(startSourceIn + dx, startSourceOut - MIN_TRIM_SEC));
         el.style.left = `${(clip.timelineIn / dur) * 100}%`;
       } else {
-        clip.sourceOut = Math.max(startSourceIn + MIN_TRIM_SEC, Math.min(startSourceOut + dx, dur));
+        newSourceOut = Math.max(startSourceIn + MIN_TRIM_SEC, Math.min(startSourceOut + dx, dur));
       }
-      el.style.width = `${Math.max(0.5, (clip.duration / dur) * 100)}%`;
+      el.style.width = `${Math.max(0.5, ((newSourceOut - newSourceIn) / clip.speed / dur) * 100)}%`;
     };
     const up = () => {
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
+      if (newSourceIn === startSourceIn && newSourceOut === startSourceOut) return;
+      engine.execute(new TrimClipCommand(clip.id, newSourceIn, newSourceOut));
       afterEdit();
     };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
   }
 
-  function selectClip(clipId) {
+  function selectClip(clipId, clipEl = null) {
+    if (selectedClipEl) selectedClipEl.classList.remove("selected");
     state.selectedClipId = clipId;
-    renderTimeline();
+    selectedClipEl = clipEl;
+    if (selectedClipEl) selectedClipEl.classList.add("selected");
     renderParamsPanel();
     schedulePreview();
   }
@@ -832,20 +842,6 @@ export function mountVideoEdit(root, deps = {}) {
       ["slower", "slower"],
       ["veryslow", "veryslow"],
     ], () => {});
-    const res = addSelect(dialog, "分辨率", "res", "原始", [
-      ["原始", "原始"],
-      ["1920x1080", "1920x1080"],
-      ["1280x720", "1280x720"],
-      ["854x480", "854x480"],
-      ["640x360", "640x360"],
-    ], () => {});
-    const fps = addSelect(dialog, "帧率", "fps", "原始", [
-      ["原始", "原始"],
-      ["24", "24 fps"],
-      ["25", "25 fps"],
-      ["30", "30 fps"],
-      ["60", "60 fps"],
-    ], () => {});
 
     const progress = document.createElement("div");
     progress.className = "export-progress";
@@ -876,8 +872,6 @@ export function mountVideoEdit(root, deps = {}) {
         videoCodec: codec.value,
         crf: Number(crf.value),
         preset: preset.value,
-        resolution: res.value,
-        fps: fps.value,
       });
     });
     const btnRow = document.createElement("div");
@@ -970,6 +964,17 @@ export function mountVideoEdit(root, deps = {}) {
     else play();
   });
   els.exportBtn.addEventListener("click", openExportDialog);
+  els.tracks.addEventListener("dblclick", (ev) => {
+    let node = ev.target;
+    while (node && node !== els.tracks) {
+      if (node.dataset && node.dataset.clipId) {
+        const clip = timeline.findClip(node.dataset.clipId);
+        if (clip) splitClipAtPlayhead(clip);
+        return;
+      }
+      node = node.parentNode;
+    }
+  });
   document.addEventListener("keydown", onKeyDown);
 
   const filesAside = root.querySelector(".edit-files");

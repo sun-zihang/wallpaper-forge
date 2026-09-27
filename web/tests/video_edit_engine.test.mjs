@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TimelineModel, Track, Clip, createDefaultParams } from "../lib/video_edit/model.js";
-import { EditEngine, SplitClipCommand, RemoveClipCommand, MoveClipCommand, AdjustParamsCommand } from "../lib/video_edit/engine.js";
+import { EditEngine, SplitClipCommand, RemoveClipCommand, MoveClipCommand, TrimClipCommand, AdjustParamsCommand } from "../lib/video_edit/engine.js";
 
 function makeTimeline() {
   const tl = new TimelineModel({ id: "tl1" });
@@ -89,4 +89,31 @@ test("EditEngine: adjustParams 更新片段参数", () => {
   assert.equal(tl.findClip("c1").speed, 2.0);
   engine.undo();
   assert.equal(tl.findClip("c1").speed, 1.0);
+});
+
+test("EditEngine: trim 片段调整 sourceIn/sourceOut", () => {
+  const tl = makeTimeline();
+  const engine = new EditEngine(tl);
+  engine.execute(new TrimClipCommand("c1", 2, 8));
+  assert.equal(tl.findClip("c1").sourceIn, 2);
+  assert.equal(tl.findClip("c1").sourceOut, 8);
+  engine.undo();
+  assert.equal(tl.findClip("c1").sourceIn, 0);
+  assert.equal(tl.findClip("c1").sourceOut, 10);
+  engine.redo();
+  assert.equal(tl.findClip("c1").sourceIn, 2);
+  assert.equal(tl.findClip("c1").sourceOut, 8);
+});
+
+test("EditEngine: trim 后 split 仍基于调整后的 source 窗口", () => {
+  const tl = makeTimeline();
+  const engine = new EditEngine(tl);
+  engine.execute(new TrimClipCommand("c1", 2, 8));
+  engine.execute(new SplitClipCommand("c1", 3));
+  const c1 = tl.findClip("c1");
+  assert.equal(c1.sourceIn, 2);
+  assert.equal(c1.sourceOut, 5);
+  const c2 = tl.getClipTrack("c1").clips.find((c) => c.id !== "c1" && c.id !== "c2");
+  assert.equal(c2.sourceIn, 5);
+  assert.equal(c2.sourceOut, 8);
 });

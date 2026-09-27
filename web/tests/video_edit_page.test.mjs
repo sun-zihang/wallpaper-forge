@@ -434,6 +434,87 @@ test("拖拽右边缘裁剪片段", async () => {
   assert.equal(clip.sourceOut, 9);
 });
 
+test("选中片段不重建时间线元素（双击拆分根因）", async () => {
+  const { handle, els } = await setupEditor();
+  await addFileViaInput(els, fakeFile("a.mp4"));
+  dropFileOnTimeline(els, 0);
+  videoLane(els).fire("pointerdown", { clientX: 400 });
+  const clipEl = firstClipEl(els);
+  clipEl.fire("click");
+  assert.equal(firstClipEl(els), clipEl);
+  clipEl.fire("dblclick");
+  const clips = handle.timeline.tracks[0].clips;
+  assert.equal(clips.length, 2);
+  assert.equal(clips[0].sourceOut, 4);
+  assert.equal(clips[1].sourceIn, 4);
+});
+
+test("双击事件委托：在片段子元素上触发也能拆分", async () => {
+  const { handle, els } = await setupEditor();
+  await addFileViaInput(els, fakeFile("a.mp4"));
+  dropFileOnTimeline(els, 0);
+  videoLane(els).fire("pointerdown", { clientX: 400 });
+  const nameEl = firstClipEl(els).children[0];
+  nameEl.fire("dblclick");
+  assert.equal(handle.timeline.tracks[0].clips.length, 2);
+});
+
+test("双击空白轨道区域不拆分", async () => {
+  const { handle, els } = await setupEditor();
+  await addFileViaInput(els, fakeFile("a.mp4"));
+  dropFileOnTimeline(els, 0);
+  videoLane(els).fire("dblclick", { clientX: 950 });
+  assert.equal(handle.timeline.tracks[0].clips.length, 1);
+  assert.equal(els.err.textContent, "");
+});
+
+test("裁剪通过 TrimClipCommand 提交且可撤销重做", async () => {
+  const { handle, els } = await setupEditor();
+  await addFileViaInput(els, fakeFile("a.mp4"));
+  dropFileOnTimeline(els, 0);
+  const clip = handle.timeline.tracks[0].clips[0];
+  const trimR = firstClipEl(els).children[2];
+  trimR.fire("pointerdown", { clientX: 500 });
+  trimR.fire("pointermove", { clientX: 400 });
+  assert.equal(handle.engine.undoStack.length, 0);
+  trimR.fire("pointerup");
+  assert.equal(clip.sourceOut, 9);
+  assert.equal(handle.engine.undoStack.length, 1);
+  els.undoBtn.fire("click");
+  assert.equal(clip.sourceOut, 10);
+  assert.equal(firstClipEl(els).style.width, "100%");
+  els.redoBtn.fire("click");
+  assert.equal(clip.sourceOut, 9);
+});
+
+test("拖拽左边缘裁剪片段可撤销", async () => {
+  const { handle, els } = await setupEditor();
+  await addFileViaInput(els, fakeFile("a.mp4"));
+  dropFileOnTimeline(els, 0);
+  const clip = handle.timeline.tracks[0].clips[0];
+  const trimL = firstClipEl(els).children[1];
+  trimL.fire("pointerdown", { clientX: 100 });
+  trimL.fire("pointermove", { clientX: 200 });
+  trimL.fire("pointerup");
+  assert.equal(clip.sourceIn, 1);
+  els.undoBtn.fire("click");
+  assert.equal(clip.sourceIn, 0);
+});
+
+test("导出对话框不再包含分辨率与帧率控件", async () => {
+  const { els } = await setupEditor();
+  els.exportBtn.fire("click");
+  const dialog = bodyEl.querySelector(".export-overlay").children[0];
+  assert.equal(dialog.querySelector("#res"), null);
+  assert.equal(dialog.querySelector("#fps"), null);
+  assert.ok(dialog.querySelector("#fmt"));
+  assert.ok(dialog.querySelector("#codec"));
+  assert.ok(dialog.querySelector("#crf"));
+  assert.ok(dialog.querySelector("#preset"));
+  dialog.querySelector("#exportCancel").fire("click");
+  assert.equal(bodyEl.querySelector(".export-overlay"), null);
+});
+
 test("播放与暂停驱动播放头和预览", async () => {
   const { handle, els } = await setupEditor();
   await addFileViaInput(els, fakeFile("a.mp4"));

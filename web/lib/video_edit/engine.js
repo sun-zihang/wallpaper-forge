@@ -116,6 +116,32 @@ export class MoveClipCommand {
   }
 }
 
+export class TrimClipCommand {
+  constructor(clipId, sourceIn, sourceOut) {
+    this.clipId = clipId;
+    this.sourceIn = sourceIn;
+    this.sourceOut = sourceOut;
+    this.oldSourceIn = null;
+    this.oldSourceOut = null;
+  }
+
+  redo(tl) {
+    const clip = tl.findClip(this.clipId);
+    if (!clip) return;
+    this.oldSourceIn = clip.sourceIn;
+    this.oldSourceOut = clip.sourceOut;
+    clip.sourceIn = this.sourceIn;
+    clip.sourceOut = this.sourceOut;
+  }
+
+  undo(tl) {
+    const clip = tl.findClip(this.clipId);
+    if (!clip) return;
+    clip.sourceIn = this.oldSourceIn;
+    clip.sourceOut = this.oldSourceOut;
+  }
+}
+
 export class AdjustParamsCommand {
   constructor(clipId, partialParams) {
     this.clipId = clipId;
