@@ -1,9 +1,8 @@
 // web/pages/gif.js
-import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
+import { mergeGif, splitGif, loadGifFrames } from "../lib/gif_ops.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
-import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
@@ -12,54 +11,95 @@ import { setStatus } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
+import { runJob } from "../lib/worker_client.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
+const PLAYER_FPS = 10;
 
 export function mountGif(root) {
   root.innerHTML = `
     <div class="page-head">
       <h1>GIF 工具</h1>
-      <p>拆帧按 delta 与 disposal 正确合成，与桌面版输出一致；合帧逐帧编码，可随时取消。</p>
+      <p>拆帧按 delta 与 disposal 正确合成；合帧逐帧编码。左侧文件，中间播放器/预览，右侧参数。</p>
     </div>
-    <div class="drop-bay" id="dropzone">
-      <div class="row">
-        <div class="field">
-          <label for="files">选择文件</label>
-          <input type="file" id="files" multiple accept="image/*,.gif" />
+    <div class="gif-layout">
+      <aside class="img-files">
+        <div class="img-files-head">
+          <span>文件</span>
+          <button type="button" class="btn secondary" id="addFiles">添加</button>
+          <input type="file" id="files" multiple accept="image/*,.gif" hidden />
         </div>
-        <span class="drop-hint">或拖拽到此处</span>
-      </div>
-    </div>
-    <div class="panel">
-      <p class="panel-title">模式与参数</p>
-      <div class="row">
-        <div class="field">
-          <label for="mode">模式</label>
-          <select id="mode">
-            <option value="split">拆帧（GIF → PNG 序列）</option>
-            <option value="merge">合帧（图片 → GIF）</option>
+        <div class="img-file-list" id="fileList"></div>
+      </aside>
+      <div class="gif-preview">
+        <div class="preview-stage" id="stage">
+          <canvas id="gifCanvas"></canvas>
+          <div class="preview-empty" id="previewEmpty">选择左侧文件预览</div>
+        </div>
+        <div class="gif-player-bar" id="playerBar" hidden>
+          <button type="button" class="btn secondary" id="playBtn">▶ 播放</button>
+          <select id="speed" class="gif-speed">
+            <option value="0.25">0.25x</option>
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x</option>
+            <option value="2">2x</option>
           </select>
+          <input type="range" id="gifTimeline" min="0" max="0" value="0" />
+          <span class="preview-info" id="gifFrameInfo"></span>
         </div>
-        <div class="field" id="wstep">
-          <label for="step">抽稀步长</label>
-          <input type="number" id="step" min="1" max="30" value="1" />
-        </div>
-        <div class="field" id="wdur" hidden>
-          <label for="dur">帧间隔 (ms)</label>
-          <input type="number" id="dur" min="10" max="5000" value="100" />
-        </div>
-        <div class="field" id="wrev" hidden>
-          <label class="inline"><input type="checkbox" id="rev" /> 倒放</label>
-        </div>
-        <div class="field" id="wloop" hidden>
-          <label class="inline"><input type="checkbox" id="loop" checked /> 无限循环</label>
+        <div class="gif-gallery" id="gallery" hidden>
+          <p class="panel-title">拆帧结果</p>
+          <div class="gallery-grid" id="galleryGrid"></div>
         </div>
       </div>
-      <div class="row">
-        <button type="button" class="btn" id="start">开始</button>
-        <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
-        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
+      <div class="gif-params">
+        <div class="panel">
+          <p class="panel-title">模式与参数</p>
+          <div class="row">
+            <div class="field">
+              <label for="mode">模式</label>
+              <select id="mode">
+                <option value="split">拆帧（GIF → PNG 序列）</option>
+                <option value="merge">合帧（图片 → GIF）</option>
+              </select>
+            </div>
+            <div class="field" id="wstep">
+              <label for="step">抽稀步长</label>
+              <input type="number" id="step" min="1" max="30" value="1" />
+            </div>
+            <div class="field" id="wdur">
+              <label for="dur">帧率 <span id="dur_v">30</span> FPS</label>
+              <input type="range" id="dur" min="1" max="60" value="30" />
+            </div>
+            <div class="field" id="wrev" hidden>
+              <label class="inline"><input type="checkbox" id="rev" /> 倒放</label>
+            </div>
+            <div class="field" id="wloop" hidden>
+              <label for="loop">循环</label>
+              <select id="loop">
+                <option value="0">无限循环</option>
+                <option value="1">播放一次</option>
+                <option value="2">2 次</option>
+                <option value="3">3 次</option>
+              </select>
+            </div>
+            <div class="field" id="wcolors" hidden>
+              <label for="colors">色彩数</label>
+              <select id="colors">
+                <option value="256">256 色</option>
+                <option value="128">128 色</option>
+                <option value="64">64 色</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+    <div class="img-actionbar">
+      <button type="button" class="btn" id="start">开始</button>
+      <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
+      <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
+      <span class="actionbar-pct" id="actionbarPct"></span>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
@@ -69,20 +109,17 @@ export function mountGif(root) {
   const jobs = createJobList(root.querySelector("#jobs"), {
     onCancel() {
       token.cancelled = true;
-      cancelAllWorkerJobs();
     },
   });
   let splitFiles = [];
   let running = false;
+  let zipping = false;
   let saving = false;
-
-  function syncSaveDir() {
-    const btn = $("savedir");
-    if (btn) {
-      const split = $("mode").value === "split";
-      btn.hidden = !split || !supportsFileSystemAccess() || splitFiles.length === 0;
-    }
-  }
+  let selectedFile = null;
+  let playerFrames = [];
+  let playerIdx = 0;
+  let playerPlaying = false;
+  let playerTimer = null;
 
   registerShortcutAction("onOpen", () => $("files").click());
   registerShortcutAction("onStart", () => {
@@ -99,21 +136,136 @@ export function mountGif(root) {
   const settings = loadSettings();
   $("step").value = String(settings.gifStep);
 
-  attachDropTarget($("dropzone"), $("files"), {
-    extensions: IMAGE_EXTS,
-    onRejected: (msg) => {
-      $("err").textContent = msg;
-    },
+  $("addFiles").addEventListener("click", () => $("files").click());
+  $("files").addEventListener("change", () => {
+    const picked = [...$("files").files];
+    $("files").value = "";
+    addFiles(picked);
   });
 
   if (window.__wcHandoff && window.__wcHandoff.length) {
     const handoff = window.__wcHandoff;
     window.__wcHandoff = null;
-    const dt = new DataTransfer();
-    for (const f of handoff) dt.items.add(f);
-    $("files").files = dt.files;
-    $("files").dispatchEvent(new Event("change", { bubbles: true }));
+    addFiles(handoff);
   }
+
+  const fileList = $("fileList");
+  const fileEntries = [];
+
+  const filesAside = root.querySelector(".img-files");
+  filesAside.addEventListener("dragover", (ev) => {
+    ev.preventDefault();
+    filesAside.classList.add("hot");
+  });
+  filesAside.addEventListener("dragleave", () => filesAside.classList.remove("hot"));
+  filesAside.addEventListener("drop", (ev) => {
+    ev.preventDefault();
+    filesAside.classList.remove("hot");
+    addFiles([...(ev.dataTransfer?.files || [])]);
+  });
+
+  function addFiles(files) {
+    for (const f of files) {
+      const check = validateSelection([f], { extensions: IMAGE_EXTS });
+      if (!check.ok) {
+        $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+        continue;
+      }
+      fileEntries.push({ file: f, status: "pending" });
+    }
+    renderFileList();
+    if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = "";
+    fileEntries.forEach((entry) => {
+      const div = document.createElement("div");
+      div.className = `img-file${entry === selectedFile ? " selected" : ""}`;
+      const icon = { pending: "🔘", running: "⚙️", done: "✅", failed: "❌", cancelled: "⏹" }[entry.status] || "🔘";
+      div.innerHTML = `<span class="img-file-icon">${icon}</span><span class="img-file-name"></span>`;
+      div.querySelector(".img-file-name").textContent = entry.file.name;
+      div.addEventListener("click", () => selectFile(entry));
+      fileList.appendChild(div);
+    });
+  }
+
+  function setFileStatus(entry, status) {
+    entry.status = status;
+    renderFileList();
+  }
+
+  async function selectFile(entry) {
+    selectedFile = entry;
+    renderFileList();
+    stopPlayer();
+    playerFrames = [];
+    $("gifTimeline").value = "0";
+    $("gifFrameInfo").textContent = "";
+    const split = $("mode").value === "split";
+    if (split && entry.file.name.toLowerCase().endsWith(".gif")) {
+      try {
+        const { frames } = await loadGifFrames(entry.file, { token });
+        playerFrames = frames;
+        $("previewEmpty").hidden = true;
+        $("playerBar").hidden = false;
+        $("gifTimeline").max = String(Math.max(0, frames.length - 1));
+        playerIdx = 0;
+        drawPlayerFrame();
+      } catch (e) {
+        $("err").textContent = friendlyError(e);
+        $("playerBar").hidden = true;
+      }
+    } else {
+      $("playerBar").hidden = true;
+      $("previewEmpty").hidden = false;
+    }
+  }
+
+  function drawPlayerFrame() {
+    const canvas = $("gifCanvas");
+    if (!canvas || !playerFrames.length) return;
+    const frame = playerFrames[playerIdx];
+    canvas.width = frame.width;
+    canvas.height = frame.height;
+    canvas.getContext("2d").drawImage(frame, 0, 0);
+    $("gifFrameInfo").textContent = `帧 ${playerIdx + 1} / ${playerFrames.length}`;
+    $("gifTimeline").value = String(playerIdx);
+  }
+
+  function playerTick() {
+    if (!playerPlaying || !playerFrames.length) return;
+    playerIdx = (playerIdx + 1) % playerFrames.length;
+    drawPlayerFrame();
+    const speed = Number($("speed").value) || 1;
+    playerTimer = setTimeout(playerTick, 1000 / (PLAYER_FPS * speed));
+  }
+
+  function stopPlayer() {
+    playerPlaying = false;
+    if (playerTimer) clearTimeout(playerTimer);
+    playerTimer = null;
+    const btn = $("playBtn");
+    if (btn) btn.textContent = "▶ 播放";
+  }
+
+  $("playBtn").addEventListener("click", () => {
+    if (!playerFrames.length) return;
+    playerPlaying = !playerPlaying;
+    $("playBtn").textContent = playerPlaying ? "⏸ 暂停" : "▶ 播放";
+    if (playerPlaying) playerTick();
+    else if (playerTimer) clearTimeout(playerTimer);
+  });
+  $("speed").addEventListener("change", () => {
+    if (playerPlaying) {
+      if (playerTimer) clearTimeout(playerTimer);
+      playerTick();
+    }
+  });
+  $("gifTimeline").addEventListener("input", () => {
+    playerIdx = Number($("gifTimeline").value) || 0;
+    drawPlayerFrame();
+  });
 
   function syncMode() {
     const split = $("mode").value === "split";
@@ -121,20 +273,41 @@ export function mountGif(root) {
     $("wdur").hidden = split;
     $("wrev").hidden = split;
     $("wloop").hidden = split;
+    $("wcolors").hidden = split;
     $("zip").hidden = !split;
     $("start").textContent = split ? "开始拆帧" : "开始合帧";
     $("files").accept = split ? ".gif,image/gif" : "image/*,.gif";
-    syncSaveDir();
+    if (selectedFile) selectFile(selectedFile);
   }
   $("mode").addEventListener("change", syncMode);
+  $("dur").addEventListener("input", () => ($("dur_v").textContent = $("dur").value));
   syncMode();
+
+  function syncSaveDir() {
+    const btn = $("savedir");
+    if (btn) btn.hidden = !supportsFileSystemAccess() || splitFiles.length === 0;
+  }
+
+  function renderGallery() {
+    const grid = $("galleryGrid");
+    grid.innerHTML = "";
+    splitFiles.forEach((f) => {
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(f.blob);
+      img.alt = f.name;
+      img.title = f.name;
+      img.className = "gallery-item";
+      grid.appendChild(img);
+    });
+    $("gallery").hidden = splitFiles.length === 0;
+  }
 
   $("start").addEventListener("click", async () => {
     if (running) return;
     const err = $("err");
     err.textContent = "";
     token.cancelled = false;
-    const files = [...$("files").files];
+    const files = fileEntries.map((e) => e.file);
     if (!files.length) {
       err.textContent = $("mode").value === "split" ? "请先添加 GIF 文件" : "请先添加图片序列";
       return;
@@ -146,22 +319,12 @@ export function mountGif(root) {
       return;
     }
     const accepted = check.files;
-    for (const f of accepted) {
-      try {
-        await validateImageFile(f);
-      } catch (e) {
-        err.textContent = friendlyError(e);
-        return;
-      }
-    }
     running = true;
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
       if ($("mode").value === "split") {
-        jobs.submit(
-          accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
-        );
+        jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
         splitFiles = [];
         for (let i = 0; i < accepted.length; i++) {
           if (jobs.cancelled) {
@@ -171,14 +334,14 @@ export function mountGif(root) {
           jobs.setStatus(i, "running");
           jobs.setProgress(batchPct(i, 0, accepted.length));
           try {
-            const { files: parts } = await runJob(
-              "gif_split",
-              { file: accepted[i], opts: { step: Number($("step").value) } },
-              { token }
-            );
+            const { files: parts } = await runJob("gif_split", {
+              file: accepted[i],
+              opts: { step: Number($("step").value) },
+            });
             splitFiles.push(...parts);
             jobs.setStatus(i, "done");
             jobs.setProgress(batchPct(i, 100, accepted.length));
+            renderGallery();
             syncSaveDir();
           } catch (e) {
             const msg = friendlyError(e);
@@ -196,24 +359,19 @@ export function mountGif(root) {
       jobs.submit([{ id: 0, name: ordered[0].name, thumb: URL.createObjectURL(ordered[0]) }]);
       jobs.setStatus(0, "running");
       try {
-        const { blob, filename } = await runJob(
-          "gif_merge",
-          {
-            files: ordered,
-            opts: {
-              durationMs: Number($("dur").value),
-              loop: $("loop").checked ? 0 : 1,
-              reverse: $("rev").checked,
-            },
+        const fps = Number($("dur").value) || 30;
+        const { blob, filename } = await runJob("gif_merge", {
+          files: ordered,
+          opts: {
+            durationMs: Math.round(1000 / fps),
+            loop: Number($("loop").value),
+            reverse: $("rev").checked,
+            colors: Number($("colors").value),
           },
-          {
-            token,
-            onProgress: (done, totalFrames) =>
-              jobs.setProgress(batchPct(0, (done / totalFrames) * 100, 1)),
-          }
-        );
+        });
         jobs.setStatus(0, "done");
         downloadBlob(blob, filename);
+        showToast("合帧完成", "success");
       } catch (e) {
         const msg = friendlyError(e);
         const cancelled = msg.includes("已取消");
@@ -244,8 +402,7 @@ export function mountGif(root) {
   });
 
   $("savedir").addEventListener("click", async () => {
-    if (running || saving || !splitFiles.length) return;
-    $("err").textContent = "";
+    if (running || zipping || saving || !splitFiles.length) return;
     saving = true;
     $("savedir").disabled = true;
     try {
@@ -261,14 +418,14 @@ export function mountGif(root) {
       $("savedir").disabled = false;
     }
   });
-}
 
-async function ensureJszipGif() {
-  if (globalThis.JSZip) return;
-  try {
-    await loadScriptFirstOnce(JSZIP_URLS);
-  } catch {
-    throw new AppError("GIF 处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+  async function ensureJszipGif() {
+    if (globalThis.JSZip) return;
+    try {
+      await loadScriptFirstOnce(JSZIP_URLS);
+    } catch {
+      throw new AppError("GIF 处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+    }
+    if (!globalThis.JSZip) throw new AppError("GIF 处理失败", "JSZip 加载失败");
   }
-  if (!globalThis.JSZip) throw new AppError("GIF 处理失败", "JSZip 加载失败");
 }

@@ -137,7 +137,7 @@ export async function splitGif(file, { step = 1, token, gifuct } = {}) {
   return { files };
 }
 
-export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = false, token, onProgress } = {}) {
+export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = false, colors = 256, token, onProgress } = {}) {
   if (!files.length) throw new AppError("GIF 处理失败", "没有可合并的图片");
   if (durationMs < 10) throw new AppError("GIF 处理失败", "帧间隔至少 10 毫秒");
   const ordered = mergeOrder(files, reverse);
@@ -155,23 +155,23 @@ export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = fa
     bmp.close && bmp.close();
     canvases.push(c);
   }
-  const blob = await encodeAnimatedGif(canvases, { durationMs, loop, token, onProgress });
+  const blob = await encodeAnimatedGif(canvases, { durationMs, loop, colors, token, onProgress });
   const first = ordered[0];
   const base = (first.name || "out").replace(/\.[^.]+$/, "");
   return { blob, filename: `${base}.gif` };
 }
 
-/** Minimal GIF89a animated writer (RGBA frames, global palette = top-256 histogram colors). */
+/** Minimal GIF89a animated writer (RGBA frames, global palette = top-N histogram colors). */
 export async function encodeAnimatedGif(
   canvases,
-  { durationMs = 100, loop = 0, token, onProgress } = {}
+  { durationMs = 100, loop = 0, colors = 256, token, onProgress } = {}
 ) {
   if (!canvases.length) throw new AppError("GIF 处理失败", "没有可合并的图片");
   const w = canvases[0].width;
   const h = canvases[0].height;
   const framesData = canvases.map((c) => c.getContext("2d").getImageData(0, 0, w, h).data);
   throwIfCancelled(token);
-  const palette = buildPalette(framesData);
+  const palette = buildPalette(framesData, colors);
   const out = [];
   pushStr(out, "GIF89a");
   pushU16(out, w);
@@ -224,7 +224,7 @@ function pushU16(arr, v) {
   arr.push(v & 0xff, (v >> 8) & 0xff);
 }
 
-function buildPalette(allFrames) {
+function buildPalette(allFrames, maxColors = 256) {
   const counts = new Map();
   for (const data of allFrames) {
     for (let i = 0; i < data.length; i += 16) {
@@ -232,7 +232,8 @@ function buildPalette(allFrames) {
       counts.set(key, (counts.get(key) || 0) + 1);
     }
   }
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256);
+  const limit = Math.max(2, Math.min(256, maxColors | 0));
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
   const pal = sorted.map((k) => [(k[0] >> 16) & 255, (k[0] >> 8) & 255, k[0] & 255]);
   while (pal.length < 256) pal.push([0, 0, 0]);
   return pal;
