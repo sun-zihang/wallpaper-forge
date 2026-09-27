@@ -9,7 +9,7 @@ import { validateSelection } from "../lib/selection.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
-import { setStatus, getRenderToken } from "../app.js";
+import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { reportJob } from "../lib/jobcenter.js";
@@ -292,6 +292,7 @@ export function mountUnpack(root) {
       return;
     }
     running = true;
+    setTaskRunning(true);
     $("start").disabled = true;
     $("dl").disabled = true;
     try {
@@ -336,6 +337,7 @@ export function mountUnpack(root) {
       }
     } finally {
       running = false;
+      setTaskRunning(false);
       if (!stale()) {
         $("start").disabled = false;
         $("dl").disabled = false;

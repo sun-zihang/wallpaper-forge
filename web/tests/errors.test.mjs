@@ -3,12 +3,25 @@ import assert from "node:assert/strict";
 import { friendlyError, AppError } from "../lib/errors.js";
 
 test("friendlyError maps AppError", () => {
-  assert.equal(friendlyError(new AppError("图片处理失败", "无法读取图片")), "图片处理失败：无法读取图片");
+  const out = friendlyError(new AppError("图片处理失败", "无法读取图片"));
+  assert.match(out, /文件损坏或格式无法识别/);
+  assert.match(out, /试试重新下载/);
 });
 
 test("friendlyError AppError without detail uses label only", () => {
   assert.equal(friendlyError(new AppError("已取消")), "已取消");
   assert.equal(friendlyError(new AppError("图片处理失败", "")), "图片处理失败");
+});
+
+test("friendlyError categorizes corrupt files", () => {
+  const out = friendlyError(new Error("文件头无法识别为图片"));
+  assert.match(out, /文件损坏或格式无法识别/);
+});
+
+test("friendlyError categorizes engine failures", () => {
+  const out = friendlyError(new Error("视频引擎加载失败"));
+  assert.match(out, /处理引擎加载失败/);
+  assert.match(out, /Chrome/);
 });
 
 test("friendlyError AbortError maps to cancelled", () => {

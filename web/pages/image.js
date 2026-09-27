@@ -1,5 +1,6 @@
 // web/pages/image.js
 import { OUT_FORMATS, IMAGE_EXTS, loadImageBitmap } from "../lib/image_ops.js";
+import { assertImageResolution } from "../lib/validate.js";
 import { cropCanvas } from "../lib/annotate.js";
 import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
 import { createJobList } from "../lib/joblist.js";
@@ -9,7 +10,7 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { validateImageFile } from "../lib/validate.js";
-import { setStatus, getRenderToken } from "../app.js";
+import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
@@ -106,6 +107,7 @@ export function mountImage(root) {
     </div>
     <div class="img-actionbar">
       <button type="button" class="btn" id="start">开始转换</button>
+      <button type="button" class="btn secondary" id="retry" hidden>重试失败</button>
       <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
       <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       <span class="actionbar-pct" id="actionbarPct"></span>
@@ -126,6 +128,7 @@ export function mountImage(root) {
   let compareOn = false;
   let originalBitmap = null;
   let processedBitmap = null;
+  let lastBatch = null;
   const pageToken = getRenderToken();
 
   function syncSaveDir() {
@@ -168,6 +171,7 @@ export function mountImage(root) {
 
   const fileList = $("fileList");
   const fileEntries = [];
+  let addingPromise = null;
 
   if (window.__wcHandoff && window.__wcHandoff.length) {
     const handoff = window.__wcHandoff;
@@ -187,17 +191,37 @@ export function mountImage(root) {
     addFiles([...(ev.dataTransfer?.files || [])]);
   });
 
-  function addFiles(files) {
-    for (const f of files) {
-      const check = validateSelection([f], { extensions: IMAGE_EXTS });
-      if (!check.ok) {
-        err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
-        continue;
+  async function addFiles(files) {
+    const p = (async () => {
+      for (const f of files) {
+        const check = validateSelection([f], { extensions: IMAGE_EXTS });
+        if (!check.ok) {
+          err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+          continue;
+        }
+        try {
+          const bmp = await loadImageBitmap(f);
+          if (pageToken !== getRenderToken()) return;
+          assertImageResolution(bmp.width, bmp.height);
+          bmp.close && bmp.close();
+        } catch (e) {
+          if (pageToken !== getRenderToken()) return;
+          err.textContent = friendlyError(e);
+          continue;
+        }
+        if (pageToken !== getRenderToken()) return;
+        fileEntries.push({ file: f, status: "pending" });
       }
-      fileEntries.push({ file: f, status: "pending" });
+      if (pageToken !== getRenderToken()) return;
+      renderFileList();
+      if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
+    })();
+    addingPromise = p;
+    try {
+      await p;
+    } finally {
+      addingPromise = null;
     }
-    renderFileList();
-    if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
   }
 
   function renderFileList() {
@@ -396,6 +420,7 @@ export function mountImage(root) {
   }
 
   $("start").addEventListener("click", async () => {
+    if (addingPromise) await addingPromise;
     if (running || zipping) return;
     err.textContent = "";
     const files = fileEntries.map((e) => e.file);
@@ -414,7 +439,9 @@ export function mountImage(root) {
     const fmt = $("fmt").value;
     const quality = Number($("q").value);
     const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
+    lastBatch = { files: [...files], fmt, quality, maxWidth };
     running = true;
+    setTaskRunning(true);
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
@@ -444,12 +471,58 @@ export function mountImage(root) {
         }
       }
       jobs.finish();
-      if (!stale() && outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
+      if (!stale()) {
+        if (outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
+        const failed = fileEntries.filter((e) => e.status === "failed").length;
+        $("retry").hidden = failed === 0;
+      }
     } finally {
       running = false;
+      setTaskRunning(false);
       if (!stale()) {
         $("start").disabled = false;
         $("zip").disabled = false;
+      }
+    }
+  });
+
+  $("retry").addEventListener("click", async () => {
+    if (!lastBatch || running) return;
+    const failedIdx = fileEntries
+      .map((e, i) => (e.status === "failed" ? i : -1))
+      .filter((i) => i >= 0);
+    if (!failedIdx.length) return;
+    running = true;
+    setTaskRunning(true);
+    $("start").disabled = true;
+    $("retry").disabled = true;
+    try {
+      for (const i of failedIdx) {
+        if (stale() || jobs.cancelled) break;
+        const entry = fileEntries[i];
+        jobs.setStatus(i, "running");
+        setFileStatus(entry, "running");
+        try {
+          await runOne(lastBatch.files[i], {
+            format: lastBatch.fmt,
+            quality: lastBatch.quality,
+            maxWidth: lastBatch.maxWidth,
+          });
+          jobs.setStatus(i, "done");
+          setFileStatus(entry, "done");
+        } catch (e) {
+          const msg = friendlyError(e);
+          jobs.setStatus(i, "failed", msg);
+          setFileStatus(entry, "failed");
+        }
+      }
+      jobs.finish();
+    } finally {
+      running = false;
+      setTaskRunning(false);
+      if (!stale()) {
+        $("start").disabled = false;
+        $("retry").disabled = false;
       }
     }
   });

@@ -9,7 +9,7 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { detectMobile, mobileScaleArgs, MOBILE_MAX_VIDEO_WIDTH, MOBILE_VIDEO_NOTE } from "../lib/mobile.js";
-import { setStatus, getRenderToken } from "../app.js";
+import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
@@ -203,6 +203,12 @@ export function mountVideo(root) {
       const check = validateSelection([f], { extensions: [".mp4", ".webm", ".mov", ".mkv"] });
       if (!check.ok) {
         $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+        continue;
+      }
+      try {
+        assertVideoLimits(f);
+      } catch (e) {
+        $("err").textContent = friendlyError(e);
         continue;
       }
       fileEntries.push({ file: f, status: "pending" });
@@ -488,6 +494,7 @@ export function mountVideo(root) {
       }
     }
     running = true;
+    setTaskRunning(true);
     $("start").disabled = true;
     try {
       const durations = await Promise.all(files.map((f) => probeVideoDuration(f)));
@@ -555,6 +562,7 @@ export function mountVideo(root) {
       }
     } finally {
       running = false;
+      setTaskRunning(false);
       if (!stale()) {
         $("start").disabled = false;
       }

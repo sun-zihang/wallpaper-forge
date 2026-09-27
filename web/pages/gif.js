@@ -1,5 +1,5 @@
 // web/pages/gif.js
-import { mergeGif, splitGif, loadGifFrames } from "../lib/gif_ops.js";
+import { mergeGif, splitGif, loadGifFrames, gifFrameStats, gifSplitTooLarge } from "../lib/gif_ops.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
@@ -12,7 +12,7 @@ import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
-import { getRenderToken } from "../app.js";
+import { getRenderToken, setTaskRunning } from "../app.js";
 import { reportJob } from "../lib/jobcenter.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
@@ -333,10 +333,23 @@ export function mountGif(root) {
     }
     const accepted = check.files;
     running = true;
+    setTaskRunning(true);
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
       if ($("mode").value === "split") {
+        // hard limit: reject huge GIFs before decoding every frame
+        for (const f of accepted) {
+          try {
+            const stats = await gifFrameStats(f);
+            if (gifSplitTooLarge(stats)) {
+              err.textContent = `该 GIF 总像素过高（${stats.width}×${stats.height}×${stats.frameCount} 帧 ≈ ${Math.round(stats.totalPixels / 1e6)}MP），Web 端处理可能崩溃。建议使用桌面版。`;
+              return;
+            }
+          } catch {
+            // stats unavailable; normal processing will surface the error
+          }
+        }
         jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
         splitFiles = [];
         for (let i = 0; i < accepted.length; i++) {
@@ -395,6 +408,7 @@ export function mountGif(root) {
       jobs.finish();
     } finally {
       running = false;
+      setTaskRunning(false);
       if (!stale()) {
         $("start").disabled = false;
         $("zip").disabled = false;

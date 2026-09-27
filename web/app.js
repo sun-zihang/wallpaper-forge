@@ -29,6 +29,10 @@ export function setStatus(text) {
   if (el) el.textContent = text;
 }
 
+export function setTaskRunning(running) {
+  window.__wcRunning = !!running;
+}
+
 export function getRenderToken() {
   return renderToken;
 }
@@ -97,6 +101,13 @@ renderFooter();
 bindDocumentDrop();
 installGlobalShortcuts();
 installCompatBanner();
+
+window.addEventListener("beforeunload", (e) => {
+  if (window.__wcRunning) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
 
 let memoryWarned = false;
 createMemoryMonitor({

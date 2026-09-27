@@ -7,6 +7,32 @@ export function stepIndexKept(index, step) {
   return index % Math.max(1, step | 0) === 0;
 }
 
+// 拆帧硬上限：总像素（宽×高×帧数）超过此值时 Web 端处理可能 OOM。
+// 只解析 GIF 头（不解码全部帧），用于处理前快速拒绝。
+export const GIF_SPLIT_MAX_PIXELS = 200_000_000;
+
+export async function gifFrameStats(file, { gifuct } = {}) {
+  const lib = gifuct || (await ensureGifuct());
+  if (typeof lib.parseGIF !== "function") {
+    throw new AppError("GIF 处理失败", "gifuct 加载失败");
+  }
+  const buf = await file.arrayBuffer();
+  let parsed;
+  try {
+    parsed = lib.parseGIF(buf);
+  } catch (e) {
+    throw new AppError("GIF 处理失败", `无法读取 GIF: ${file.name}（${e}）`);
+  }
+  const width = parsed.lsd.width;
+  const height = parsed.lsd.height;
+  const frameCount = parsed.frames.length;
+  return { width, height, frameCount, totalPixels: width * height * frameCount };
+}
+
+export function gifSplitTooLarge(stats) {
+  return stats.totalPixels > GIF_SPLIT_MAX_PIXELS;
+}
+
 export function mergeOrder(list, reverse) {
   const arr = [...list];
   return reverse ? arr.reverse() : arr;

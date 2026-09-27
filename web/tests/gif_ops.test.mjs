@@ -14,6 +14,9 @@ import {
   loadGifFrames,
   splitGif,
   mergeGif,
+  gifFrameStats,
+  gifSplitTooLarge,
+  GIF_SPLIT_MAX_PIXELS,
 } from "../lib/gif_ops.js";
 
 function naiveMap(data, palette) {
@@ -518,6 +521,37 @@ test("lzw handles empty, repetitive, and high-entropy frames", async () => {
   const bigBytes = new Uint8Array(await big.arrayBuffer());
   assert.equal(String.fromCharCode(...bigBytes.slice(0, 6)), "GIF89a");
   assert.equal(bigBytes[bigBytes.length - 1], 0x3b);
+});
+
+test("gifFrameStats reports dimensions and frame count", async () => {
+  const fakeGifuct = {
+    parseGIF: () => ({ lsd: { width: 100, height: 50 }, frames: [{}, {}, {}] }),
+  };
+  const file = { arrayBuffer: async () => new ArrayBuffer(10) };
+  const stats = await gifFrameStats(file, { gifuct: fakeGifuct });
+  assert.equal(stats.width, 100);
+  assert.equal(stats.height, 50);
+  assert.equal(stats.frameCount, 3);
+  assert.equal(stats.totalPixels, 100 * 50 * 3);
+});
+
+test("gifFrameStats wraps parse failures", async () => {
+  const fakeGifuct = {
+    parseGIF: () => {
+      throw new Error("bad gif");
+    },
+  };
+  const file = { arrayBuffer: async () => new ArrayBuffer(10) };
+  await assert.rejects(() => gifFrameStats(file, { gifuct: fakeGifuct }), /无法读取 GIF/);
+});
+
+test("gifSplitTooLarge flags huge GIFs", () => {
+  assert.equal(gifSplitTooLarge({ totalPixels: 1280 * 720 * 100 }), false);
+  assert.equal(gifSplitTooLarge({ totalPixels: 3840 * 2160 * 200 }), true);
+  assert.equal(
+    gifSplitTooLarge({ totalPixels: 100 * 100 * 10 }),
+    100 * 100 * 10 > GIF_SPLIT_MAX_PIXELS,
+  );
 });
 
 
