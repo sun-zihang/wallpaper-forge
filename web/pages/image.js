@@ -5,7 +5,6 @@ import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
-import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
@@ -19,98 +18,111 @@ export function mountImage(root) {
   root.innerHTML = `
     <div class="page-head">
       <h1>图片转换</h1>
-      <p>格式互转、等比缩放、裁剪与水印。批量结果先进入作业表，完成后可一次打包下载。</p>
+      <p>格式互转、等比缩放、裁剪与水印。左侧文件列表，中间实时预览（可对比），右侧参数。</p>
     </div>
-    <div class="drop-bay" id="dropzone">
-      <div class="row">
-        <div class="field">
-          <label for="files">选择图片</label>
-          <input type="file" id="files" multiple accept="image/*" />
+    <div class="img-layout">
+      <aside class="img-files">
+        <div class="img-files-head">
+          <span>文件</span>
+          <button type="button" class="btn secondary" id="addFiles">添加</button>
+          <input type="file" id="files" multiple accept="image/*" hidden />
         </div>
-        <span class="drop-hint">或把图片拖到这里</span>
+        <div class="img-file-list" id="fileList"></div>
+      </aside>
+      <div class="img-preview">
+        <div class="preview-stage" id="stage">
+          <canvas id="previewCanvas"></canvas>
+          <div class="compare-handle" id="compareHandle" hidden></div>
+          <div class="preview-empty" id="previewEmpty">选择左侧文件预览</div>
+        </div>
+        <div class="preview-bar">
+          <label class="inline"><input type="checkbox" id="compare" /> 对比</label>
+          <span class="preview-info" id="previewInfo"></span>
+        </div>
+      </div>
+      <div class="img-params">
+        <div class="panel">
+          <p class="panel-title">转换设置</p>
+          <div class="row">
+            <div class="field">
+              <label for="fmt">输出格式</label>
+              <select id="fmt">${OUT_FORMATS.map((f) => `<option${f === "JPG" ? " selected" : ""}>${f}</option>`).join("")}</select>
+            </div>
+            <div class="field">
+              <label for="q">质量 <span id="qv">90</span></label>
+              <input type="range" id="q" min="1" max="100" value="90" />
+            </div>
+            <div class="field">
+              <label class="inline"><input type="checkbox" id="scale" /> 缩放到宽度</label>
+              <input type="number" id="sw" value="1920" min="16" max="8192" disabled />
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="panel-title">水印（批量）</p>
+          <div class="row">
+            <div class="field">
+              <label>类型</label>
+              <span class="row">
+                <button type="button" class="btn secondary active" id="wmtext">文字水印</button>
+                <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
+              </span>
+            </div>
+            <div class="field" id="wm_text_field">
+              <label for="wm_text">文字</label>
+              <input type="text" id="wm_text" value="我的壁纸" />
+            </div>
+            <div class="field">
+              <label for="wm_size">字号 <span id="wm_size_v">32</span></label>
+              <input type="number" id="wm_size" min="8" max="400" value="32" />
+            </div>
+            <div class="field" id="wm_scale_field" hidden>
+              <label for="wm_scale">缩放 <span id="wm_scale_v">20%</span></label>
+              <input type="range" id="wm_scale" min="5" max="100" value="20" />
+            </div>
+            <div class="field">
+              <label for="wm_opacity">透明度 <span id="wm_opacity_v">70%</span></label>
+              <input type="range" id="wm_opacity" min="5" max="100" value="70" />
+            </div>
+            <div class="field">
+              <label for="wm_pos">位置</label>
+              <select id="wm_pos">
+                <option value="bottom_right">右下</option>
+                <option value="bottom_left">左下</option>
+                <option value="top_right">右上</option>
+                <option value="top_left">左上</option>
+                <option value="center">居中</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <button type="button" class="btn" id="wm_apply">应用到全部图片</button>
+            <button type="button" class="btn secondary" id="crop">裁剪第一张…</button>
+            <input type="file" id="markfile" accept="image/*" hidden />
+          </div>
+        </div>
       </div>
     </div>
-    <div class="panel">
-      <p class="panel-title">转换设置</p>
-      <div class="row">
-        <div class="field">
-          <label for="fmt">输出格式</label>
-          <select id="fmt">${OUT_FORMATS.map((f) => `<option${f === "JPG" ? " selected" : ""}>${f}</option>`).join("")}</select>
-        </div>
-        <div class="field">
-          <label for="q">质量 <span id="qv">90</span></label>
-          <input type="range" id="q" min="1" max="100" value="90" />
-        </div>
-        <div class="field">
-          <label class="inline"><input type="checkbox" id="scale" /> 缩放到宽度</label>
-          <input type="number" id="sw" value="1920" min="16" max="8192" disabled />
-        </div>
-      </div>
-      <div class="row">
-        <button type="button" class="btn" id="start">开始转换</button>
-        <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
-        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
-      </div>
-    </div>
-    <div class="panel">
-      <p class="panel-title">水印（批量）</p>
-      <div class="row">
-        <div class="field">
-          <label>类型</label>
-          <span class="row">
-            <button type="button" class="btn secondary active" id="wmtext">文字水印</button>
-            <button type="button" class="btn secondary" id="wmimg">图片水印…</button>
-          </span>
-        </div>
-        <div class="field" id="wm_text_field">
-          <label for="wm_text">文字</label>
-          <input type="text" id="wm_text" value="我的壁纸" />
-        </div>
-        <div class="field">
-          <label for="wm_size">字号 <span id="wm_size_v">32</span></label>
-          <input type="number" id="wm_size" min="8" max="400" value="32" />
-        </div>
-        <div class="field" id="wm_scale_field" hidden>
-          <label for="wm_scale">缩放 <span id="wm_scale_v">20%</span></label>
-          <input type="range" id="wm_scale" min="5" max="100" value="20" />
-        </div>
-        <div class="field">
-          <label for="wm_opacity">透明度 <span id="wm_opacity_v">70%</span></label>
-          <input type="range" id="wm_opacity" min="5" max="100" value="70" />
-        </div>
-        <div class="field">
-          <label for="wm_pos">位置</label>
-          <select id="wm_pos">
-            <option value="bottom_right">右下</option>
-            <option value="bottom_left">左下</option>
-            <option value="top_right">右上</option>
-            <option value="top_left">左上</option>
-            <option value="center">居中</option>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <button type="button" class="btn" id="wm_apply">应用到全部图片</button>
-        <button type="button" class="btn secondary" id="crop">裁剪第一张…</button>
-        <input type="file" id="markfile" accept="image/*" hidden />
-      </div>
+    <div class="img-actionbar">
+      <button type="button" class="btn" id="start">开始转换</button>
+      <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
+      <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
+      <span class="actionbar-pct" id="actionbarPct"></span>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
   `;
-  const token = { cancelled: false };
-  const jobs = createJobList(root.querySelector("#jobs"), {
-    onCancel() {
-      token.cancelled = true;
-      cancelAllWorkerJobs();
-    },
-  });
+  const jobs = createJobList(root.querySelector("#jobs"));
   const err = root.querySelector("#err");
   const $ = (id) => root.querySelector(`#${id}`);
   const outputs = [];
   let running = false;
   let zipping = false;
   let saving = false;
+  let selectedFile = null;
+  let compareOn = false;
+  let originalBitmap = null;
+  let processedBitmap = null;
 
   function syncSaveDir() {
     const btn = $("savedir");
@@ -129,23 +141,6 @@ export function mountImage(root) {
     if (btn && !btn.disabled) btn.click();
   });
 
-  attachDropTarget($("dropzone"), $("files"), {
-    extensions: IMAGE_EXTS,
-    onRejected: (msg) => {
-      err.textContent = msg;
-    },
-  });
-
-  if (window.__wcHandoff && window.__wcHandoff.length) {
-    const handoff = window.__wcHandoff;
-    window.__wcHandoff = null;
-    const dt = new DataTransfer();
-    for (const f of handoff) dt.items.add(f);
-    $("files").files = dt.files;
-    $("files").dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
   const settings = loadSettings();
   try {
     const savedFmt = localStorage.getItem("wc.fmt");
@@ -159,6 +154,184 @@ export function mountImage(root) {
     $("q").value = String(q);
     $("qv").textContent = String(q);
   } catch { /* storage unavailable */ }
+
+  $("addFiles").addEventListener("click", () => $("files").click());
+  $("files").addEventListener("change", () => {
+    const picked = [...$("files").files];
+    $("files").value = "";
+    addFiles(picked);
+  });
+
+  const fileList = $("fileList");
+  const fileEntries = [];
+
+  if (window.__wcHandoff && window.__wcHandoff.length) {
+    const handoff = window.__wcHandoff;
+    window.__wcHandoff = null;
+    addFiles(handoff);
+  }
+
+  const filesAside = root.querySelector(".img-files");
+  filesAside.addEventListener("dragover", (ev) => {
+    ev.preventDefault();
+    filesAside.classList.add("hot");
+  });
+  filesAside.addEventListener("dragleave", () => filesAside.classList.remove("hot"));
+  filesAside.addEventListener("drop", (ev) => {
+    ev.preventDefault();
+    filesAside.classList.remove("hot");
+    addFiles([...(ev.dataTransfer?.files || [])]);
+  });
+
+  function addFiles(files) {
+    for (const f of files) {
+      const check = validateSelection([f], { extensions: IMAGE_EXTS });
+      if (!check.ok) {
+        err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
+        continue;
+      }
+      fileEntries.push({ file: f, status: "pending" });
+    }
+    renderFileList();
+    if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = "";
+    fileEntries.forEach((entry, i) => {
+      const div = document.createElement("div");
+      div.className = `img-file${entry === selectedFile ? " selected" : ""}`;
+      const icon = { pending: "🔘", running: "⚙️", done: "✅", failed: "❌", cancelled: "⏹" }[entry.status] || "🔘";
+      div.innerHTML = `<span class="img-file-icon">${icon}</span><span class="img-file-name"></span>`;
+      div.querySelector(".img-file-name").textContent = entry.file.name;
+      div.addEventListener("click", () => selectFile(entry));
+      fileList.appendChild(div);
+    });
+  }
+
+  function setFileStatus(entry, status) {
+    entry.status = status;
+    renderFileList();
+  }
+
+  function selectFile(entry) {
+    selectedFile = entry;
+    renderFileList();
+    loadPreview(entry.file);
+  }
+
+  async function loadPreview(file) {
+    try {
+      if (originalBitmap) originalBitmap.close();
+      originalBitmap = await loadImageBitmap(file);
+      processedBitmap = null;
+      $("previewEmpty").hidden = true;
+      drawPreview();
+      const info = `${originalBitmap.width}×${originalBitmap.height}`;
+      $("previewInfo").textContent = info;
+    } catch (e) {
+      $("previewInfo").textContent = friendlyError(e);
+    }
+  }
+
+  function drawPreview() {
+    const canvas = $("previewCanvas");
+    const stage = $("stage");
+    if (!originalBitmap) {
+      stage.style.aspectRatio = "";
+      return;
+    }
+    const maxW = stage.clientWidth || 600;
+    const scale = Math.min(1, maxW / originalBitmap.width);
+    const w = Math.max(1, Math.round(originalBitmap.width * scale));
+    const h = Math.max(1, Math.round(originalBitmap.height * scale));
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    if (compareOn && processedBitmap) {
+      const split = Math.round(w * 0.5);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, split, h);
+      ctx.clip();
+      ctx.drawImage(originalBitmap, 0, 0, w, h);
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(split, 0, w - split, h);
+      ctx.clip();
+      ctx.drawImage(processedBitmap, 0, 0, w, h);
+      ctx.restore();
+      const handle = $("compareHandle");
+      handle.hidden = false;
+      handle.style.left = `${split}px`;
+    } else {
+      ctx.drawImage(originalBitmap, 0, 0, w, h);
+      $("compareHandle").hidden = true;
+    }
+    stage.style.aspectRatio = `${w} / ${h}`;
+  }
+
+  $("compare").addEventListener("change", async () => {
+    compareOn = $("compare").checked;
+    if (compareOn && selectedFile && originalBitmap) {
+      try {
+        const fmt = $("fmt").value;
+        const quality = Number($("q").value);
+        const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
+        const { blob } = await runJob("convert_image", {
+          file: selectedFile.file,
+          opts: { format: fmt, quality, maxWidth },
+        });
+        if (processedBitmap) processedBitmap.close();
+        processedBitmap = await loadImageBitmap(blob);
+      } catch {
+        compareOn = false;
+        $("compare").checked = false;
+      }
+    }
+    drawPreview();
+  });
+
+  let dragging = false;
+  const handle = $("compareHandle");
+  handle.addEventListener("pointerdown", (ev) => {
+    dragging = true;
+    handle.setPointerCapture(ev.pointerId);
+  });
+  handle.addEventListener("pointermove", (ev) => {
+    if (!dragging) return;
+    const stage = $("stage");
+    const r = stage.getBoundingClientRect();
+    const x = Math.max(0, Math.min(r.width, ev.clientX - r.left));
+    const canvas = $("previewCanvas");
+    const split = Math.round((x / r.width) * canvas.width);
+    handle.style.left = `${x}px`;
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, split, h);
+    ctx.clip();
+    ctx.drawImage(originalBitmap, 0, 0, w, h);
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(split, 0, w - split, h);
+    ctx.clip();
+    ctx.drawImage(processedBitmap, 0, 0, w, h);
+    ctx.restore();
+  });
+  handle.addEventListener("pointerup", () => {
+    dragging = false;
+  });
+
+  window.addEventListener("resize", () => drawPreview());
+
+  $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
   $("fmt").addEventListener("change", () => {
     try {
       localStorage.setItem("wc.fmt", $("fmt").value);
@@ -183,7 +356,6 @@ export function mountImage(root) {
   });
   let markFile = null;
   $("markfile").addEventListener("change", () => {
-    // capture then reset so picking the same file again still fires change
     markFile = $("markfile").files[0] || null;
     $("markfile").value = "";
     if (markFile) {
@@ -207,7 +379,7 @@ export function mountImage(root) {
 
   async function runOne(file, opts) {
     if (jobs.cancelled) throw new AppError("图片处理失败", "已取消");
-    const { blob, filename } = await runJob("convert_image", { file, opts }, { token });
+    const { blob, filename } = await runJob("convert_image", { file, opts });
     addOutput(blob, filename);
     return filename;
   }
@@ -215,17 +387,11 @@ export function mountImage(root) {
   $("start").addEventListener("click", async () => {
     if (running || zipping) return;
     err.textContent = "";
-    const picked = [...$("files").files];
-    if (!picked.length) {
-      err.textContent = "请先选择图片文件";
+    const files = fileEntries.map((e) => e.file);
+    if (!files.length) {
+      err.textContent = "请先添加图片文件";
       return;
     }
-    const check = validateSelection(picked, { extensions: IMAGE_EXTS });
-    if (!check.ok) {
-      err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
-      return;
-    }
-    const files = check.files;
     for (const f of files) {
       try {
         await validateImageFile(f);
@@ -241,22 +407,27 @@ export function mountImage(root) {
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
-      jobs.submit(
-        files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
-      );
+      jobs.submit(files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
       for (let i = 0; i < files.length; i++) {
+        const entry = fileEntries[i];
         jobs.setStatus(i, "running");
+        setFileStatus(entry, "running");
         jobs.setProgress(batchPct(i, 0, files.length));
         try {
           await runOne(files[i], { format: fmt, quality, maxWidth });
           jobs.setStatus(i, "done");
+          setFileStatus(entry, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
         } catch (e) {
           const msg = friendlyError(e);
           const cancelled = msg.includes("已取消");
           jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+          setFileStatus(entry, cancelled ? "cancelled" : "failed");
           if (cancelled) {
-            for (let j = i + 1; j < files.length; j++) jobs.setStatus(j, "cancelled", "已取消");
+            for (let j = i + 1; j < files.length; j++) {
+              jobs.setStatus(j, "cancelled", "已取消");
+              setFileStatus(fileEntries[j], "cancelled");
+            }
             break;
           }
         }
@@ -316,7 +487,7 @@ export function mountImage(root) {
     err.textContent = "";
     let bitmap = null;
     try {
-      const f = $("files").files[0];
+      const f = selectedFile ? selectedFile.file : fileEntries[0]?.file;
       if (!f) throw new AppError("图片处理失败", "请先添加图片文件");
       bitmap = await loadImageBitmap(f);
       const box = await pickBoxOnPage(bitmap);
@@ -352,17 +523,11 @@ export function mountImage(root) {
   $("wm_apply").addEventListener("click", async () => {
     if (running) return;
     err.textContent = "";
-    const picked = [...$("files").files];
-    if (!picked.length) {
-      err.textContent = "请先选择图片文件";
+    const files = fileEntries.map((e) => e.file);
+    if (!files.length) {
+      err.textContent = "请先添加图片文件";
       return;
     }
-    const check = validateSelection(picked, { extensions: IMAGE_EXTS });
-    if (!check.ok) {
-      err.textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
-      return;
-    }
-    const files = check.files;
     for (const f of files) {
       try {
         await validateImageFile(f);
@@ -389,9 +554,7 @@ export function mountImage(root) {
     running = true;
     $("wm_apply").disabled = true;
     try {
-      jobs.submit(
-        files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) }))
-      );
+      jobs.submit(files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
       const produced = [];
       for (let i = 0; i < files.length; i++) {
         if (jobs.cancelled) {
@@ -402,19 +565,8 @@ export function mountImage(root) {
         jobs.setProgress(batchPct(i, 0, files.length));
         try {
           const res = textMode
-            ? await runJob(
-                "text_watermark",
-                {
-                  file: files[i],
-                  opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` },
-                },
-                { token }
-              )
-            : await runJob(
-                "image_watermark",
-                { file: files[i], mark, opts: { scale, opacity, position } },
-                { token }
-              );
+            ? await runJob("text_watermark", { file: files[i], opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` } })
+            : await runJob("image_watermark", { file: files[i], mark, opts: { scale, opacity, position } });
           addOutput(res.blob, res.filename);
           produced.push({ blob: res.blob, filename: res.filename });
           jobs.setStatus(i, "done");
@@ -433,86 +585,85 @@ export function mountImage(root) {
       $("wm_apply").disabled = false;
     }
   });
-}
 
-async function ensureJszip() {
-  if (globalThis.JSZip) return;
-  try {
-    await loadScriptFirstOnce(JSZIP_URLS);
-  } catch {
-    throw new AppError("图片处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+  async function ensureJszip() {
+    if (globalThis.JSZip) return;
+    try {
+      await loadScriptFirstOnce(JSZIP_URLS);
+    } catch {
+      throw new AppError("图片处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+    }
+    if (!globalThis.JSZip) throw new AppError("图片处理失败", "JSZip 加载失败");
   }
-  if (!globalThis.JSZip) throw new AppError("图片处理失败", "JSZip 加载失败");
-}
 
-function pickBoxOnPage(bitmap) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px";
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    canvas.style.maxWidth = "90vw";
-    canvas.style.maxHeight = "80vh";
-    canvas.style.cursor = "crosshair";
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-    const hint = document.createElement("div");
-    hint.textContent = "按住左键拖拽选择区域，松开后自动确认";
-    hint.style.color = "#e6e9ef";
-    const bar = document.createElement("div");
-    const cancel = document.createElement("button");
-    cancel.className = "btn secondary";
-    cancel.textContent = "取消";
-    cancel.onclick = () => {
-      overlay.remove();
-      resolve(null);
-    };
-    bar.appendChild(cancel);
-    overlay.append(canvas, hint, bar);
-    document.body.appendChild(overlay);
-    let start = null;
-    let snapshot = null;
-    canvas.onmousedown = (ev) => {
-      const r = canvas.getBoundingClientRect();
-      const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
-      const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
-      start = [x, y];
-      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // keep receiving mouse events even if the button is released off-canvas
-      try {
-        if (ev.pointerId != null && canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
-      } catch { /* pointer already gone */ }
-    };
-    canvas.onmousemove = (ev) => {
-      if (!start) return;
-      const r = canvas.getBoundingClientRect();
-      const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
-      const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
-      ctx.putImageData(snapshot, 0, 0);
-      ctx.strokeStyle = "#3b82f6";
-      ctx.fillStyle = "rgba(59,130,246,0.25)";
-      const l = Math.min(start[0], x);
-      const t = Math.min(start[1], y);
-      const w = Math.abs(x - start[0]);
-      const h = Math.abs(y - start[1]);
-      ctx.fillRect(l, t, w, h);
-      ctx.strokeRect(l, t, w, h);
-    };
-    canvas.onmouseup = (ev) => {
-      if (!start) return;
-      const r = canvas.getBoundingClientRect();
-      const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
-      const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
-      const box = [
-        Math.round(Math.min(start[0], x)),
-        Math.round(Math.min(start[1], y)),
-        Math.round(Math.max(start[0], x)),
-        Math.round(Math.max(start[1], y)),
-      ];
-      overlay.remove();
-      if (box[2] - box[0] < 2 || box[3] - box[1] < 2) resolve(null);
-      else resolve(box);
-    };
-  });
+  function pickBoxOnPage(bitmap) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px";
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.style.maxWidth = "90vw";
+      canvas.style.maxHeight = "80vh";
+      canvas.style.cursor = "crosshair";
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0);
+      const hint = document.createElement("div");
+      hint.textContent = "按住左键拖拽选择区域，松开后自动确认";
+      hint.style.color = "#e6e9ef";
+      const bar = document.createElement("div");
+      const cancel = document.createElement("button");
+      cancel.className = "btn secondary";
+      cancel.textContent = "取消";
+      cancel.onclick = () => {
+        overlay.remove();
+        resolve(null);
+      };
+      bar.appendChild(cancel);
+      overlay.append(canvas, hint, bar);
+      document.body.appendChild(overlay);
+      let start = null;
+      let snapshot = null;
+      canvas.onmousedown = (ev) => {
+        const r = canvas.getBoundingClientRect();
+        const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
+        const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
+        start = [x, y];
+        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        try {
+          if (ev.pointerId != null && canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+        } catch { /* pointer already gone */ }
+      };
+      canvas.onmousemove = (ev) => {
+        if (!start) return;
+        const r = canvas.getBoundingClientRect();
+        const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
+        const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
+        ctx.putImageData(snapshot, 0, 0);
+        ctx.strokeStyle = "#3b82f6";
+        ctx.fillStyle = "rgba(59,130,246,0.25)";
+        const l = Math.min(start[0], x);
+        const t = Math.min(start[1], y);
+        const w = Math.abs(x - start[0]);
+        const h = Math.abs(y - start[1]);
+        ctx.fillRect(l, t, w, h);
+        ctx.strokeRect(l, t, w, h);
+      };
+      canvas.onmouseup = (ev) => {
+        if (!start) return;
+        const r = canvas.getBoundingClientRect();
+        const x = ((ev.clientX - r.left) / r.width) * bitmap.width;
+        const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
+        const box = [
+          Math.round(Math.min(start[0], x)),
+          Math.round(Math.min(start[1], y)),
+          Math.round(Math.max(start[0], x)),
+          Math.round(Math.max(start[1], y)),
+        ];
+        overlay.remove();
+        if (box[2] - box[0] < 2 || box[3] - box[1] < 2) resolve(null);
+        else resolve(box);
+      };
+    });
+  }
 }
