@@ -129,7 +129,7 @@ with sync_playwright() as p:
     check(page.locator(".card").count() == 4, "home has 4 cards")
     check("不会上传" in page.content(), "home privacy copy")
     check(page.locator('#app a[href*="releases"]').count() == 1, "home desktop release link")
-    check(page.locator(".rail nav a").count() == 5, "rail has 5 nav items")
+    check(page.locator(".rail nav a").count() == 6, "rail has 6 nav items")
     check(
         page.locator("#footer .mono").first.inner_text().startswith("v"),
         "footer shows version",
