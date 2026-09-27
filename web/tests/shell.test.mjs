@@ -60,3 +60,12 @@ test("index.html loads no CDN script tags directly (pins live in lib/cdn.js)", (
   assert.doesNotMatch(html, /unpkg\.com\/[^"']+@/);
   assert.doesNotMatch(html, /esm\.sh\/[^"']+@/);
 });
+
+test("index.html ships a CSP allowing CDN scripts, wasm workers and blobs", () => {
+  assert.match(html, /http-equiv="Content-Security-Policy"/);
+  assert.match(html, /script-src 'self' https:\/\/cdn\.jsdelivr\.net https:\/\/unpkg\.com https:\/\/esm\.sh 'wasm-unsafe-eval'/);
+  assert.match(html, /worker-src 'self' blob:/);
+  assert.match(html, /img-src 'self' blob: data:/);
+  assert.match(html, /style-src 'self' 'unsafe-inline'/);
+  assert.match(html, /connect-src 'self' https:\/\/cdn\.jsdelivr\.net/);
+});

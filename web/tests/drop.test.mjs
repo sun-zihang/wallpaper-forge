@@ -222,3 +222,60 @@ test("bindDocumentDrop dragover ignores non-File drags", async () => {
   });
   assert.equal(prevented, 1);
 });
+
+test("drop target is keyboard-activatable via Enter and Space", async () => {
+  const { attachDropTarget } = await import("../lib/drop.js");
+  const attrs = {};
+  const listeners = new Map();
+  const el = {
+    classList: { add() {}, remove() {}, contains: () => false },
+    _listeners: listeners,
+    setAttribute(k, v) {
+      attrs[k] = v;
+    },
+    getAttribute(k) {
+      return k in attrs ? attrs[k] : null;
+    },
+    addEventListener(type, fn) {
+      if (!listeners.has(type)) listeners.set(type, []);
+      listeners.get(type).push(fn);
+    },
+    _fire(type, ev) {
+      for (const fn of listeners.get(type) || []) fn(ev);
+    },
+  };
+  const clicks = [];
+  const input = { click: () => clicks.push("click") };
+  attachDropTarget(el, input, { extensions: null });
+
+  assert.equal(attrs.role, "button");
+  assert.equal(attrs.tabindex, "0");
+  assert.equal(attrs["aria-label"], "选择文件");
+
+  let prevented = 0;
+  const ev = (key) => ({ key, preventDefault: () => (prevented += 1) });
+  el._fire("keydown", ev("Enter"));
+  el._fire("keydown", ev(" "));
+  assert.deepEqual(clicks, ["click", "click"]);
+  assert.equal(prevented, 2);
+
+  el._fire("keydown", ev("a"));
+  assert.deepEqual(clicks, ["click", "click"], "other keys do not trigger the picker");
+});
+
+test("drop target keeps a caller-provided aria-label", async () => {
+  const { attachDropTarget } = await import("../lib/drop.js");
+  const attrs = {};
+  const el = {
+    classList: { add() {}, remove() {}, contains: () => false },
+    setAttribute(k, v) {
+      attrs[k] = v;
+    },
+    getAttribute(k) {
+      return k in attrs ? attrs[k] : null;
+    },
+    addEventListener() {},
+  };
+  attachDropTarget(el, { click() {} }, { extensions: null });
+  assert.equal(attrs["aria-label"], "选择文件");
+});

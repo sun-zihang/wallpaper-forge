@@ -42,6 +42,17 @@ export function attachDropTarget(el, input, { extensions = null, onRejected } = 
   };
   activeTarget = apply;
   if (!el) return;
+  // 键盘可达：回车/空格触发文件选择（拖拽区本身可聚焦）
+  if (typeof el.setAttribute === "function") {
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", "选择文件");
+  }
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter" && ev.key !== " " && ev.key !== "Spacebar") return;
+    ev.preventDefault();
+    if (input && typeof input.click === "function") input.click();
+  });
   el.addEventListener("dragover", (ev) => {
     ev.preventDefault();
     el.classList.add("hot");

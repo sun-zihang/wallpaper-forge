@@ -65,6 +65,25 @@ export function mountVideo(root) {
           </span>
         </div>
       </div>
+      <div class="row" id="converw" hidden>
+        <div class="field">
+          <label for="crf">CRF <span id="crf_v">23</span></label>
+          <input type="range" id="crf" min="0" max="51" value="23" />
+        </div>
+        <div class="field">
+          <label for="tfps">目标帧率 <span id="tfps_v">不转换</span></label>
+          <input type="number" id="tfps" min="0" max="120" value="0" />
+        </div>
+        <div class="field">
+          <label class="inline"><input type="checkbox" id="mci" /> 运动补偿插帧</label>
+        </div>
+        <div class="field">
+          <label class="inline"><input type="checkbox" id="hdr" /> HDR 转 SDR</label>
+        </div>
+        <div class="field">
+          <label class="inline"><input type="checkbox" id="audionorm" checked /> 音频规范化 48kHz 立体声</label>
+        </div>
+      </div>
       <div class="row">
         <button type="button" class="btn" id="start">开始转换</button>
         <button type="button" class="btn secondary" id="zip" disabled>打包下载 ZIP</button>
@@ -102,6 +121,7 @@ export function mountVideo(root) {
   function syncMode() {
     const m = $("mode").value;
     $("fmtw").hidden = m !== "convert";
+    $("converw").hidden = m !== "convert";
     $("gifw").hidden = m !== "gif";
     $("gifw2").hidden = m !== "gif";
     $("everyw").hidden = m !== "frames";
@@ -111,6 +131,12 @@ export function mountVideo(root) {
   }
   $("mode").addEventListener("change", syncMode);
   syncMode();
+
+  $("crf").addEventListener("input", () => ($("crf_v").textContent = $("crf").value));
+  $("tfps").addEventListener("input", () => {
+    const v = Number($("tfps").value) || 0;
+    $("tfps_v").textContent = v > 0 ? `${v}fps` : "不转换";
+  });
 
   // Mobile WASM throughput is far below desktop; cap transcode parameters to
   // 1080P-class and say so once instead of letting a 4K job crawl or OOM.
@@ -249,10 +275,33 @@ export function mountVideo(root) {
         const out = `out.${ext}`;
         scratch.push(out);
         const scale = mobile ? mobileScaleArgs(MOBILE_MAX_VIDEO_WIDTH) : [];
-        const args =
-          ext === "webm"
-            ? ["-i", inName, ...scale, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
-            : ["-i", inName, ...scale, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
+        const vf = [];
+        const fps = Number($("tfps").value) || 0;
+        if (fps > 0) {
+          vf.push(
+            $("mci").checked
+              ? `minterpolate='mi_mode=mci:mc_mode=aobmc:vsbmc=1:fps=${fps}'`
+              : `fps=${fps}`,
+          );
+        }
+        if ($("hdr").checked) {
+          vf.push(
+            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p",
+          );
+        }
+        const crf = Number($("crf").value);
+        const audio = $("audionorm").checked;
+        const args = ["-i", inName, ...scale];
+        if (vf.length) args.push("-vf", vf.join(","));
+        if (ext === "webm") {
+          args.push("-c:v", "libvpx-vp9", "-crf", String(crf));
+          if (audio) args.push("-c:a", "libopus", "-ar", "48000", "-ac", "2");
+          else args.push("-an");
+        } else {
+          args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", String(crf), "-pix_fmt", "yuv420p");
+          if (audio) args.push("-c:a", "aac", "-ar", "48000", "-ac", "2");
+        }
+        args.push(out);
         await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
         const blob = await readFileToBlob(ff, out);
         return { blob, filename: `${base}.${ext}` };

@@ -79,3 +79,53 @@ test("writeFileFromBlob writes raw bytes and readFileToBlob maps mime by extensi
   assert.equal((await readFileToBlob(ff, "a.mp4")).type, "video/mp4");
   assert.deepEqual([...new Uint8Array(await (await readFileToBlob(ff, "a.mp4")).arrayBuffer())], [1, 2, 3, 4]);
 });
+
+test("caching fetch stores and replays CDN responses", async () => {
+  const { installCachingFetch, cachedCdnFetch } = await import("../lib/video_bridge.js");
+  const origFetch = globalThis.fetch;
+  const store = new Map();
+  globalThis.caches = {
+    async open() {
+      return {
+        async match(url) {
+          return store.get(url) || null;
+        },
+        async put(url, res) {
+          store.set(url, res);
+        },
+      };
+    },
+  };
+  const fetched = [];
+  const mock = async (url) => {
+    fetched.push(url);
+    return { ok: true, clone() { return this; } };
+  };
+  globalThis.fetch = mock;
+  try {
+    installCachingFetch();
+    assert.equal(globalThis.fetch.__wcCache, true, "fetch wrapped for CDN hosts");
+    const url = "https://cdn.jsdelivr.net/npm/x.js";
+    assert.equal((await cachedCdnFetch(url, mock)).ok, true);
+    assert.equal((await cachedCdnFetch(url, mock)).ok, true);
+    assert.equal(fetched.length, 1, "second call served from cache");
+    await cachedCdnFetch("https://example.com/x", mock);
+    assert.equal(fetched.length, 2, "non-CDN hosts bypass the cache");
+  } finally {
+    globalThis.fetch = origFetch;
+    delete globalThis.caches;
+  }
+});
+
+test("installCachingFetch leaves fetch untouched without Cache Storage", async () => {
+  const { installCachingFetch } = await import("../lib/video_bridge.js");
+  const origFetch = globalThis.fetch;
+  const mock = async () => ({ ok: true });
+  globalThis.fetch = mock;
+  try {
+    installCachingFetch();
+    assert.equal(globalThis.fetch, mock, "fetch not wrapped without Cache Storage");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});

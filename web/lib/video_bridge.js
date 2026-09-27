@@ -10,6 +10,41 @@ import {
   toBlobUrlFirst,
 } from "./cdn.js";
 
+// ffmpeg 核心约 25MB，首次加载慢。用 Cache Storage 缓存 CDN 响应，
+// 重复访问直接命中缓存。仅对 CDN 域名生效，其他 fetch 不受影响。
+const WASM_CACHE = "ffmpeg-core-cache-v1";
+const CDN_HOST_RE = /^(https?:)?\/\/(cdn\.jsdelivr\.net|unpkg\.com|esm\.sh)\//;
+
+export async function cachedCdnFetch(url, orig, ...args) {
+  try {
+    const cache = await caches.open(WASM_CACHE);
+    const hit = await cache.match(url);
+    if (hit) return hit;
+    const res = await orig(url, ...args);
+    if (res && res.ok) {
+      try {
+        await cache.put(url, res.clone());
+      } catch { /* 配额不足时跳过缓存，不影响功能 */ }
+    }
+    return res;
+  } catch {
+    return orig(url, ...args);
+  }
+}
+
+export function installCachingFetch() {
+  if (typeof caches === "undefined" || typeof caches.open !== "function") return;
+  const orig = globalThis.fetch;
+  if (typeof orig !== "function" || orig.__wcCache) return;
+  const wrapped = (url, ...args) => {
+    const key = typeof url === "string" ? url : (url && url.url) || "";
+    if (!CDN_HOST_RE.test(key)) return orig(url, ...args);
+    return cachedCdnFetch(key, orig, ...args);
+  };
+  wrapped.__wcCache = true;
+  globalThis.fetch = wrapped;
+}
+
 let loadPromise = null;
 let ffmpeg = null;
 
@@ -17,6 +52,7 @@ export async function ensureFFmpeg(onStatus) {
   if (ffmpeg) return ffmpeg;
   if (!loadPromise) {
     loadPromise = (async () => {
+      installCachingFetch();
       if (onStatus) onStatus("正在加载视频引擎…");
       await loadScriptFirst(FFMPEG_UTIL_URLS);
       await loadScriptFirst(FFMPEG_URLS);
