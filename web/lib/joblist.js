@@ -8,7 +8,7 @@ export const STATUS_TEXT = {
   cancelled: "已取消",
 };
 
-export function createJobList(container, { onCancel } = {}) {
+export function createJobList(container, { onCancel, onReport } = {}) {
   container.innerHTML = `
     <div class="row">
       <button type="button" class="btn secondary" data-act="cancel" disabled>取消</button>
@@ -55,6 +55,7 @@ export function createJobList(container, { onCancel } = {}) {
       td.textContent = `${STATUS_TEXT[status]}（${detail}）`;
       td.title = detail;
     }
+    if (onReport) onReport({ id, status, detail });
   }
 
   function syncEmpty() {

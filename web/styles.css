@@ -873,3 +873,20 @@ table.compare td.no { color: var(--ink-faint); }
   margin-bottom: 10px;
 }
 .unpack-params .panel { margin-bottom: 12px; }
+
+/* ---------- job center ---------- */
+.job-ops {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+.job-ops .btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.jobs-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 13px;
+}

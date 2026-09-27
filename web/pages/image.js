@@ -13,6 +13,7 @@ import { setStatus, getRenderToken } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
+import { reportJob } from "../lib/jobcenter.js";
 
 export function mountImage(root) {
   root.innerHTML = `
@@ -112,7 +113,9 @@ export function mountImage(root) {
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
   `;
-  const jobs = createJobList(root.querySelector("#jobs"));
+  const jobs = createJobList(root.querySelector("#jobs"), {
+    onReport: (job) => reportJob({ ...job, id: `image:${job.id}`, page: "图片" }),
+  });
   const err = root.querySelector("#err");
   const $ = (id) => root.querySelector(`#${id}`);
   const outputs = [];
@@ -372,7 +375,12 @@ export function mountImage(root) {
     $("sw").disabled = !$("scale").checked;
   });
 
+  function stale() {
+    return pageToken !== getRenderToken();
+  }
+
   function addOutput(blob, filename) {
+    if (stale()) return;
     const at = outputs.findIndex((o) => o.filename === filename);
     if (at >= 0) outputs.splice(at, 1);
     outputs.push({ blob, filename });
@@ -436,11 +444,13 @@ export function mountImage(root) {
         }
       }
       jobs.finish();
-      if (outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
+      if (!stale() && outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
     } finally {
       running = false;
-      $("start").disabled = false;
-      $("zip").disabled = false;
+      if (!stale()) {
+        $("start").disabled = false;
+        $("zip").disabled = false;
+      }
     }
   });
 
@@ -580,12 +590,14 @@ export function mountImage(root) {
         }
       }
       jobs.finish();
-      if (produced.length === 1) {
+      if (!stale() && produced.length === 1) {
         downloadBlob(produced[0].blob, produced[0].filename);
       }
     } finally {
       running = false;
-      $("wm_apply").disabled = false;
+      if (!stale()) {
+        $("wm_apply").disabled = false;
+      }
     }
   });
 

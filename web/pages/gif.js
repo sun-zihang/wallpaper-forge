@@ -13,6 +13,7 @@ import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
 import { getRenderToken } from "../app.js";
+import { reportJob } from "../lib/jobcenter.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 const PLAYER_FPS = 10;
@@ -111,6 +112,7 @@ export function mountGif(root) {
     onCancel() {
       token.cancelled = true;
     },
+    onReport: (job) => reportJob({ ...job, id: `gif:${job.id}`, page: "GIF" }),
   });
   let splitFiles = [];
   let running = false;
@@ -237,6 +239,10 @@ export function mountGif(root) {
   }
 
   function playerTick() {
+    if (pageToken !== getRenderToken()) {
+      stopPlayer();
+      return;
+    }
     if (!playerPlaying || !playerFrames.length) return;
     playerIdx = (playerIdx + 1) % playerFrames.length;
     drawPlayerFrame();
@@ -305,6 +311,10 @@ export function mountGif(root) {
     $("gallery").hidden = splitFiles.length === 0;
   }
 
+  function stale() {
+    return pageToken !== getRenderToken();
+  }
+
   $("start").addEventListener("click", async () => {
     if (running) return;
     const err = $("err");
@@ -330,6 +340,7 @@ export function mountGif(root) {
         jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
         splitFiles = [];
         for (let i = 0; i < accepted.length; i++) {
+          if (stale()) return;
           if (jobs.cancelled) {
             jobs.setStatus(i, "cancelled", "已取消");
             continue;
@@ -341,6 +352,7 @@ export function mountGif(root) {
               file: accepted[i],
               opts: { step: Number($("step").value) },
             });
+            if (stale()) return;
             splitFiles.push(...parts);
             jobs.setStatus(i, "done");
             jobs.setProgress(batchPct(i, 100, accepted.length));
@@ -354,7 +366,7 @@ export function mountGif(root) {
           }
         }
         jobs.finish();
-        if (splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
+        if (!stale() && splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
         return;
       }
       // merge
@@ -383,8 +395,10 @@ export function mountGif(root) {
       jobs.finish();
     } finally {
       running = false;
-      $("start").disabled = false;
-      $("zip").disabled = false;
+      if (!stale()) {
+        $("start").disabled = false;
+        $("zip").disabled = false;
+      }
     }
   });
 

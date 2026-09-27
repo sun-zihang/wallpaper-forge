@@ -12,6 +12,7 @@ import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus, getRenderToken } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
+import { reportJob } from "../lib/jobcenter.js";
 
 const WE_EXTS = [".pkg", ".tex", ".mpkg"];
 
@@ -74,7 +75,10 @@ export function mountUnpack(root) {
     <pre class="err" id="err"></pre>
   `;
   const $ = (id) => root.querySelector(`#${id}`);
-  const jobs = createJobList(root.querySelector("#jobs"), { onCancel() {} });
+  const jobs = createJobList(root.querySelector("#jobs"), {
+    onCancel() {},
+    onReport: (job) => reportJob({ ...job, id: `unpack:${job.id}`, page: "解包" }),
+  });
   let allFiles = [];
   let running = false;
   let zipping = false;
@@ -270,6 +274,10 @@ export function mountUnpack(root) {
     $("infoCard").hidden = false;
   }
 
+  function stale() {
+    return pageToken !== getRenderToken();
+  }
+
   $("start").addEventListener("click", async () => {
     if (running || zipping) return;
     $("err").textContent = "";
@@ -317,17 +325,21 @@ export function mountUnpack(root) {
         }
       }
       jobs.finish();
-      const tree = buildTree(allFiles);
-      const treeEl = $("fileTree");
-      treeEl.innerHTML = "";
-      renderTree(tree, treeEl, 0);
-      showInfoCard();
-      if (allFiles.length) showToast(`解包完成，共 ${allFiles.length} 个文件`, "success");
-      syncSaveDir();
+      if (!stale()) {
+        const tree = buildTree(allFiles);
+        const treeEl = $("fileTree");
+        treeEl.innerHTML = "";
+        renderTree(tree, treeEl, 0);
+        showInfoCard();
+        if (allFiles.length) showToast(`解包完成，共 ${allFiles.length} 个文件`, "success");
+        syncSaveDir();
+      }
     } finally {
       running = false;
-      $("start").disabled = false;
-      $("dl").disabled = false;
+      if (!stale()) {
+        $("start").disabled = false;
+        $("dl").disabled = false;
+      }
     }
   });
 

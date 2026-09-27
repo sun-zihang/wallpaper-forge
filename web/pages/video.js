@@ -14,6 +14,7 @@ import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
 import { showErrorModal } from "../lib/errors-ui.js";
+import { reportJob } from "../lib/jobcenter.js";
 
 export function mountVideo(root) {
   root.innerHTML = `
@@ -139,7 +140,9 @@ export function mountVideo(root) {
   `;
   const $ = (id) => root.querySelector(`#${id}`);
   const token = { cancelled: false };
-  const jobs = createJobList(root.querySelector("#jobs"));
+  const jobs = createJobList(root.querySelector("#jobs"), {
+    onReport: (job) => reportJob({ ...job, id: `video:${job.id}`, page: "视频" }),
+  });
   let running = false;
   let zipping = false;
   let saving = false;
@@ -249,6 +252,7 @@ export function mountVideo(root) {
   }
 
   function updateTime() {
+    if (pageToken !== getRenderToken()) return;
     const video = $("videoEl");
     $("timeInfo").textContent = `${fmtTime(video.currentTime)} / ${fmtTime(videoDuration)}`;
     if (videoDuration > 0) {
@@ -371,6 +375,10 @@ export function mountVideo(root) {
   function syncSaveDir() {
     const btn = $("savedir");
     if (btn) btn.hidden = !supportsFileSystemAccess() || outputs.length === 0;
+  }
+
+  function stale() {
+    return pageToken !== getRenderToken();
   }
 
   async function processOne(file, mode, onPct) {
@@ -538,13 +546,17 @@ export function mountVideo(root) {
         }
       }
       jobs.finish();
-      if (outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
-      $("zip").disabled = outputs.length === 0;
-      $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
-      syncSaveDir();
+      if (!stale() && outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
+      if (!stale()) {
+        $("zip").disabled = outputs.length === 0;
+        $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
+        syncSaveDir();
+      }
     } finally {
       running = false;
-      $("start").disabled = false;
+      if (!stale()) {
+        $("start").disabled = false;
+      }
     }
   });
 

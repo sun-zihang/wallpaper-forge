@@ -21,6 +21,7 @@ const lazy = {
   "/unpack": () => import("./pages/unpack.js").then((m) => m.mountUnpack),
   "/settings": () => import("./pages/settings.js").then((m) => m.mountSettings),
   "/desktop": () => import("./pages/desktop.js").then((m) => m.mountDesktop),
+  "/jobs": () => import("./pages/jobs.js").then((m) => m.mountJobs),
 };
 
 export function setStatus(text) {
