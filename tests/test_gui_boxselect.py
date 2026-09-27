@@ -97,6 +97,7 @@ def test_box_select_mouse_release_appends_valid_box(qapp, png_64):
         event = QMouseEvent(
             QMouseEvent.Type.MouseButtonRelease,
             end.toPointF(),
+            end.toPointF(),
             Qt.LeftButton,
             Qt.LeftButton,
             Qt.NoModifier,
@@ -129,6 +130,7 @@ def test_box_select_double_click_deletes_box(qapp, png_64):
         event = QMouseEvent(
             QMouseEvent.Type.MouseButtonDblClick,
             QPointF(cx, cy),
+            QPointF(cx, cy),
             Qt.LeftButton,
             Qt.LeftButton,
             Qt.NoModifier,
@@ -152,6 +154,7 @@ def test_box_select_double_click_outside_image_is_noop(qapp, png_64):
         dlg.boxes_img = [(4, 4, 30, 30)]
         event = QMouseEvent(
             QMouseEvent.Type.MouseButtonDblClick,
+            QPointF(-10, -10),
             QPointF(-10, -10),
             Qt.LeftButton,
             Qt.LeftButton,
@@ -198,7 +201,7 @@ def _mouse_event(kind, pos, button, buttons):
 
     if kind == "move":
         kind = QEvent.Type.MouseMove
-    return QMouseEvent(kind, QPointF(pos), button, buttons, Qt.NoModifier)
+    return QMouseEvent(kind, QPointF(pos), QPointF(pos), button, buttons, Qt.NoModifier)
 
 
 def test_box_select_full_mouse_drag_flow(qapp, png_64):

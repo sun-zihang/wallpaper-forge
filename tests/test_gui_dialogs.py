@@ -147,7 +147,7 @@ def _crop_event(kind, pos, button, buttons):
 
     if kind == "move":
         kind = QEvent.Type.MouseMove
-    return QMouseEvent(kind, QPointF(pos), button, buttons, Qt.NoModifier)
+    return QMouseEvent(kind, QPointF(pos), QPointF(pos), button, buttons, Qt.NoModifier)
 
 
 def test_crop_mouse_drag_flow_selects_box(qapp, png_64):

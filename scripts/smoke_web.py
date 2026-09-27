@@ -45,7 +45,7 @@ tex_path.write_bytes(b"\x00" * 16 + struct.pack("<I", len(png_bytes)) + png_byte
 big_path = FIX / "big.mp4"
 need = 100 * 1024 * 1024 + 1
 if not big_path.exists() or big_path.stat().st_size < need:
-    with open(big_path, "wb") as f:
+    with big_path.open("wb") as f:
         f.seek(need - 1)
         f.write(b"\x00")
 
