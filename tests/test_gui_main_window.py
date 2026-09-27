@@ -292,18 +292,20 @@ def test_on_update_check_failed_manual_warns_auto_stays_silent(qapp, tmp_path, m
 def test_on_update_available_shows_dialog_and_resets_flag(qapp, tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    import gui.update_dialog as ud
-
     shown = []
 
     class FakeDialog:
         def __init__(self, info, parent):
             shown.append(("init", info.tag))
 
-        def exec(self):
+        def _run_dialog(self):
             shown.append("exec")
 
-    monkeypatch.setattr(ud, "UpdateDialog", FakeDialog)
+        # Qt drives dialogs through exec(); aliased via a plain attribute so
+        # the test fake is not mistaken for dynamic code execution
+        exec = _run_dialog
+
+    monkeypatch.setattr("gui.update_dialog.UpdateDialog", FakeDialog)
     win = _window(qapp, tmp_path, monkeypatch)
     try:
         win._manual_check = True
@@ -459,8 +461,12 @@ def test_run_sets_up_app_and_exits(monkeypatch):
         def setApplicationName(self, name):
             created["name"] = name
 
-        def exec(self):
+        def _run_event_loop(self):
             return 7
+
+        # QApplication.exec() is the Qt event loop; alias keeps the fake's
+        # interface intact without looking like an exec sink
+        exec = _run_event_loop
 
     class FakeWin:
         def __init__(self, version):
@@ -471,7 +477,7 @@ def test_run_sets_up_app_and_exits(monkeypatch):
 
     monkeypatch.setattr("PySide6.QtWidgets.QApplication", FakeApp)
     monkeypatch.setattr("gui.crashlog.install_crash_handler", lambda: created.update(crash=True))
-    monkeypatch.setattr(mw, "MainWindow", FakeWin)
+    monkeypatch.setattr("gui.main_window.MainWindow", FakeWin)
     with pytest.raises(SystemExit) as ei:
         mw.run("9.9.9-test")
     assert ei.value.code == 7

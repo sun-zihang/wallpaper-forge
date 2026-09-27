@@ -1,10 +1,12 @@
 import hashlib
 import json
 import urllib.error
+from pathlib import Path
 from typing import ClassVar
 
 import pytest
 
+from core import updater
 from core.updater import (
     UpdateError,
     is_newer,
@@ -15,6 +17,16 @@ from core.updater import (
     setup_asset_url,
     sha256_file,
 )
+
+
+def _use_fake_opener(monkeypatch, fn):
+    """Route updater fetches through a fake OpenerDirector."""
+
+    class _FakeOpener:
+        def open(self, req, timeout=None):
+            return fn(req, timeout=timeout)
+
+    monkeypatch.setattr(updater, "_OPENER", _FakeOpener())
 
 
 def test_parse_version_basic():
@@ -208,16 +220,64 @@ def test_download_update_rejects_bad_sha256(tmp_path, monkeypatch):
 
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     dest = tmp_path / "WallpaperConverter-Setup-9.9.9.exe"
 
     with pytest.raises(UpdateError, match="校验失败"):
-        updater.download_update("https://example.com/x.exe", dest, expected_sha256=bad)
+        updater.download_update("https://github.com/x.exe", dest, expected_sha256=bad)
     assert not dest.exists()
     assert not dest.with_suffix(dest.suffix + ".part").exists()
 
-    got = updater.download_update("https://example.com/x.exe", dest, expected_sha256=good)
+    got = updater.download_update("https://github.com/x.exe", dest, expected_sha256=good)
     assert got.read_bytes() == payload
+
+
+def test_validate_url_allows_trusted_hosts_and_mirror_wrapping():
+    from core import updater
+
+    updater._validate_url("https://api.github.com/repos/o/r/releases/latest")
+    updater._validate_url("https://github.com/o/r/releases/download/v1/a.exe")
+    for tpl in updater._URL_MIRRORS[:-1]:
+        updater._validate_url(tpl.format(url="https://github.com/o/r/a.exe"))
+
+
+def test_validate_url_rejects_insecure_and_untrusted_sources():
+    from core import updater
+
+    for bad in [
+        "http://github.com/x.exe",  # plaintext downgrade
+        "https://evil.example/x.exe",  # unknown host
+        "https://ghproxy.net/http://github.com/x.exe",  # mirror wrapping plaintext
+        "https://github.com.evil.example/x.exe",  # lookalike host
+        "ftp://github.com/x.exe",  # non-http scheme
+    ]:
+        with pytest.raises(UpdateError, match="不受信任"):
+            updater._validate_url(bad)
+
+
+def test_download_update_rejects_untrusted_source_without_network(tmp_path, monkeypatch):
+    from core import updater
+
+    def bomb(*a, **k):
+        raise AssertionError("urlopen must not be called for untrusted URLs")
+
+    _use_fake_opener(monkeypatch, bomb)
+    dest = tmp_path / "setup.exe"
+    with pytest.raises(UpdateError, match="不受信任"):
+        updater.download_update("https://evil.example/x.exe", dest)
+    assert not dest.exists()
+    assert not dest.with_suffix(dest.suffix + ".part").exists()
+
+
+def test_download_one_rejects_relative_and_escaping_dest(tmp_path):
+    from core import updater
+
+    with pytest.raises(UpdateError, match="下载路径无效"):
+        updater._download_one("https://github.com/x.exe", Path("setup.exe"), None, None, 1.0, 1)
+    with pytest.raises(UpdateError, match="下载路径无效"):
+        updater._download_one(
+            "https://github.com/x.exe", tmp_path / ".." / "escape.exe", None, None, 1.0, 1
+        )
 
 
 def test_parse_latest_release_missing_tag():
@@ -289,10 +349,10 @@ def test_download_update_cancel_raises_without_mirror_retry(tmp_path, monkeypatc
 
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     dest = tmp_path / "setup.exe"
     with pytest.raises(UpdateError, match="已取消"):
-        updater.download_update("https://example.com/x.exe", dest, cancel_event=cancel)
+        updater.download_update("https://github.com/x.exe", dest, cancel_event=cancel)
     assert len(attempts) == 1
     assert not dest.exists()
 
@@ -318,10 +378,10 @@ def test_download_update_incomplete_body_raises(tmp_path, monkeypatch):
 
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     dest = tmp_path / "setup.exe"
     with pytest.raises(UpdateError, match="下载更新失败"):
-        updater.download_update("https://example.com/x.exe", dest)
+        updater.download_update("https://github.com/x.exe", dest)
     assert not dest.exists()
 
 
@@ -337,10 +397,10 @@ def test_download_update_http_error_falls_through_to_final_message(tmp_path, mon
             fp=None,
         )
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     dest = tmp_path / "setup.exe"
     with pytest.raises(UpdateError, match="下载更新失败"):
-        updater.download_update("https://example.com/x.exe", dest)
+        updater.download_update("https://github.com/x.exe", dest)
     assert not dest.exists()
     assert not dest.with_suffix(dest.suffix + ".part").exists()
 
@@ -370,11 +430,11 @@ def test_download_update_progress_cb_without_content_length(tmp_path, monkeypatc
 
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     calls: list[tuple[int, int]] = []
     dest = tmp_path / "setup.exe"
     got = updater.download_update(
-        "https://example.com/x.exe",
+        "https://github.com/x.exe",
         dest,
         progress_cb=lambda d, t: calls.append((d, t)),
     )
@@ -404,9 +464,9 @@ def test_http_get_builds_request_and_returns_body(monkeypatch):
         seen["ua"] = req.get_header("User-agent")
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
-    assert updater._http_get("https://example.invalid/api", 7.5) == b"payload"
-    assert seen["url"] == "https://example.invalid/api"
+    _use_fake_opener(monkeypatch, fake_urlopen)
+    assert updater._http_get("https://github.com/api", 7.5) == b"payload"
+    assert seen["url"] == "https://github.com/api"
     assert seen["timeout"] == 7.5
     assert seen["ua"] == "WallpaperConverter-Updater"
 
@@ -417,10 +477,10 @@ def test_download_update_network_error_exhausts_mirrors(tmp_path, monkeypatch):
     def fake_urlopen(req, timeout=None):
         raise urllib.error.URLError("connection reset")
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    _use_fake_opener(monkeypatch, fake_urlopen)
     dest = tmp_path / "x.exe"
     with pytest.raises(UpdateError, match="下载更新失败"):
-        updater.download_update("https://example.invalid/x.exe", dest)
+        updater.download_update("https://github.com/x.exe", dest)
     assert not dest.exists()
 
 
@@ -446,11 +506,11 @@ def test_download_update_progress_with_content_length(tmp_path, monkeypatch):
         def __exit__(self, *a):
             return False
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda req, timeout=None: _Resp())
+    _use_fake_opener(monkeypatch, lambda req, timeout=None: _Resp())
     calls = []
     dest = tmp_path / "setup.exe"
     got = updater.download_update(
-        "https://example.invalid/setup.exe",
+        "https://github.com/setup.exe",
         dest,
         progress_cb=lambda done, total: calls.append((done, total)),
         chunk=4,

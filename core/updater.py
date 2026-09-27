@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -62,6 +63,30 @@ def mirror_candidates(url: str) -> list[str]:
     return [tpl.format(url=url) for tpl in _URL_MIRRORS]
 
 
+# Hosts the updater may dial directly, plus the mirror hosts it may dial when
+# the wrapped inner URL is itself trusted. This bounds the blast radius of a
+# tampered release API response or mirror list: update traffic can never be
+# redirected at an arbitrary host.
+_MIRROR_HOSTS = frozenset(
+    host
+    for tpl in _URL_MIRRORS
+    if (host := urllib.parse.urlsplit(tpl.split("{url}", 1)[0]).hostname)
+)
+_TRUSTED_HOSTS = frozenset({"api.github.com", "github.com"})
+
+
+def _validate_url(url: str) -> None:
+    parts = urllib.parse.urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme == "https" and host in _TRUSTED_HOSTS:
+        return
+    if parts.scheme == "https" and host in _MIRROR_HOSTS:
+        inner = urllib.parse.urlsplit(parts.path.lstrip("/"))
+        if inner.scheme == "https" and (inner.hostname or "").lower() in _TRUSTED_HOSTS:
+            return
+    raise UpdateError(f"更新源不受信任: {url}")
+
+
 def setup_asset_url(tag: str) -> str:
     ver = tag.lstrip("vV")
     return f"https://github.com/{REPO}/releases/download/{tag}/WallpaperConverter-Setup-{ver}.exe"
@@ -106,9 +131,13 @@ def parse_latest_release(payload: str | dict) -> ReleaseInfo:
     )
 
 
+_OPENER = urllib.request.build_opener()
+
+
 def _http_get(url: str, timeout: float) -> bytes:
+    _validate_url(url)
     req = urllib.request.Request(url, headers=_UA)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _OPENER.open(req, timeout=timeout) as resp:
         return resp.read()
 
 
@@ -159,7 +188,7 @@ def download_update(
                 url, dest, progress_cb, cancel_event, timeout, chunk, expected_sha256
             )
         except UpdateError as e:
-            if "已取消" in str(e):
+            if "已取消" in str(e) or "不受信任" in str(e):
                 raise
             last_err = e
             continue
@@ -178,9 +207,12 @@ def _download_one(
     chunk: int,
     expected_sha256: str | None = None,
 ) -> Path:
+    _validate_url(url)
+    if not dest.is_absolute() or ".." in dest.parts:
+        raise UpdateError("下载路径无效")
     req = urllib.request.Request(url, headers=_UA)
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout)
+        resp = _OPENER.open(req, timeout=timeout)
     except urllib.error.HTTPError as e:
         raise UpdateError(f"HTTP {e.code}") from e
     tmp = dest.with_suffix(dest.suffix + ".part")
@@ -189,7 +221,7 @@ def _download_one(
             total = int(resp.headers.get("Content-Length") or 0)
             done = 0
             last_pct = -1
-            with open(tmp, "wb") as f:
+            with tmp.open("wb") as f:
                 while True:
                     if cancel_event is not None and cancel_event.is_set():
                         raise UpdateError("已取消")
