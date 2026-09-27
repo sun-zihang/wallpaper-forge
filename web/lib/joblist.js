@@ -1,3 +1,5 @@
+import { enableDragSave } from "./download.js";
+
 export const STATUS_TEXT = {
   pending: "等待",
   running: "处理中",
@@ -12,7 +14,7 @@ export function createJobList(container, { onCancel } = {}) {
       <button type="button" class="btn secondary" data-act="cancel" disabled>取消</button>
       <span class="pct">0%</span>
     </div>
-    <div class="progress"><i style="width:0%"></i></div>
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="转换进度"><i style="width:0%"></i></div>
     <div class="panel sheet">
       <table class="jobs">
         <thead><tr><th>预览</th><th>文件</th><th>状态</th></tr></thead>
@@ -22,6 +24,7 @@ export function createJobList(container, { onCancel } = {}) {
   `;
   const tbody = container.querySelector("tbody");
   const bar = container.querySelector(".progress > i");
+  const progressEl = container.querySelector(".progress");
   const pctLabel = container.querySelector(".pct");
   const cancelBtn = container.querySelector('[data-act="cancel"]');
   let cancelled = false;
@@ -88,10 +91,16 @@ export function createJobList(container, { onCancel } = {}) {
     setProgress(pct) {
       const v = Math.max(0, Math.min(100, pct | 0));
       bar.style.width = `${v}%`;
+      if (progressEl && progressEl.setAttribute) progressEl.setAttribute("aria-valuenow", String(v));
       if (pctLabel) pctLabel.textContent = `${v}%`;
     },
     setStatus(id, status, detail) {
       renderStatus(id, status, detail);
+    },
+    setOutputBlob(id, { blob, filename }) {
+      const tr = rows.get(id);
+      if (!tr || !tr.cells || !tr.cells[0]) return;
+      enableDragSave(tr.cells[0], blob, filename);
     },
     finish() {
       cancelBtn.disabled = true;

@@ -1,5 +1,7 @@
 import { AppError } from "./errors.js";
 import { encodeAnimatedGif } from "./gif_ops.js";
+import { assertImageResolution } from "./validate.js";
+import { createCanvas, encodeCanvas } from "./canvas_env.js";
 
 export const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 export const OUT_FORMATS = ["PNG", "JPG", "WebP", "BMP", "GIF"];
@@ -30,8 +32,11 @@ export function qualityExts() {
 
 export async function loadImageBitmap(file) {
   try {
-    return await createImageBitmap(file);
+    const bitmap = await createImageBitmap(file);
+    assertImageResolution(bitmap.width, bitmap.height);
+    return bitmap;
   } catch (e) {
+    if (e instanceof AppError) throw e;
     throw new AppError("图片处理失败", `无法读取图片: ${file.name || ""}（${e}）`);
   }
 }
@@ -43,9 +48,7 @@ function drawScaled(bitmap, maxWidth) {
     h = Math.max(1, Math.round(h * (maxWidth / w)));
     w = maxWidth;
   }
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
+  const canvas = createCanvas(w, h);
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, w, h);
@@ -104,9 +107,6 @@ export async function convertImage(file, { format, maxWidth = 0, quality = 90 } 
   }
   const mime = MIME[ext];
   const q = Math.max(1, Math.min(100, quality));
-  const opts = qualityExts().has(ext) ? { type: mime, quality: q / 100 } : { type: mime };
-  const blob = await new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new AppError("图片处理失败", "保存失败"))), opts.type, opts.quality);
-  });
+  const blob = await encodeCanvas(canvas, mime, qualityExts().has(ext) ? q / 100 : undefined, "图片处理失败");
   return { blob, filename: outName, width: canvas.width, height: canvas.height };
 }

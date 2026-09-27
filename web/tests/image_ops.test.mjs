@@ -160,6 +160,21 @@ test("loadImageBitmap wraps decode failures as AppError", async (t) => {
   assert.equal(state.closed, 0);
 });
 
+test("loadImageBitmap rejects extreme resolutions before any canvas work", async (t) => {
+  const state = installCanvasEnv(t, { bitmapW: 32768, bitmapH: 2160 });
+  await assert.rejects(
+    () => loadImageBitmap({ name: "huge.png" }),
+    (e) => {
+      assert.equal(e.label, "图片处理失败");
+      assert.match(e.detail, /32768×2160/);
+      assert.match(e.detail, /建议下载桌面版/);
+      return true;
+    },
+  );
+  assert.equal(state.closed, 0, "oversized bitmap must not reach the canvas");
+  assert.equal(state.canvases.length, 0);
+});
+
 test("convertImage scales to maxWidth and converts to BMP", async (t) => {
   const state = installCanvasEnv(t, { bitmapW: 400, bitmapH: 200 });
   const out = await convertImage({ name: "shot.final.png" }, { format: "bmp", maxWidth: 100 });

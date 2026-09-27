@@ -1,12 +1,14 @@
 // web/pages/gif.js
-import { mergeGif, splitGif } from "../lib/gif_ops.js";
+import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
-import { downloadBlob } from "../lib/download.js";
+import { downloadBlob, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
+import { validateImageFile } from "../lib/validate.js";
+import { setStatus } from "../app.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 
@@ -53,6 +55,7 @@ export function mountGif(root) {
       <div class="row">
         <button type="button" class="btn" id="start">开始</button>
         <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
+        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       </div>
     </div>
     <div id="jobs"></div>
@@ -63,10 +66,20 @@ export function mountGif(root) {
   const jobs = createJobList(root.querySelector("#jobs"), {
     onCancel() {
       token.cancelled = true;
+      cancelAllWorkerJobs();
     },
   });
   let splitFiles = [];
   let running = false;
+  let saving = false;
+
+  function syncSaveDir() {
+    const btn = $("savedir");
+    if (btn) {
+      const split = $("mode").value === "split";
+      btn.hidden = !split || !supportsFileSystemAccess() || splitFiles.length === 0;
+    }
+  }
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: IMAGE_EXTS,
@@ -84,6 +97,7 @@ export function mountGif(root) {
     $("zip").hidden = !split;
     $("start").textContent = split ? "开始拆帧" : "开始合帧";
     $("files").accept = split ? ".gif,image/gif" : "image/*,.gif";
+    syncSaveDir();
   }
   $("mode").addEventListener("change", syncMode);
   syncMode();
@@ -105,6 +119,14 @@ export function mountGif(root) {
       return;
     }
     const accepted = check.files;
+    for (const f of accepted) {
+      try {
+        await validateImageFile(f);
+      } catch (e) {
+        err.textContent = friendlyError(e);
+        return;
+      }
+    }
     running = true;
     $("start").disabled = true;
     $("zip").disabled = true;
@@ -122,13 +144,15 @@ export function mountGif(root) {
           jobs.setStatus(i, "running");
           jobs.setProgress(batchPct(i, 0, accepted.length));
           try {
-            const { files: parts } = await splitGif(accepted[i], {
-              step: Number($("step").value),
-              token,
-            });
+            const { files: parts } = await runJob(
+              "gif_split",
+              { file: accepted[i], opts: { step: Number($("step").value) } },
+              { token }
+            );
             splitFiles.push(...parts);
             jobs.setStatus(i, "done");
             jobs.setProgress(batchPct(i, 100, accepted.length));
+            syncSaveDir();
           } catch (e) {
             const msg = friendlyError(e);
             const cancelled = msg.includes("已取消");
@@ -144,14 +168,22 @@ export function mountGif(root) {
       jobs.submit([{ id: 0, name: ordered[0].name, thumb: URL.createObjectURL(ordered[0]) }]);
       jobs.setStatus(0, "running");
       try {
-        const { blob, filename } = await mergeGif(ordered, {
-          durationMs: Number($("dur").value),
-          loop: $("loop").checked ? 0 : 1,
-          reverse: $("rev").checked,
-          token,
-          onProgress: (done, totalFrames) =>
-            jobs.setProgress(batchPct(0, (done / totalFrames) * 100, 1)),
-        });
+        const { blob, filename } = await runJob(
+          "gif_merge",
+          {
+            files: ordered,
+            opts: {
+              durationMs: Number($("dur").value),
+              loop: $("loop").checked ? 0 : 1,
+              reverse: $("rev").checked,
+            },
+          },
+          {
+            token,
+            onProgress: (done, totalFrames) =>
+              jobs.setProgress(batchPct(0, (done / totalFrames) * 100, 1)),
+          }
+        );
         jobs.setStatus(0, "done");
         downloadBlob(blob, filename);
       } catch (e) {
@@ -180,6 +212,25 @@ export function mountGif(root) {
       downloadBlob(await zip.generateAsync({ type: "blob" }), "frames.zip");
     } catch (e) {
       $("err").textContent = friendlyError(e);
+    }
+  });
+
+  $("savedir").addEventListener("click", async () => {
+    if (running || saving || !splitFiles.length) return;
+    $("err").textContent = "";
+    saving = true;
+    $("savedir").disabled = true;
+    try {
+      const dir = await pickOutputDirectory();
+      const written = await saveBlobsToDirectory(dir, splitFiles);
+      setStatus(`已保存 ${written.length} 个文件到所选文件夹`);
+    } catch (e) {
+      if (!(e instanceof AppError && e.detail === "已取消选择")) {
+        $("err").textContent = friendlyError(e);
+      }
+    } finally {
+      saving = false;
+      $("savedir").disabled = false;
     }
   });
 }

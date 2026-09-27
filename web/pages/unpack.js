@@ -8,8 +8,9 @@ import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
-import { downloadBlob, stem } from "../lib/download.js";
+import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
+import { setStatus } from "../app.js";
 
 const WE_EXTS = [".pkg", ".tex", ".mpkg"];
 
@@ -32,6 +33,7 @@ export function mountUnpack(root) {
       <div class="row">
         <button type="button" class="btn" id="start">开始解包</button>
         <button type="button" class="btn secondary" id="dl">打包下载 ZIP</button>
+        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       </div>
     </div>
     <div id="jobs"></div>
@@ -42,6 +44,12 @@ export function mountUnpack(root) {
   let allFiles = [];
   let running = false;
   let zipping = false;
+  let saving = false;
+
+  function syncSaveDir() {
+    const btn = $("savedir");
+    if (btn) btn.hidden = !supportsFileSystemAccess() || allFiles.length === 0;
+  }
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: WE_EXTS,
@@ -93,6 +101,7 @@ export function mountUnpack(root) {
           for (const item of result.files) allFiles.push(item);
           jobs.setStatus(i, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
+          syncSaveDir();
         } catch (e) {
           jobs.setStatus(i, "failed", friendlyError(e));
         }
@@ -123,6 +132,25 @@ export function mountUnpack(root) {
     } finally {
       zipping = false;
       $("dl").disabled = false;
+    }
+  });
+
+  $("savedir").addEventListener("click", async () => {
+    if (running || zipping || saving || !allFiles.length) return;
+    $("err").textContent = "";
+    saving = true;
+    $("savedir").disabled = true;
+    try {
+      const dir = await pickOutputDirectory();
+      const written = await saveBlobsToDirectory(dir, allFiles);
+      setStatus(`已保存 ${written.length} 个文件到所选文件夹`);
+    } catch (e) {
+      if (!(e instanceof AppError && e.detail === "已取消选择")) {
+        $("err").textContent = friendlyError(e);
+      }
+    } finally {
+      saving = false;
+      $("savedir").disabled = false;
     }
   });
 }

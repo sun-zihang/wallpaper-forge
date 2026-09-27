@@ -1,6 +1,7 @@
 // web/lib/gif_ops.js
 import { AppError } from "./errors.js";
 import { GIFUCT_URLS, importFirst } from "./cdn.js";
+import { createCanvas, encodeCanvas } from "./canvas_env.js";
 
 export function stepIndexKept(index, step) {
   return index % Math.max(1, step | 0) === 0;
@@ -111,9 +112,7 @@ export function applyDisposal(buffer, bufW, bufH, patch, disposalType) {
 }
 
 function canvasFromBuffer(buffer, width, height) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(width, height);
   img.data.set(buffer);
@@ -131,9 +130,7 @@ export async function splitGif(file, { step = 1, token, gifuct } = {}) {
     throwIfCancelled(token);
     if (!stepIndexKept(i, step)) continue;
     kept += 1;
-    const blob = await new Promise((res, rej) =>
-      frames[i].toBlob((b) => (b ? res(b) : rej(new AppError("GIF 处理失败", "保存失败"))), "image/png")
-    );
+    const blob = await encodeCanvas(frames[i], "image/png", undefined, "GIF 处理失败");
     files.push({ name: `${base}/frame_${String(kept).padStart(4, "0")}.png`, blob });
   }
   if (!files.length) throw new AppError("GIF 处理失败", "GIF 中没有可导出的帧");
@@ -153,9 +150,7 @@ export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = fa
     } catch (e) {
       throw new AppError("GIF 处理失败", `无法读取图片: ${f.name || "frame"}（${e && e.message ? e.message : e}）`);
     }
-    const c = document.createElement("canvas");
-    c.width = bmp.width;
-    c.height = bmp.height;
+    const c = createCanvas(bmp.width, bmp.height);
     c.getContext("2d").drawImage(bmp, 0, 0);
     bmp.close && bmp.close();
     canvases.push(c);

@@ -1,5 +1,6 @@
 import { AppError } from "./errors.js";
 import { loadImageBitmap } from "./image_ops.js";
+import { createCanvas, encodeCanvas } from "./canvas_env.js";
 
 export const POSITIONS = [
   "top_left",
@@ -20,9 +21,7 @@ export function cropCanvas(src, box) {
   if (!cropBoxValid(box, src.width, src.height)) {
     throw new AppError("图片处理失败", `裁剪区域无效: 必须在 0..${src.width} × 0..${src.height} 范围内`);
   }
-  const out = document.createElement("canvas");
-  out.width = r - l;
-  out.height = b - t;
+  const out = createCanvas(r - l, b - t);
   out.getContext("2d").drawImage(src, l, t, r - l, b - t, 0, 0, out.width, out.height);
   return out;
 }
@@ -44,9 +43,7 @@ export function pastePos(cw, ch, mw, mh, position, margin = 16) {
 export async function addTextWatermark(file, { text, fontSize = 32, color = "rgba(255,255,255,0.7)", position = "bottom_right", margin = 16 } = {}) {
   if (!text) throw new AppError("图片处理失败", "水印文字不能为空");
   const bitmap = await loadImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+  const canvas = createCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close && bitmap.close();
@@ -58,7 +55,7 @@ export async function addTextWatermark(file, { text, fontSize = 32, color = "rgb
   const th = fontSize * 1.2;
   const [x, y] = pastePos(canvas.width, canvas.height, tw, th, position, margin);
   ctx.fillText(text, x, y);
-  const blob = await new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png"));
+  const blob = await encodeCanvas(canvas, "image/png", undefined, "图片处理失败");
   return { blob, filename: (file.name || "image").replace(/\.[^.]+$/, "") + "_wm.png" };
 }
 
@@ -69,22 +66,18 @@ export async function addImageWatermark(file, markFile, { scale = 0.2, position 
   try {
     const mark = await loadImageBitmap(markFile);
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = base.width;
-      canvas.height = base.height;
+      const canvas = createCanvas(base.width, base.height);
       const ctx = canvas.getContext("2d");
       ctx.drawImage(base, 0, 0);
       const mw = Math.max(1, Math.round(base.width * scale));
       const mh = Math.max(1, Math.round(mark.height * (mark.width > 0 ? mw / mark.width : 1)));
-      const off = document.createElement("canvas");
-      off.width = mw;
-      off.height = mh;
+      const off = createCanvas(mw, mh);
       const octx = off.getContext("2d");
       octx.globalAlpha = opacity;
       octx.drawImage(mark, 0, 0, mw, mh);
       const [x, y] = pastePos(canvas.width, canvas.height, mw, mh, position, margin);
       ctx.drawImage(off, x, y);
-      const blob = await new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png"));
+      const blob = await encodeCanvas(canvas, "image/png", undefined, "图片处理失败");
       return { blob, filename: (file.name || "image").replace(/\.[^.]+$/, "") + "_wm.png" };
     } finally {
       mark.close && mark.close();

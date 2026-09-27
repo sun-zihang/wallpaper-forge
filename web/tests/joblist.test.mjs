@@ -52,6 +52,7 @@ function makeContainer() {
   });
   // mirror the state the real template markup would parse to
   const bar = { style: { width: "0%" } };
+  const progressEl = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
   const pct = { textContent: "0%" };
   const cancelBtn = {
     disabled: true, // template ships with the disabled attribute
@@ -70,14 +71,29 @@ function makeContainer() {
   };
   c._q.set("tbody", tbody);
   c._q.set(".progress > i", bar);
+  c._q.set(".progress", progressEl);
   c._q.set(".pct", pct);
   c._q.set('[data-act="cancel"]', cancelBtn);
-  return { container: c, tbody, bar, pct, cancelBtn };
+  return { container: c, tbody, bar, progressEl, pct, cancelBtn };
 }
 
 function makeTr() {
   const cells = [
-    { children: [], appendChild(c) { this.children.push(c); return c; }, innerHTML: "" },
+    {
+      children: [],
+      attrs: {},
+      listeners: new Map(),
+      appendChild(c) { this.children.push(c); return c; },
+      setAttribute(k, v) { this.attrs[k] = v; },
+      addEventListener(type, fn) {
+        if (!this.listeners.has(type)) this.listeners.set(type, []);
+        this.listeners.get(type).push(fn);
+      },
+      dispatch(type, ev) {
+        for (const fn of this.listeners.get(type) || []) fn(ev);
+      },
+      innerHTML: "",
+    },
     { textContent: "", innerHTML: "" },
     { className: "", textContent: "", title: "" },
   ];
@@ -92,7 +108,21 @@ function makeTr() {
     get: () => "",
     set() {
       tr.cells = [
-        { children: [], appendChild(c) { this.children.push(c); return c; }, innerHTML: "" },
+        {
+          children: [],
+          attrs: {},
+          listeners: new Map(),
+          appendChild(c) { this.children.push(c); return c; },
+          setAttribute(k, v) { this.attrs[k] = v; },
+          addEventListener(type, fn) {
+            if (!this.listeners.has(type)) this.listeners.set(type, []);
+            this.listeners.get(type).push(fn);
+          },
+          dispatch(type, ev) {
+            for (const fn of this.listeners.get(type) || []) fn(ev);
+          },
+          innerHTML: "",
+        },
         { textContent: "", innerHTML: "" },
         { className: "", textContent: "", title: "" },
       ];
@@ -280,4 +310,53 @@ test("finish disables the cancel button", async () => {
   assert.equal(cancelBtn.disabled, false);
   list.finish();
   assert.equal(cancelBtn.disabled, true);
+});
+
+test("progress bar exposes role=progressbar and tracks aria-valuenow", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, progressEl } = makeContainer();
+  createJobList(container, {});
+  assert.match(container.innerHTML, /role="progressbar"/);
+  assert.match(container.innerHTML, /aria-valuemin="0"/);
+  assert.match(container.innerHTML, /aria-valuemax="100"/);
+  assert.match(container.innerHTML, /aria-label="转换进度"/);
+  assert.equal(progressEl.attrs["aria-valuenow"], undefined);
+});
+
+test("setProgress updates aria-valuenow on the progressbar element", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, progressEl } = makeContainer();
+  const list = createJobList(container, {});
+  list.setProgress(45);
+  assert.equal(progressEl.attrs["aria-valuenow"], "45");
+  list.setProgress(140);
+  assert.equal(progressEl.attrs["aria-valuenow"], "100", "clamped to the aria maximum");
+  list.setProgress(-20);
+  assert.equal(progressEl.attrs["aria-valuenow"], "0", "clamped to the aria minimum");
+});
+
+test("setOutputBlob makes the row thumb draggable with the output file", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, tbody } = makeContainer();
+  const list = createJobList(container, {});
+  list.submit(JOBS());
+  const thumb = tbody.children[0].cells[0];
+  assert.equal(thumb.attrs.draggable, undefined);
+  list.setOutputBlob(1, { blob: new Blob(["x"]), filename: "a.png" });
+  assert.equal(thumb.attrs.draggable, "true");
+  const ev = { dataTransfer: { items: { add() {} }, effectAllowed: "" } };
+  thumb.dispatch("dragstart", ev);
+  assert.equal(ev.dataTransfer.effectAllowed, "copy");
+});
+
+test("setOutputBlob ignores unknown ids", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container } = makeContainer();
+  const list = createJobList(container, {});
+  list.submit(JOBS());
+  list.setOutputBlob(999, { blob: new Blob(["x"]), filename: "z.png" });
 });

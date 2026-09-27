@@ -3,6 +3,8 @@ import { mountHome } from "./pages/home.js";
 import { WEB_VERSION } from "./version.js";
 import { DEP_VERSIONS } from "./lib/deps.js";
 import { bindDocumentDrop } from "./lib/drop.js";
+import { createMemoryMonitor } from "./lib/memory.js";
+import { onVisibilityChange } from "./lib/visibility.js";
 
 const routes = {
   "": mountHome,
@@ -82,5 +84,20 @@ async function render() {
 
 renderFooter();
 bindDocumentDrop();
+
+createMemoryMonitor({
+  onWarning: (mb) => setStatus(`内存使用过高（${Math.round(mb)}MB），建议分批处理`),
+});
+
+const BACKGROUND_TEXT = "标签页在后台，任务继续运行";
+onVisibilityChange((hidden) => {
+  const el = document.getElementById("status");
+  if (hidden) {
+    if (!el || el.textContent === "就绪") setStatus(BACKGROUND_TEXT);
+  } else if (el && el.textContent === BACKGROUND_TEXT) {
+    setStatus("就绪");
+  }
+});
+
 window.addEventListener("hashchange", render);
 render();

@@ -1,12 +1,14 @@
 // web/pages/video.js
 import { assertVideoLimits, probeVideoDuration, durationTooLongError, MAX_VIDEO_BYTES, MAX_VIDEO_SECONDS } from "../lib/video_limits.js";
 import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../lib/video_bridge.js";
+import { validateVideoFile } from "../lib/validate.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
-import { downloadBlob, stem } from "../lib/download.js";
+import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
+import { detectMobile, mobileScaleArgs, MOBILE_MAX_VIDEO_WIDTH, MOBILE_VIDEO_NOTE } from "../lib/mobile.js";
 import { setStatus } from "../app.js";
 
 export function mountVideo(root) {
@@ -66,7 +68,9 @@ export function mountVideo(root) {
       <div class="row">
         <button type="button" class="btn" id="start">开始转换</button>
         <button type="button" class="btn secondary" id="zip" disabled>打包下载 ZIP</button>
+        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       </div>
+      <p class="mobile-note" id="mobile_note" hidden></p>
     </div>
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
@@ -80,7 +84,13 @@ export function mountVideo(root) {
   });
   let running = false;
   let zipping = false;
+  let saving = false;
   const outputs = [];
+
+  function syncSaveDir() {
+    const btn = $("savedir");
+    if (btn) btn.hidden = !supportsFileSystemAccess() || outputs.length === 0;
+  }
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: [".mp4", ".webm", ".mov", ".mkv"],
@@ -101,6 +111,16 @@ export function mountVideo(root) {
   }
   $("mode").addEventListener("change", syncMode);
   syncMode();
+
+  // Mobile WASM throughput is far below desktop; cap transcode parameters to
+  // 1080P-class and say so once instead of letting a 4K job crawl or OOM.
+  const mobile = detectMobile();
+  if (mobile) {
+    $("mobile_note").textContent = MOBILE_VIDEO_NOTE;
+    $("mobile_note").hidden = false;
+    $("gw").max = String(MOBILE_MAX_VIDEO_WIDTH);
+    if (Number($("gw").value) > MOBILE_MAX_VIDEO_WIDTH) $("gw").value = String(MOBILE_MAX_VIDEO_WIDTH);
+  }
 
   $("start").addEventListener("click", async () => {
     if (running) return;
@@ -156,6 +176,7 @@ export function mountVideo(root) {
           if (out) {
             outputs.push(out);
             jobs.setStatus(i, "done");
+            syncSaveDir();
           } else {
             jobs.setStatus(i, "failed", "没有产出文件");
           }
@@ -195,7 +216,26 @@ export function mountVideo(root) {
     }
   });
 
+  $("savedir").addEventListener("click", async () => {
+    if (zipping || saving || !outputs.length) return;
+    saving = true;
+    $("savedir").disabled = true;
+    try {
+      const dir = await pickOutputDirectory();
+      const written = await saveBlobsToDirectory(dir, outputs);
+      setStatus(`已保存 ${written.length} 个文件到所选文件夹`);
+    } catch (e) {
+      if (!(e instanceof AppError && e.detail === "已取消选择")) {
+        $("err").textContent = friendlyError(e);
+      }
+    } finally {
+      saving = false;
+      $("savedir").disabled = false;
+    }
+  });
+
   async function processOne(file, mode, onPct) {
+    await validateVideoFile(file);
     const ff = await ensureFFmpeg();
     const inName = `in_${file.name.replace(/[^\w.-]+/g, "_")}`;
     await writeFileFromBlob(ff, inName, file);
@@ -208,10 +248,11 @@ export function mountVideo(root) {
         const ext = $("fmt").value;
         const out = `out.${ext}`;
         scratch.push(out);
+        const scale = mobile ? mobileScaleArgs(MOBILE_MAX_VIDEO_WIDTH) : [];
         const args =
           ext === "webm"
-            ? ["-i", inName, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
-            : ["-i", inName, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
+            ? ["-i", inName, ...scale, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
+            : ["-i", inName, ...scale, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
         await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
         const blob = await readFileToBlob(ff, out);
         return { blob, filename: `${base}.${ext}` };
@@ -245,6 +286,7 @@ export function mountVideo(root) {
         const t1 = Math.max(t0 + 0.1, Number($("t1").value) || t0 + 0.1);
         const args = [
           "-ss", String(t0), "-i", inName, "-t", String(t1 - t0),
+          ...(mobile ? mobileScaleArgs(MOBILE_MAX_VIDEO_WIDTH) : []),
           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out,
         ];
         await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });

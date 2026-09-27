@@ -1,13 +1,16 @@
 // web/pages/image.js
-import { OUT_FORMATS, IMAGE_EXTS, convertImage, loadImageBitmap } from "../lib/image_ops.js";
-import { addImageWatermark, addTextWatermark, cropCanvas } from "../lib/annotate.js";
+import { OUT_FORMATS, IMAGE_EXTS, loadImageBitmap } from "../lib/image_ops.js";
+import { cropCanvas } from "../lib/annotate.js";
+import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
 import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
-import { downloadBlob, stem } from "../lib/download.js";
+import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
+import { validateImageFile } from "../lib/validate.js";
+import { setStatus } from "../app.js";
 
 export function mountImage(root) {
   root.innerHTML = `
@@ -43,6 +46,7 @@ export function mountImage(root) {
       <div class="row">
         <button type="button" class="btn" id="start">开始转换</button>
         <button type="button" class="btn secondary" id="zip">打包下载 ZIP</button>
+        <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       </div>
     </div>
     <div class="panel">
@@ -91,12 +95,24 @@ export function mountImage(root) {
     <div id="jobs"></div>
     <pre class="err" id="err"></pre>
   `;
-  const jobs = createJobList(root.querySelector("#jobs"));
+  const token = { cancelled: false };
+  const jobs = createJobList(root.querySelector("#jobs"), {
+    onCancel() {
+      token.cancelled = true;
+      cancelAllWorkerJobs();
+    },
+  });
   const err = root.querySelector("#err");
   const $ = (id) => root.querySelector(`#${id}`);
   const outputs = [];
   let running = false;
   let zipping = false;
+  let saving = false;
+
+  function syncSaveDir() {
+    const btn = $("savedir");
+    if (btn) btn.hidden = !supportsFileSystemAccess() || outputs.length === 0;
+  }
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: IMAGE_EXTS,
@@ -158,11 +174,12 @@ export function mountImage(root) {
     if (at >= 0) outputs.splice(at, 1);
     outputs.push({ blob, filename });
     $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
+    syncSaveDir();
   }
 
   async function runOne(file, opts) {
     if (jobs.cancelled) throw new AppError("图片处理失败", "已取消");
-    const { blob, filename } = await convertImage(file, opts);
+    const { blob, filename } = await runJob("convert_image", { file, opts }, { token });
     addOutput(blob, filename);
     return filename;
   }
@@ -181,6 +198,14 @@ export function mountImage(root) {
       return;
     }
     const files = check.files;
+    for (const f of files) {
+      try {
+        await validateImageFile(f);
+      } catch (e) {
+        err.textContent = friendlyError(e);
+        return;
+      }
+    }
     const fmt = $("fmt").value;
     const quality = Number($("q").value);
     const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
@@ -239,6 +264,25 @@ export function mountImage(root) {
     }
   });
 
+  $("savedir").addEventListener("click", async () => {
+    if (running || zipping || saving || !outputs.length) return;
+    err.textContent = "";
+    saving = true;
+    $("savedir").disabled = true;
+    try {
+      const dir = await pickOutputDirectory();
+      const written = await saveBlobsToDirectory(dir, outputs);
+      setStatus(`已保存 ${written.length} 个文件到所选文件夹`);
+    } catch (e) {
+      if (!(e instanceof AppError && e.detail === "已取消选择")) {
+        err.textContent = friendlyError(e);
+      }
+    } finally {
+      saving = false;
+      $("savedir").disabled = false;
+    }
+  });
+
   $("crop").addEventListener("click", async () => {
     err.textContent = "";
     let bitmap = null;
@@ -290,6 +334,14 @@ export function mountImage(root) {
       return;
     }
     const files = check.files;
+    for (const f of files) {
+      try {
+        await validateImageFile(f);
+      } catch (e) {
+        err.textContent = friendlyError(e);
+        return;
+      }
+    }
     const position = $("wm_pos").value;
     const opacity = Number($("wm_opacity").value) / 100;
     const textMode = $("wmtext").classList.contains("active");
@@ -321,13 +373,19 @@ export function mountImage(root) {
         jobs.setProgress(batchPct(i, 0, files.length));
         try {
           const res = textMode
-            ? await addTextWatermark(files[i], {
-                text,
-                fontSize,
-                position,
-                color: `rgba(255,255,255,${opacity})`,
-              })
-            : await addImageWatermark(files[i], mark, { scale, opacity, position });
+            ? await runJob(
+                "text_watermark",
+                {
+                  file: files[i],
+                  opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` },
+                },
+                { token }
+              )
+            : await runJob(
+                "image_watermark",
+                { file: files[i], mark, opts: { scale, opacity, position } },
+                { token }
+              );
           addOutput(res.blob, res.filename);
           produced.push({ blob: res.blob, filename: res.filename });
           jobs.setStatus(i, "done");

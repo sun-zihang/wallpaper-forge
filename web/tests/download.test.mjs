@@ -1,7 +1,16 @@
 // web/tests/download.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
-import { baseName, stem, downloadBlob } from "../lib/download.js";
+import {
+  baseName,
+  stem,
+  downloadBlob,
+  supportsFileSystemAccess,
+  pickOutputDirectory,
+  writeBlobToDirectory,
+  saveBlobsToDirectory,
+  enableDragSave,
+} from "../lib/download.js";
 
 test("path helpers normalise windows separators", () => {
   assert.equal(baseName("C:\\a\\b\\c.png"), "c.png");
@@ -91,4 +100,132 @@ test("downloadBlob clicks a temporary anchor and revokes the object URL", () => 
   assert.deepEqual(removed, [el]);
   assert.deepEqual(timeouts, [30_000]);
   assert.deepEqual(revoked, ["blob:dl"]);
+});
+
+test("supportsFileSystemAccess reflects showDirectoryPicker availability", () => {
+  const origWindow = globalThis.window;
+  try {
+    delete globalThis.window;
+    assert.equal(supportsFileSystemAccess(), false);
+    globalThis.window = {};
+    assert.equal(supportsFileSystemAccess(), false);
+    globalThis.window = { showDirectoryPicker: () => Promise.resolve({}) };
+    assert.equal(supportsFileSystemAccess(), true);
+  } finally {
+    if (origWindow === undefined) delete globalThis.window;
+    else globalThis.window = origWindow;
+  }
+});
+
+test("pickOutputDirectory wraps picker errors as AppError", async () => {
+  const origWindow = globalThis.window;
+  try {
+    globalThis.window = {
+      showDirectoryPicker: async () => {
+        const e = new Error("nope");
+        e.name = "AbortError";
+        throw e;
+      },
+    };
+    await assert.rejects(() => pickOutputDirectory(), (err) => {
+      assert.equal(err.label, "保存失败");
+      assert.equal(err.detail, "已取消选择");
+      return true;
+    });
+    globalThis.window = {
+      showDirectoryPicker: async () => {
+        throw new Error("denied");
+      },
+    };
+    await assert.rejects(() => pickOutputDirectory(), /无法打开文件夹选择器: denied/);
+    globalThis.window = {};
+    await assert.rejects(() => pickOutputDirectory(), /不支持直接保存到文件夹/);
+  } finally {
+    if (origWindow === undefined) delete globalThis.window;
+    else globalThis.window = origWindow;
+  }
+});
+
+test("writeBlobToDirectory and saveBlobsToDirectory write via the handle API", async () => {
+  const closed = [];
+  const written = [];
+  const makeHandle = (name) => ({
+    getFileHandle: async (fname, opts) => {
+      assert.equal(fname, name);
+      assert.deepEqual(opts, { create: true });
+      return {
+        createWritable: async () => ({
+          write: async (blob) => written.push([name, blob]),
+          close: async () => closed.push(name),
+        }),
+      };
+    },
+  });
+  const dir = makeHandle("a.png");
+  assert.equal(await writeBlobToDirectory(dir, new Blob(["x"]), "a.png"), "a.png");
+  assert.deepEqual(closed, ["a.png"]);
+
+  const dir2 = {
+    getFileHandle: async (fname) => makeHandle(fname).getFileHandle(fname),
+  };
+  const written2 = [];
+  const origClosed = closed.length;
+  // route through a fresh handle factory so each name gets its own writable
+  const dir3 = {
+    getFileHandle: async (fname) => ({
+      createWritable: async () => ({
+        write: async (blob) => written2.push([fname, blob]),
+        close: async () => closed.push(fname),
+      }),
+    }),
+  };
+  const names = await saveBlobsToDirectory(dir3, [
+    { blob: new Blob(["1"]), filename: "1.png" },
+    { blob: new Blob(["2"]), filename: "2.png" },
+  ]);
+  assert.deepEqual(names, ["1.png", "2.png"]);
+  assert.deepEqual(written2.map((w) => w[0]), ["1.png", "2.png"], "written sequentially");
+  assert.equal(closed.length, origClosed + 2, "every writable is closed");
+});
+
+test("enableDragSave marks the element and packs a File into dragstart", () => {
+  const attrs = {};
+  const listeners = new Map();
+  const el = {
+    setAttribute(k, v) {
+      attrs[k] = v;
+    },
+    addEventListener(type, fn) {
+      listeners.set(type, fn);
+    },
+  };
+  const added = [];
+  const ev = {
+    dataTransfer: {
+      items: { add: (f) => added.push(f) },
+      effectAllowed: "",
+    },
+  };
+  assert.equal(enableDragSave(el, new Blob(["x"], { type: "image/png" }), "out.png"), true);
+  assert.equal(attrs.draggable, "true");
+  listeners.get("dragstart")(ev);
+  assert.equal(added.length, 1);
+  assert.equal(added[0].name, "out.png");
+  assert.equal(added[0].type, "image/png");
+  assert.equal(ev.dataTransfer.effectAllowed, "copy");
+});
+
+test("enableDragSave tolerates elements without setAttribute and dt without items", () => {
+  assert.equal(enableDragSave(null, new Blob(["x"]), "a.png"), false);
+  assert.equal(enableDragSave({}, new Blob(["x"]), "a.png"), false);
+  const listeners = new Map();
+  const el = {
+    setAttribute() {},
+    addEventListener(type, fn) {
+      listeners.set(type, fn);
+    },
+  };
+  enableDragSave(el, new Blob(["x"]), "a.png");
+  listeners.get("dragstart")({ dataTransfer: {} });
+  listeners.get("dragstart")({});
 });
