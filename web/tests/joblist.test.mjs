@@ -193,7 +193,7 @@ test("setStatus renders text, classes, and failure details", async () => {
   assert.equal(td.title, "磁盘已满");
 
   list.setStatus(1, "cancelled", "用户取消");
-  assert.equal(td.textContent, "用户取消");
+  assert.equal(td.textContent, `${STATUS_TEXT.cancelled}（用户取消）`);
   assert.equal(td.title, "用户取消");
 
   // unknown status falls back to the raw string
@@ -223,7 +223,7 @@ test("setProgress clamps and updates label and bar", async () => {
   assert.equal(pct.textContent, "100%");
 });
 
-test("cancel button toggles cancelled and invokes onCancel", async () => {
+test("cancel button toggles cancelled, invokes onCancel once, and re-arms on submit", async () => {
   installDom();
   const { createJobList } = await import("../lib/joblist.js");
   const { container, cancelBtn } = makeContainer();
@@ -234,6 +234,13 @@ test("cancel button toggles cancelled and invokes onCancel", async () => {
   cancelBtn.click();
   assert.equal(list.cancelled, true);
   assert.deepEqual(calls, [1]);
+  assert.equal(cancelBtn.disabled, true, "cancel disables itself while the click is handled");
+  cancelBtn.click();
+  cancelBtn.click();
+  assert.deepEqual(calls, [1], "double click does not re-trigger onCancel");
+  // a new batch re-enables the button
+  list.submit(JOBS());
+  assert.equal(cancelBtn.disabled, false);
 });
 
 test("reset clears rows, releases thumbs, and re-arms cancel", async () => {

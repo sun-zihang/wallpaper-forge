@@ -12,6 +12,7 @@ import {
   jsDelivr,
   unpkg,
   loadScriptFirst,
+  loadScriptFirstOnce,
   importFirst,
   toBlobUrlFirst,
 } from "../lib/cdn.js";
@@ -78,6 +79,47 @@ test("loadScriptFirst throws only after every mirror failed", async () => {
       }),
     /all mirrors failed/
   );
+});
+
+test("loadScriptFirstOnce shares one in-flight load between concurrent callers", async () => {
+  let created = 0;
+  const create = () => {
+    created += 1;
+    const el = { onload: null, onerror: null };
+    Object.defineProperty(el, "src", {
+      set() {
+        queueMicrotask(() => el.onload());
+      },
+    });
+    return el;
+  };
+  const opts = { createElement: create, append() {} };
+  const urls = ["https://once-cache/x.js"];
+  const [a, b] = [loadScriptFirstOnce(urls, opts), loadScriptFirstOnce(urls, opts)];
+  assert.equal(a, b, "same promise for the same URL list");
+  assert.equal(await a, "https://once-cache/x.js");
+  assert.equal(created, 1, "script injected exactly once");
+  // a completed load is also reused by later callers
+  assert.equal(await loadScriptFirstOnce(urls, opts), "https://once-cache/x.js");
+  assert.equal(created, 1);
+});
+
+test("loadScriptFirstOnce does not cache failures and retries fresh", async () => {
+  let fail = true;
+  const create = () => {
+    const el = { onload: null, onerror: null };
+    Object.defineProperty(el, "src", {
+      set() {
+        queueMicrotask(() => (fail ? el.onerror() : el.onload()));
+      },
+    });
+    return el;
+  };
+  const opts = { createElement: create, append() {} };
+  const urls = ["https://once-retry/x.js"];
+  await assert.rejects(() => loadScriptFirstOnce(urls, opts), /all mirrors failed/);
+  fail = false;
+  assert.equal(await loadScriptFirstOnce(urls, opts), "https://once-retry/x.js");
 });
 
 test("toBlobUrlFirst returns the first mirror that converts", async () => {

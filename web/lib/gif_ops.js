@@ -31,7 +31,12 @@ export function ensureGifuct() {
 }
 
 export function decompressFramePatch(lib, parsed, frame) {
-  const patch = lib.decompressFrame(frame, parsed.gct, true);
+  let patch;
+  try {
+    patch = lib.decompressFrame(frame, parsed.gct, true);
+  } catch (e) {
+    throw new AppError("GIF 处理失败", `帧解码失败: ${e && e.message ? e.message : e}`);
+  }
   return patch && patch.patch ? patch : null;
 }
 
@@ -142,7 +147,12 @@ export async function mergeGif(files, { durationMs = 100, loop = 0, reverse = fa
   const canvases = [];
   for (const f of ordered) {
     throwIfCancelled(token);
-    const bmp = await createImageBitmap(f);
+    let bmp;
+    try {
+      bmp = await createImageBitmap(f);
+    } catch (e) {
+      throw new AppError("GIF 处理失败", `无法读取图片: ${f.name || "frame"}（${e && e.message ? e.message : e}）`);
+    }
     const c = document.createElement("canvas");
     c.width = bmp.width;
     c.height = bmp.height;
@@ -179,6 +189,8 @@ export async function encodeAnimatedGif(
   pushStr(out, "\x21\xff\x0bNETSCAPE2.0\x03\x01");
   pushU16(out, loop);
   out.push(0);
+  // GIF delay unit is 1/100 s; durations under 20 ms clamp to the minimum 2 cs
+  // because browsers render 0–1 cs unreliably (up to a 100 ms floor in legacy decoders)
   const delay = Math.max(2, Math.round(durationMs / 10));
   for (let fi = 0; fi < framesData.length; fi++) {
     throwIfCancelled(token);

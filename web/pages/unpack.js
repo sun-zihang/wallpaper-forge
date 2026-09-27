@@ -7,7 +7,7 @@ import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
-import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
+import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
@@ -129,11 +129,12 @@ export function mountUnpack(root) {
 
 function ensureJszip() {
   if (globalThis.JSZip) return Promise.resolve();
-  return loadScriptFirst(JSZIP_URLS)
+  return loadScriptFirstOnce(JSZIP_URLS)
     .then(() => {
-      if (!globalThis.JSZip) throw new AppError("PKG 解包失败", "JSZip 加载失败");
+      if (!globalThis.JSZip) throw new AppError("解包失败", "JSZip 加载失败");
     })
-    .catch(() => {
-      throw new AppError("PKG 解包失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
+    .catch((e) => {
+      if (e instanceof AppError) throw e;
+      throw new AppError("解包失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
     });
 }

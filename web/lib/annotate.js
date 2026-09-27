@@ -31,11 +31,14 @@ export function pastePos(cw, ch, mw, mh, position, margin = 16) {
   if (!POSITIONS.includes(position)) {
     throw new AppError("图片处理失败", `未知水印位置: ${position}`);
   }
-  if (position === "top_left") return [margin, margin];
-  if (position === "top_right") return [cw - mw - margin, margin];
-  if (position === "bottom_left") return [margin, ch - mh - margin];
-  if (position === "bottom_right") return [cw - mw - margin, ch - mh - margin];
-  return [(cw - mw) >> 1, (ch - mh) >> 1];
+  // keep the mark inside the canvas even when it is larger than it
+  const x = (v) => Math.min(Math.max(0, v), Math.max(0, cw - mw));
+  const y = (v) => Math.min(Math.max(0, v), Math.max(0, ch - mh));
+  if (position === "top_left") return [x(margin), y(margin)];
+  if (position === "top_right") return [x(cw - mw - margin), y(margin)];
+  if (position === "bottom_left") return [x(margin), y(ch - mh - margin)];
+  if (position === "bottom_right") return [x(cw - mw - margin), y(ch - mh - margin)];
+  return [x((cw - mw) >> 1), y((ch - mh) >> 1)];
 }
 
 export async function addTextWatermark(file, { text, fontSize = 32, color = "rgba(255,255,255,0.7)", position = "bottom_right", margin = 16 } = {}) {
@@ -63,24 +66,30 @@ export async function addImageWatermark(file, markFile, { scale = 0.2, position 
   if (!(scale >= 0.05 && scale <= 1)) throw new AppError("图片处理失败", "水印缩放比例需在 0.05–1.0 之间");
   if (!(opacity >= 0 && opacity <= 1)) throw new AppError("图片处理失败", "透明度需在 0–1 之间");
   const base = await loadImageBitmap(file);
-  const mark = await loadImageBitmap(markFile);
-  const canvas = document.createElement("canvas");
-  canvas.width = base.width;
-  canvas.height = base.height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(base, 0, 0);
-  const mw = Math.max(1, Math.round(base.width * scale));
-  const mh = Math.max(1, Math.round(mark.height * (mw / mark.width)));
-  const off = document.createElement("canvas");
-  off.width = mw;
-  off.height = mh;
-  const octx = off.getContext("2d");
-  octx.globalAlpha = opacity;
-  octx.drawImage(mark, 0, 0, mw, mh);
-  const [x, y] = pastePos(canvas.width, canvas.height, mw, mh, position, margin);
-  ctx.drawImage(off, x, y);
-  base.close && base.close();
-  mark.close && mark.close();
-  const blob = await new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png"));
-  return { blob, filename: (file.name || "image").replace(/\.[^.]+$/, "") + "_wm.png" };
+  try {
+    const mark = await loadImageBitmap(markFile);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = base.width;
+      canvas.height = base.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(base, 0, 0);
+      const mw = Math.max(1, Math.round(base.width * scale));
+      const mh = Math.max(1, Math.round(mark.height * (mark.width > 0 ? mw / mark.width : 1)));
+      const off = document.createElement("canvas");
+      off.width = mw;
+      off.height = mh;
+      const octx = off.getContext("2d");
+      octx.globalAlpha = opacity;
+      octx.drawImage(mark, 0, 0, mw, mh);
+      const [x, y] = pastePos(canvas.width, canvas.height, mw, mh, position, margin);
+      ctx.drawImage(off, x, y);
+      const blob = await new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png"));
+      return { blob, filename: (file.name || "image").replace(/\.[^.]+$/, "") + "_wm.png" };
+    } finally {
+      mark.close && mark.close();
+    }
+  } finally {
+    base.close && base.close();
+  }
 }

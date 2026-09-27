@@ -1,6 +1,3 @@
-import { AppError } from "./errors.js";
-
-const label = "TEX 解析失败";
 const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 function findSub(hay, needle, from = 0) {

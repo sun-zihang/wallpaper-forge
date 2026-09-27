@@ -44,6 +44,17 @@ test("paste position center", () => {
   assert.deepEqual(pastePos(100, 80, 10, 10, "center", 4), [45, 35]);
 });
 
+test("paste position clamps inside the canvas when the mark is bigger", () => {
+  // mark wider/taller than the canvas: corners and center all pin to [0, 0]
+  assert.deepEqual(pastePos(50, 40, 80, 60, "bottom_right", 4), [0, 0]);
+  assert.deepEqual(pastePos(50, 40, 80, 60, "top_left", 4), [0, 0]);
+  assert.deepEqual(pastePos(50, 40, 80, 60, "center", 4), [0, 0]);
+  // oversized margin is pulled back so the mark still fits
+  assert.deepEqual(pastePos(50, 40, 40, 20, "top_left", 30), [10, 20]);
+  // zero-sized canvas stays at the origin
+  assert.deepEqual(pastePos(0, 0, 10, 10, "bottom_right", 4), [0, 0]);
+});
+
 test("positions set same as desktop", () => {
   assert.deepEqual([...POSITIONS].sort(), [
     "bottom_left", "bottom_right", "center", "top_left", "top_right",
@@ -225,20 +236,45 @@ test("addImageWatermark composites scaled mark with opacity", async (t) => {
   assert.equal(state.bitmaps[1].closed, true);
 });
 
-test("addImageWatermark propagates decode failure", async (t) => {
+test("addImageWatermark propagates decode failure and releases the base bitmap", async (t) => {
   installDrawEnv(t);
   const origCreate = globalThis.createImageBitmap;
+  const created = [];
   let calls = 0;
   globalThis.createImageBitmap = async () => {
     calls += 1;
+    const bmp = { width: 10, height: 10, closed: false, close() { bmp.closed = true; } };
+    created.push(bmp);
     if (calls === 2) throw new Error("bad mark");
-    return { width: 10, height: 10, close() {} };
+    return bmp;
   };
   try {
     await assert.rejects(
       () => addImageWatermark({ name: "a.png" }, { name: "b.png" }),
       /无法读取图片/,
     );
+    assert.equal(calls, 2, "base decoded first, mark second");
+    assert.equal(created[0].closed, true, "base bitmap released when the mark fails to decode");
+  } finally {
+    globalThis.createImageBitmap = origCreate;
+  }
+});
+
+test("addImageWatermark handles a zero-width mark bitmap", async (t) => {
+  const state = installDrawEnv(t);
+  const origCreate = globalThis.createImageBitmap;
+  let calls = 0;
+  globalThis.createImageBitmap = async () => {
+    calls += 1;
+    return calls === 2
+      ? { width: 0, height: 0, close() {} }
+      : { width: 200, height: 100, close() {} };
+  };
+  try {
+    const out = await addImageWatermark({ name: "a.png" }, { name: "z.png" });
+    assert.equal(out.filename, "a_wm.png");
+    const off = state.canvases[1];
+    assert.equal(off.height, 1, "degenerate mark collapses to the 1px floor");
   } finally {
     globalThis.createImageBitmap = origCreate;
   }

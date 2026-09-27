@@ -78,6 +78,22 @@ export function importFirst(urls) {
   });
 }
 
+const scriptPromises = new Map();
+
+// loadScriptFirst with in-flight dedupe: concurrent callers of the same URL
+// list share one injection, and a failed attempt is not cached
+export function loadScriptFirstOnce(urls, opts) {
+  const key = urls.join("|");
+  if (!scriptPromises.has(key)) {
+    const p = loadScriptFirst(urls, opts).catch((e) => {
+      scriptPromises.delete(key);
+      throw e;
+    });
+    scriptPromises.set(key, p);
+  }
+  return scriptPromises.get(key);
+}
+
 export async function toBlobUrlFirst(urls, mime, toBlobURL) {
   let last;
   for (const url of urls) {

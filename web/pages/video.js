@@ -4,7 +4,7 @@ import { ensureFFmpeg, readFileToBlob, runFFmpeg, writeFileFromBlob } from "../l
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { attachDropTarget } from "../lib/drop.js";
-import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
+import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus } from "../app.js";
@@ -199,68 +199,65 @@ export function mountVideo(root) {
     const ff = await ensureFFmpeg();
     const inName = `in_${file.name.replace(/[^\w.-]+/g, "_")}`;
     await writeFileFromBlob(ff, inName, file);
+    // every virtual file this job touches; the finally block guarantees the
+    // MEMFS is drained on success, failure, and cancel alike
+    const scratch = [inName];
     const base = stem(file.name);
-    if (mode === "convert") {
-      const ext = $("fmt").value;
-      const out = `out.${ext}`;
-      const args =
-        ext === "webm"
-          ? ["-i", inName, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
-          : ["-i", inName, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
-      await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      const blob = await readFileToBlob(ff, out);
-      try {
-        await ff.deleteFile(out);
-      } catch { /* ignore */ }
-      return { blob, filename: `${base}.${ext}` };
-    } else if (mode === "gif") {
-      const out = `${base}.gif`;
-      const args = [
-        "-i", inName, "-an",
-        "-vf",
-        `fps=${$("fps").value},scale=${$("gw").value}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer`,
-        out,
-      ];
-      await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      const blob = await readFileToBlob(ff, out);
-      try {
-        await ff.deleteFile(out);
-      } catch { /* ignore */ }
-      return { blob, filename: out };
-    } else if (mode === "frames") {
-      const pattern = `frame_%04d.png`;
-      const args = ["-i", inName, "-vf", `fps=1/${$("every").value}`, pattern];
-      await runFFmpeg({ args, outPath: pattern, onProgress: onPct, cancelToken: token });
-      const names = await listFiles(ff, /frame_\d+\.png$/);
-      await ensureJszipV();
-      const zip = new globalThis.JSZip();
-      for (const n of names) zip.file(n, await readFileToBlob(ff, n));
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      for (const n of names) {
-        try {
-          await ff.deleteFile(n);
-        } catch { /* ignore */ }
-      }
-      return { blob: zipBlob, filename: `${base}_frames.zip` };
-    } else {
-      const out = `${base}_trim.mp4`;
-      const t0 = Math.max(0, Number($("t0").value) || 0);
-      const t1 = Math.max(t0 + 0.1, Number($("t1").value) || t0 + 0.1);
-      const args = [
-        "-ss", String(t0), "-i", inName, "-t", String(t1 - t0),
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out,
-      ];
-      await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
-      const blob = await readFileToBlob(ff, out);
-      try {
-        await ff.deleteFile(out);
-      } catch { /* ignore */ }
-      return { blob, filename: out };
-    }
     try {
-      await ff.deleteFile(inName);
-    } catch { /* ignore */ }
-    return null;
+      if (mode === "convert") {
+        const ext = $("fmt").value;
+        const out = `out.${ext}`;
+        scratch.push(out);
+        const args =
+          ext === "webm"
+            ? ["-i", inName, "-c:v", "libvpx-vp9", "-b:v", "1M", "-an", out]
+            : ["-i", inName, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", out];
+        await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
+        const blob = await readFileToBlob(ff, out);
+        return { blob, filename: `${base}.${ext}` };
+      } else if (mode === "gif") {
+        const out = `${base}.gif`;
+        scratch.push(out);
+        const args = [
+          "-i", inName, "-an",
+          "-vf",
+          `fps=${$("fps").value},scale=${$("gw").value}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer`,
+          out,
+        ];
+        await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
+        const blob = await readFileToBlob(ff, out);
+        return { blob, filename: out };
+      } else if (mode === "frames") {
+        const pattern = `frame_%04d.png`;
+        const args = ["-i", inName, "-vf", `fps=1/${$("every").value}`, pattern];
+        await runFFmpeg({ args, outPath: pattern, onProgress: onPct, cancelToken: token });
+        const names = await listFiles(ff, /frame_\d+\.png$/);
+        scratch.push(...names);
+        await ensureJszipV();
+        const zip = new globalThis.JSZip();
+        for (const n of names) zip.file(n, await readFileToBlob(ff, n));
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        return { blob: zipBlob, filename: `${base}_frames.zip` };
+      } else {
+        const out = `${base}_trim.mp4`;
+        scratch.push(out);
+        const t0 = Math.max(0, Number($("t0").value) || 0);
+        const t1 = Math.max(t0 + 0.1, Number($("t1").value) || t0 + 0.1);
+        const args = [
+          "-ss", String(t0), "-i", inName, "-t", String(t1 - t0),
+          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", out,
+        ];
+        await runFFmpeg({ args, outPath: out, onProgress: onPct, cancelToken: token });
+        const blob = await readFileToBlob(ff, out);
+        return { blob, filename: out };
+      }
+    } finally {
+      for (const name of scratch) {
+        try {
+          await ff.deleteFile(name);
+        } catch { /* already gone (e.g. after terminate) */ }
+      }
+    }
   }
 }
 
@@ -276,7 +273,7 @@ async function listFiles(ff, re) {
 async function ensureJszipV() {
   if (globalThis.JSZip) return;
   try {
-    await loadScriptFirst(JSZIP_URLS);
+    await loadScriptFirstOnce(JSZIP_URLS);
   } catch {
     throw new AppError("视频处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
   }

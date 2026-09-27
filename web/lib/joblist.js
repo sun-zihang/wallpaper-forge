@@ -34,6 +34,8 @@ export function createJobList(container, { onCancel } = {}) {
   }
 
   cancelBtn.addEventListener("click", () => {
+    if (cancelBtn.disabled) return;
+    cancelBtn.disabled = true;
     cancelled = true;
     if (onCancel) onCancel();
   });
@@ -45,7 +47,7 @@ export function createJobList(container, { onCancel } = {}) {
     td.className = `status st-${status}`;
     td.textContent = STATUS_TEXT[status] || status;
     if (detail && (status === "failed" || status === "cancelled")) {
-      td.textContent = status === "failed" ? `${STATUS_TEXT.failed}（${detail}）` : detail;
+      td.textContent = `${STATUS_TEXT[status]}（${detail}）`;
       td.title = detail;
     }
   }

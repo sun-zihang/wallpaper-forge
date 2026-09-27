@@ -59,8 +59,14 @@ async function render() {
       let mount;
       try {
         mount = await lazy[hash]();
-      } catch {
-        if (my === renderToken) location.hash = "#/";
+      } catch (e) {
+        // a module that fails to load is worth seeing (syntax errors, CDN
+        // outage); log it, tell the user, and fall back to the home page
+        console.error("页面加载失败", e);
+        if (my === renderToken) {
+          setStatus("页面加载失败，请刷新重试");
+          location.hash = "#/";
+        }
         return;
       }
       if (my !== renderToken) return;

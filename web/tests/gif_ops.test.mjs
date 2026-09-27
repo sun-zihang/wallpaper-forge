@@ -41,6 +41,19 @@ function fakeCanvas(w, h, rgba) {
   };
 }
 
+test("decompressFramePatch wraps decoder throws as AppError", () => {
+  const lib = {
+    decompressFrame() {
+      throw new Error("LZW corrupt");
+    },
+  };
+  const parsed = { gct: {} };
+  assert.throws(
+    () => decompressFramePatch(lib, parsed, {}),
+    (e) => e.label === "GIF 处理失败" && /帧解码失败: LZW corrupt/.test(e.detail),
+  );
+});
+
 test("split step keeps first frame at step>=1", () => {
   assert.deepEqual([0, 1, 2, 3].filter((i) => stepIndexKept(i, 2)), [0, 2]);
   assert.deepEqual([0, 1, 2].filter((i) => stepIndexKept(i, 1)), [0, 1, 2]);
@@ -438,6 +451,39 @@ test("mergeGif cancels between frames", async (t) => {
   } finally {
     globalThis.createImageBitmap = origCreate;
   }
+});
+
+test("mergeGif wraps undecodable frames as AppError", async (t) => {
+  installGifEnv(t);
+  const origCreate = globalThis.createImageBitmap;
+  globalThis.createImageBitmap = async () => {
+    throw new TypeError("source image unusable");
+  };
+  try {
+    await assert.rejects(
+      () => mergeGif([{ name: "broken.png" }]),
+      (e) => e.label === "GIF 处理失败" && /无法读取图片: broken\.png/.test(e.detail),
+    );
+  } finally {
+    globalThis.createImageBitmap = origCreate;
+  }
+});
+
+test("encodeAnimatedGif clamps sub-20ms durations to the 2cs browser-safe floor", async () => {
+  const delayOf = async (durationMs) => {
+    const blob = await encodeAnimatedGif(
+      [fakeCanvas(2, 2, [1, 2, 3, 255, 4, 5, 6, 255, 7, 8, 9, 255, 10, 11, 12, 255])],
+      { durationMs },
+    );
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const gce = bytes.findIndex((b, i) => b === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 0x04);
+    assert.ok(gce > 0, "graphic control extension present");
+    return bytes[gce + 4] | (bytes[gce + 5] << 8);
+  };
+  assert.equal(await delayOf(100), 10);
+  assert.equal(await delayOf(50), 5);
+  assert.equal(await delayOf(10), 2, "10ms rounds to 1cs and clamps to the 2cs floor");
+  assert.equal(await delayOf(15), 2);
 });
 
 test("encodeAnimatedGif rejects an empty frame list", async () => {

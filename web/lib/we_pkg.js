@@ -14,6 +14,8 @@ export function readPkgIndex(data) {
   const headerBytes = data.subarray(pos, pos + headerLen);
   pos += headerLen;
   const magic = new TextDecoder("utf-8", { fatal: false }).decode(headerBytes).replace(/\0+$/, "");
+  // same leniency as desktop core/we_pkg.py: still attempt parse — some builds
+  // embed the project path instead of the magic, so only reject long bad headers
   if (headerLen && !/^(PKG|PKGM)/i.test(magic) && headerLen > 1024) {
     throw new AppError(label, `不是有效的 Wallpaper Engine 包（头部: ${magic.slice(0, 40)}）`);
   }
@@ -36,27 +38,14 @@ export function readPkgIndex(data) {
   return { magic, entries, indexEnd: pos };
 }
 
-function indexEnd(data) {
-  let [headerLen, pos] = readU32(data, 0);
-  pos += headerLen;
-  let count;
-  [count, pos] = readU32(data, pos);
-  for (let i = 0; i < count; i++) {
-    let nameLen;
-    [nameLen, pos] = readU32(data, pos);
-    pos += nameLen + 8;
-  }
-  return pos;
-}
-
 export function extractPkg(data) {
-  const { entries } = readPkgIndex(data);
-  const dataStart = indexEnd(data);
+  // one parse serves both: entries and the offset where payload data begins
+  const { entries, indexEnd: dataStart } = readPkgIndex(data);
   const files = [];
   for (const entry of entries) {
     let start = dataStart + entry.offset;
     let end = start + entry.length;
-    if (entry.length < 0 || start < 0 || end > data.length) {
+    if (start < 0 || end > data.length) {
       start = entry.offset;
       end = entry.offset + entry.length;
       if (end > data.length || start < 0) throw new AppError(label, `条目越界: ${entry.name}`);

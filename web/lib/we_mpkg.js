@@ -34,7 +34,7 @@ function extractMp4Blobs(data) {
       const start = i - 4;
       if (size >= 8 && start + size <= data.length) {
         out.push(data.slice(start, start + size));
-      } else if (start >= 0) {
+      } else {
         out.push(data.slice(start, Math.min(data.length, i + 4096)));
       }
     }

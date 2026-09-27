@@ -5,7 +5,7 @@ import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
 import { attachDropTarget } from "../lib/drop.js";
-import { JSZIP_URLS, loadScriptFirst } from "../lib/cdn.js";
+import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 
@@ -137,11 +137,17 @@ export function mountImage(root) {
   $("wmimg").addEventListener("click", () => {
     $("markfile").click();
   });
+  let markFile = null;
   $("markfile").addEventListener("change", () => {
-    $("wmimg").classList.add("active");
-    $("wmtext").classList.remove("active");
-    $("wm_text_field").hidden = true;
-    $("wm_scale_field").hidden = false;
+    // capture then reset so picking the same file again still fires change
+    markFile = $("markfile").files[0] || null;
+    $("markfile").value = "";
+    if (markFile) {
+      $("wmimg").classList.add("active");
+      $("wmtext").classList.remove("active");
+      $("wm_text_field").hidden = true;
+      $("wm_scale_field").hidden = false;
+    }
   });
   $("scale").addEventListener("change", () => {
     $("sw").disabled = !$("scale").checked;
@@ -154,7 +160,7 @@ export function mountImage(root) {
     $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
   }
 
-  async function runOne(file, opts, jobName) {
+  async function runOne(file, opts) {
     if (jobs.cancelled) throw new AppError("图片处理失败", "已取消");
     const { blob, filename } = await convertImage(file, opts);
     addOutput(blob, filename);
@@ -233,28 +239,26 @@ export function mountImage(root) {
     }
   });
 
-  async function firstBitmap() {
-    const f = $("files").files[0];
-    if (!f) throw new AppError("图片处理失败", "请先添加图片文件");
-    return { file: f, bitmap: await loadImageBitmap(f) };
-  }
-
   $("crop").addEventListener("click", async () => {
     err.textContent = "";
+    let bitmap = null;
     try {
-      const { file, bitmap } = await firstBitmap();
+      const f = $("files").files[0];
+      if (!f) throw new AppError("图片处理失败", "请先添加图片文件");
+      bitmap = await loadImageBitmap(f);
       const box = await pickBoxOnPage(bitmap);
       if (!box) return;
       const canvas = cropCanvas(bitmap, box);
       const blob = await new Promise((res, rej) =>
         canvas.toBlob((b) => (b ? res(b) : rej(new AppError("图片处理失败", "保存失败"))), "image/png")
       );
-      const filename = `${stem(file.name)}_crop.png`;
+      const filename = `${stem(f.name)}_crop.png`;
       addOutput(blob, filename);
       downloadBlob(blob, filename);
-      bitmap.close && bitmap.close();
     } catch (e) {
       err.textContent = friendlyError(e);
+    } finally {
+      bitmap && bitmap.close && bitmap.close();
     }
   });
 
@@ -296,7 +300,7 @@ export function mountImage(root) {
       err.textContent = "请输入水印文字";
       return;
     }
-    const mark = textMode ? null : $("markfile").files[0];
+    const mark = textMode ? null : markFile;
     if (!textMode && !mark) {
       err.textContent = "请先选择水印图片";
       return;
@@ -347,7 +351,7 @@ export function mountImage(root) {
 async function ensureJszip() {
   if (globalThis.JSZip) return;
   try {
-    await loadScriptFirst(JSZIP_URLS);
+    await loadScriptFirstOnce(JSZIP_URLS);
   } catch {
     throw new AppError("图片处理失败", `无法加载依赖: ${JSZIP_URLS.join(" / ")}`);
   }
@@ -359,8 +363,6 @@ function pickBoxOnPage(bitmap) {
     const overlay = document.createElement("div");
     overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px";
     const canvas = document.createElement("canvas");
-    const maxW = Math.min(window.innerWidth - 40, bitmap.width);
-    const scale = Math.min(1, maxW / bitmap.width);
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
     canvas.style.maxWidth = "90vw";
@@ -390,6 +392,10 @@ function pickBoxOnPage(bitmap) {
       const y = ((ev.clientY - r.top) / r.height) * bitmap.height;
       start = [x, y];
       snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      // keep receiving mouse events even if the button is released off-canvas
+      try {
+        if (ev.pointerId != null && canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+      } catch { /* pointer already gone */ }
     };
     canvas.onmousemove = (ev) => {
       if (!start) return;
