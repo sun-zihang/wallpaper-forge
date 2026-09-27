@@ -15,6 +15,8 @@ class NativeExporter:
     def export(self, timeline, settings: dict, on_progress=None, cancel_event=None) -> bytes:
         with tempfile.TemporaryDirectory() as tmpdir:
             plan = self._build_plan(timeline)
+            if not plan["clips"]:
+                raise VideoOpError("没有可导出的片段")
             intermediates = []
 
             try:
@@ -79,7 +81,7 @@ class NativeExporter:
         run_ffmpeg(
             args,
             cancel_event=cancel_event,
-            progress_cb=lambda p: on_progress(p) if on_progress else None,
+            progress_cb=lambda p: on_progress(int(p / 2), "预处理片段…") if on_progress else None,
         )
 
     def _compose(self, plan, out_path, settings, on_progress, cancel_event):
@@ -102,7 +104,7 @@ class NativeExporter:
         run_ffmpeg(
             args,
             cancel_event=cancel_event,
-            progress_cb=lambda p: on_progress(p) if on_progress else None,
+            progress_cb=lambda p: on_progress(50 + int(p / 2), "合成最终视频…") if on_progress else None,
         )
 
     def _build_filter(self, clip) -> str:

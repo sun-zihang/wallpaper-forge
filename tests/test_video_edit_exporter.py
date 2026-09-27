@@ -131,6 +131,39 @@ def test_single_processed_clip_compose_uses_processed_file():
     assert compose_args[2:4] == ["-c", "copy"]
 
 
+def test_progress_cb_arity_with_processing():
+    tl = TimelineModel(id="tl1", name="测试")
+    t1 = Track(id="t1", type="video", name="视频轨")
+    t1.add_clip(Clip(id="c1", source_file="a.mp4", timeline_in=0, source_in=0, source_out=5, speed=2.0))
+    t1.add_clip(Clip(id="c2", source_file="b.mp4", timeline_in=5, source_in=1, source_out=4, speed=2.0))
+    tl.add_track(t1)
+    progress = []
+
+    def fake_run_ffmpeg(args, **kwargs):
+        cb = kwargs.get("progress_cb")
+        if cb:
+            cb(40)
+            cb(100)
+        with open(args[-1], "wb") as f:
+            f.write(b"fake-video-bytes")
+
+    exporter = NativeExporter()
+    with mock.patch("gui.video_edit.exporter.run_ffmpeg", side_effect=fake_run_ffmpeg):
+        exporter.export(tl, {"format": "mp4"}, on_progress=lambda p, m: progress.append((p, m)))
+    assert (20, "预处理片段…") in progress
+    assert (50, "预处理片段…") in progress
+    assert (50, "合成最终视频…") in progress
+    assert (70, "合成最终视频…") in progress
+    assert (100, "导出完成") in progress
+
+
+def test_empty_timeline_raises():
+    tl = TimelineModel(id="tl1", name="空时间线")
+    exporter = NativeExporter()
+    with pytest.raises(VideoOpError, match="没有可导出的片段"):
+        exporter.export(tl, {"format": "mp4"})
+
+
 def test_multi_clip_concat_uses_processed_files():
     tl = TimelineModel(id="tl1", name="测试")
     t1 = Track(id="t1", type="video", name="视频轨")
