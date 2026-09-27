@@ -44,3 +44,11 @@ test("friendlyError handles null, undefined and plain strings", () => {
   assert.match(friendlyError("boom"), /未知错误/);
   assert.match(friendlyError(42), /42/);
 });
+
+test("friendlyError limit category keeps the specific detail", () => {
+  const out = friendlyError(new AppError("视频添加失败", "单文件超过 100MB 上限，请改用桌面版"));
+  assert.match(out, /超出 Web 端处理上限/);
+  assert.match(out, /100MB/);
+  const res = friendlyError(new AppError("图片添加失败", "图片分辨率使用过高：9000×9000，超出 Web 端处理上限"));
+  assert.match(res, /9000/);
+});

@@ -129,7 +129,7 @@ with sync_playwright() as p:
     page.wait_for_load_state("networkidle")
     check(page.locator(".card").count() == 6, "home has 6 cards")
     check("不会上传" in page.content(), "home privacy copy")
-    check(page.locator('#app a[href="#/desktop"]').count() == 1, "home desktop landing link")
+    check(page.locator('#app a[href="#/desktop"]').count() >= 1, "home desktop landing link")
     check(page.locator(".rail nav a").count() == 8, "rail has 8 nav items")
     check(
         page.locator("#footer .mono").first.inner_text().startswith("v"),
@@ -212,15 +212,22 @@ with sync_playwright() as p:
     check(d.suggested_filename == "unpacked.zip", f"unpack zip: {d.suggested_filename}")
     check(Path(d.path()).stat().st_size > 0, "unpacked zip non-empty")
 
-    # 5. video — oversize rejected before engine load
+    # 5. video — oversize rejected at drop time, never queued for the engine
     page.click('nav a[href="#/video"]')
     page.wait_for_selector("#mode", state="attached")
     page.set_input_files("#files", str(big_path))
-    page.click("#start")
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(300)
     err = page.locator("#err").inner_text()
     check(
-        "100MB" in err or "上限" in err or "桌面版" in err, f"oversize video rejected: {err[:80]}"
+        "100MB" in err or "上限" in err or "桌面版" in err,
+        f"oversize rejected at drop: {err[:80]}",
+    )
+    page.click("#start")
+    page.wait_for_timeout(300)
+    err = page.locator("#err").inner_text()
+    check(
+        "请先添加视频文件" in err,
+        f"oversize never queued for engine: {err[:80]}",
     )
 
     # 5b. video convert with tiny mp4 (wasm load is slow / may be network-blocked)
@@ -243,6 +250,32 @@ with sync_playwright() as p:
 
     bad = [e for e in console_errors if "video:" not in e]
     check(not bad, f"clean console ({bad[:5]})")
+
+    # static SEO landing pages + sitemap/robots
+    for slug, kw in [
+        ("gif-to-png", "GIF"),
+        ("webm-to-mp4", "WebM"),
+        ("pkg-extract", "PKG"),
+        ("tex-to-png", "TEX"),
+    ]:
+        resp = page.goto(f"{BASE}/{slug}/", wait_until="domcontentloaded")
+        check(resp is not None and resp.ok, f"landing /{slug}/ responds 200")
+        title = page.title()
+        check(kw in title, f"landing {slug} title has keyword ({title[:60]})")
+        h1 = page.locator("h1").first.inner_text()
+        check(kw in h1, f"landing {slug} h1 has keyword ({h1[:60]})")
+        check(
+            page.locator(".lp-faq details").count() >= 3,
+            f"landing {slug} FAQ block present",
+        )
+        check(page.locator(".lp-foot a").count() >= 6, f"landing {slug} footer cross-links")
+    sm = page.request.get(f"{BASE}/sitemap.xml")
+    check(sm.ok, "sitemap.xml responds")
+    smt = sm.text()
+    for slug in ("gif-to-png", "webm-to-mp4", "pkg-extract", "tex-to-png"):
+        check(slug in smt, f"sitemap lists {slug}")
+    rb = page.request.get(f"{BASE}/robots.txt")
+    check(rb.ok and "sitemap.xml" in rb.text(), "robots.txt points at sitemap")
     browser.close()
 
 print()

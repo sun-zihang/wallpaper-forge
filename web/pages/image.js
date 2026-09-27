@@ -15,6 +15,7 @@ import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings, saveSettings } from "../lib/settings.js";
 import { reportJob } from "../lib/jobcenter.js";
+import { trackEnd, trackFailure, trackStart, trackUpload } from "../lib/track.js";
 
 export function mountImage(root) {
   root.innerHTML = `
@@ -195,6 +196,7 @@ export function mountImage(root) {
 
   async function addFiles(files) {
     const p = (async () => {
+      let pushed = 0;
       for (const f of files) {
         const check = validateSelection([f], { extensions: IMAGE_EXTS });
         if (!check.ok) {
@@ -212,9 +214,11 @@ export function mountImage(root) {
           continue;
         }
         if (pageToken !== getRenderToken()) return;
+        pushed += 1;
         fileEntries.push({ file: f, status: "pending" });
       }
       if (pageToken !== getRenderToken()) return;
+      if (pushed) trackUpload(pushed);
       renderFileList();
       if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
     })();
@@ -445,6 +449,7 @@ export function mountImage(root) {
     saveSettings({ imageFormat: fmt, imageQuality: quality, ...(maxWidth ? { imageWidth: maxWidth } : {}) });
     running = true;
     setTaskRunning(true);
+    const t0 = trackStart();
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
@@ -461,6 +466,7 @@ export function mountImage(root) {
           setFileStatus(entry, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
         } catch (e) {
+          trackFailure(e);
           const msg = friendlyError(e);
           const cancelled = msg.includes("已取消");
           jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
@@ -483,6 +489,7 @@ export function mountImage(root) {
     } finally {
       running = false;
       setTaskRunning(false);
+      trackEnd(t0);
       if (!stale()) {
         $("start").disabled = false;
         $("zip").disabled = false;
@@ -498,6 +505,7 @@ export function mountImage(root) {
     if (!failedIdx.length) return;
     running = true;
     setTaskRunning(true);
+    const t0 = trackStart();
     $("start").disabled = true;
     $("retry").disabled = true;
     try {
@@ -516,6 +524,7 @@ export function mountImage(root) {
           jobs.setStatus(i, "done");
           setFileStatus(entry, "done");
         } catch (e) {
+          trackFailure(e);
           const msg = friendlyError(e);
           jobs.setStatus(i, "failed", msg);
           setFileStatus(entry, "failed");
@@ -525,6 +534,7 @@ export function mountImage(root) {
     } finally {
       running = false;
       setTaskRunning(false);
+      trackEnd(t0);
       if (!stale()) {
         $("start").disabled = false;
         $("retry").disabled = false;

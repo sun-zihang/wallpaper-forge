@@ -1,5 +1,6 @@
 // web/pages/desktop.js
 import { registerShortcutAction } from "../lib/shortcuts.js";
+import { trackDesktop } from "../lib/track.js";
 
 const RELEASES_URL = "https://github.com/sun-zihang/wallpaper-forge/releases";
 
@@ -42,6 +43,9 @@ export function mountDesktop(root) {
       </div>
     </div>
   `;
+
+  const dlBtn = root.querySelector('a.btn[href*="releases"]');
+  if (dlBtn) dlBtn.addEventListener("click", () => trackDesktop("download"));
 
   registerShortcutAction("onOpen", () => {});
   registerShortcutAction("onStart", () => {});

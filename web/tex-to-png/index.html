@@ -1,0 +1,102 @@
+<!-- web/tex-to-png/index.html — static SEO landing page -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TEX 转 PNG 在线工具 — Wallpaper Engine 纹理解包预览 | Wallpaper Converter</title>
+  <meta name="description" content="在线把 Wallpaper Engine 的 .tex 纹理文件提取为普通 PNG 图片：在线预览纹理内容、批量解包、打包下载。纯浏览器本地解析，文件不上传，无需注册。" />
+  <link rel="canonical" href="https://sun-zihang.github.io/wallpaper-forge/tex-to-png/" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#101317" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Wallpaper Converter" />
+  <meta property="og:title" content="TEX 转 PNG 在线工具 — Wallpaper Engine 纹理解包" />
+  <meta property="og:description" content="把 .tex 纹理提取为 PNG 并在线预览，本地解析不上传。" />
+  <meta property="og:url" content="https://sun-zihang.github.io/wallpaper-forge/tex-to-png/" />
+  <meta property="og:image" content="https://sun-zihang.github.io/wallpaper-forge/og-image.png" />
+  <link rel="icon" href="../favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="../styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "TEX 文件是什么？", "acceptedAnswer": { "@type": "Answer", "text": "TEX 是 Wallpaper Engine 使用的纹理容器格式，内部通常封装了 PNG 或压缩纹理数据，浏览器与看图软件无法直接打开。" } },
+      { "@type": "Question", "name": "转成 PNG 会有画质损失吗？", "acceptedAnswer": { "@type": "Answer", "text": "不会。TEX 转 PNG 是解包提取过程，像素原样取出并写入无损的 PNG。" } },
+      { "@type": "Question", "name": "文件会上传吗？", "acceptedAnswer": { "@type": "Answer", "text": "不会。解析与转码全部在本机浏览器完成，文件不离开你的电脑。" } },
+      { "@type": "Question", "name": "包在 mpkg 里的 tex 也能转吗？", "acceptedAnswer": { "@type": "Answer", "text": "可以。先用解包工具打开 .pkg / .mpkg，其中的 .tex 同样可以预览与转出 PNG。" } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="lp-head">
+    <a class="lp-brand" href="../">Wallpaper Converter<span>WEB</span></a>
+    <nav>
+      <a href="../index.html#/">首页</a>
+      <a class="btn" href="../index.html#/unpack">打开解包工具</a>
+    </nav>
+  </header>
+  <main class="lp-main">
+    <h1>TEX 转 PNG：Wallpaper Engine 纹理解包在线预览</h1>
+    <p class="lp-lead">把 Wallpaper Engine 的 .tex 纹理文件提取成通用的 PNG 图片：先在线预览纹理内容，再批量转出、打包下载。解析在浏览器本地完成，文件不上传。</p>
+    <div class="lp-cta">
+      <a class="btn" href="../index.html#/unpack">免费开始转换</a>
+      <small>无需注册 · 100% 本地 · 无损提取</small>
+    </div>
+
+    <h2>能做什么</h2>
+    <ul>
+      <li>解析 .tex 容器，提取内部图像数据并写成普通 PNG；</li>
+      <li>转换前在线预览纹理，确认是要的资源再下载；</li>
+      <li>.pkg / .mpkg 里的 .tex 同样支持——解包后统一预览与转出；</li>
+      <li>多文件批量处理，进度按「第几个 / 共几个」显示，结果打包 ZIP；</li>
+      <li>无损提取：像素原样保留，不重压缩、不加水印。</li>
+    </ul>
+
+    <h2>三步完成转换</h2>
+    <ol class="lp-steps">
+      <li>打开工具，把 .tex（或包含 tex 的 .pkg / .mpkg）拖进文件区。</li>
+      <li>点击「开始」，等待解析；在信息卡与文件树里预览纹理内容。</li>
+      <li>打包下载 ZIP，或把单个 PNG 直接拖拽保存到本地。</li>
+    </ol>
+
+    <h2>为什么需要这个工具</h2>
+    <p>创意工坊的壁纸资源为了加载效率被封装成 .tex，常规看图软件打不开。这个工具把容器拆开、原样取出像素，让你能查看、复用其中的贴图素材——整个过程发生在你的浏览器里，素材不会经过任何服务器。</p>
+
+    <div class="lp-note">要批量处理整个项目包、或把结果一键导回 Wallpaper Engine？<a href="../index.html#/desktop">桌面版</a> 支持批量作业与 WE 导入。</div>
+
+    <h2>常见问题</h2>
+    <div class="lp-faq">
+      <details open>
+        <summary>TEX 文件是什么？</summary>
+        <p>TEX 是 Wallpaper Engine 使用的纹理容器，内部通常封装 PNG 或压缩纹理数据，浏览器与普通看图软件无法直接打开。</p>
+      </details>
+      <details>
+        <summary>转成 PNG 会有画质损失吗？</summary>
+        <p>不会。这是解包提取而非重新编码：像素原样写入无损的 PNG 文件。</p>
+      </details>
+      <details>
+        <summary>文件会上传吗？</summary>
+        <p>不会。容器解析与 PNG 写出全部在本机浏览器完成，文件不离开你的电脑。</p>
+      </details>
+      <details>
+        <summary>包在 pkg / mpkg 里的 tex 也能转吗？</summary>
+        <p>可以。用同一个工具打开 <a href="../pkg-extract/">.pkg / .mpkg</a>，其中的 .tex 会出现在文件树里，可直接预览并转出 PNG。</p>
+      </details>
+    </div>
+  </main>
+  <footer class="lp-foot">
+    <span>© Wallpaper Converter WEB · 文件只在本机处理</span>
+    <span class="lp-foot-links">
+      <a href="../">首页</a>
+      <a href="../gif-to-png/">GIF 转 PNG</a>
+      <a href="../webm-to-mp4/">WebM 转 MP4</a>
+      <a href="../pkg-extract/">PKG 解包</a>
+      <a href="../tex-to-png/">TEX 转 PNG</a>
+      <a href="../index.html#/desktop">桌面版</a>
+    </span>
+  </footer>
+</body>
+</html>

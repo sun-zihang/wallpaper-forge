@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://sun-zihang.github.io/wallpaper-forge/</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+  <url>
+    <loc>https://sun-zihang.github.io/wallpaper-forge/gif-to-png/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://sun-zihang.github.io/wallpaper-forge/webm-to-mp4/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://sun-zihang.github.io/wallpaper-forge/pkg-extract/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://sun-zihang.github.io/wallpaper-forge/tex-to-png/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+</urlset>

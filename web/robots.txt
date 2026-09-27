@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /settings
+
+Sitemap: https://sun-zihang.github.io/wallpaper-forge/sitemap.xml

@@ -1,0 +1,102 @@
+<!-- web/gif-to-png/index.html — static SEO landing page -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GIF 转 PNG 在线免费批量拆帧工具 | Wallpaper Converter</title>
+  <meta name="description" content="在线将 GIF 动图转为 PNG 图片序列：逐帧提取、自定义步长、批量处理、打包 ZIP 下载。纯浏览器本地转换，文件不上传，无需注册。" />
+  <link rel="canonical" href="https://sun-zihang.github.io/wallpaper-forge/gif-to-png/" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#101317" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Wallpaper Converter" />
+  <meta property="og:title" content="GIF 转 PNG 在线免费批量拆帧工具" />
+  <meta property="og:description" content="逐帧提取 GIF 为 PNG 序列，批量处理，打包下载。纯浏览器本地转换，文件不上传。" />
+  <meta property="og:url" content="https://sun-zihang.github.io/wallpaper-forge/gif-to-png/" />
+  <meta property="og:image" content="https://sun-zihang.github.io/wallpaper-forge/og-image.png" />
+  <link rel="icon" href="../favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="../styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "GIF 转 PNG 需要注册吗？", "acceptedAnswer": { "@type": "Answer", "text": "不需要。打开工具即可使用，没有账号体系、没有广告、没有次数限制。" } },
+      { "@type": "Question", "name": "文件会上传到服务器吗？", "acceptedAnswer": { "@type": "Answer", "text": "不会。解析、渲染与打包全部在你的浏览器里完成，文件不会离开本机。" } },
+      { "@type": "Question", "name": "支持多大的 GIF 文件？", "acceptedAnswer": { "@type": "Answer", "text": "Web 版单文件上限 100MB；更大的文件请使用桌面版，没有大小限制。" } },
+      { "@type": "Question", "name": "提取出来的 PNG 会压缩画质吗？", "acceptedAnswer": { "@type": "Answer", "text": "不会。PNG 是无损格式，逐帧提取保留原始像素。" } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="lp-head">
+    <a class="lp-brand" href="../">Wallpaper Converter<span>WEB</span></a>
+    <nav>
+      <a href="../index.html#/">首页</a>
+      <a class="btn" href="../index.html#/gif">打开 GIF 工具</a>
+    </nav>
+  </header>
+  <main class="lp-main">
+    <h1>GIF 转 PNG：在线免费批量拆帧</h1>
+    <p class="lp-lead">把 GIF 动图逐帧提取为 PNG 图片序列，支持批量与自定义步长。转换在你的浏览器里完成，文件不会上传到任何服务器。</p>
+    <div class="lp-cta">
+      <a class="btn" href="../index.html#/gif">免费开始转换</a>
+      <small>无需注册 · 100% 本地 · 无水印</small>
+    </div>
+
+    <h2>能做什么</h2>
+    <ul>
+      <li>逐帧提取 GIF 为 PNG 序列，每一帧都是完整的无损位图；</li>
+      <li>自定义抽稀步长（每 N 帧取 1 帧），只取需要的帧，输出更轻；</li>
+      <li>多个 GIF 批量处理，进度按「第几个 / 共几个」显示，结果打包 ZIP 一键下载；</li>
+      <li>反向能力：多张图片也能合并成 GIF 动图，在同一个工具里完成；</li>
+      <li>处理好的帧可以直接拖拽保存到本地文件夹（Chrome / Edge）。</li>
+    </ul>
+
+    <h2>三步完成转换</h2>
+    <ol class="lp-steps">
+      <li>打开工具，把 GIF 文件拖进左侧文件区，或点击选择文件。</li>
+      <li>确认拆帧模式与抽稀步长，点击「开始」，逐文件查看处理进度。</li>
+      <li>完成后打包下载 ZIP，或把单帧拖拽保存到本地。</li>
+    </ol>
+
+    <h2>为什么在浏览器里转换</h2>
+    <p>转换引擎（gifuct 解析 + Canvas 渲染）直接运行在浏览器中：没有上传环节，就没有服务器排队，也没有素材隐私顾虑。无需注册登录，打开即用；关闭标签页，数据只留在你的机器上。</p>
+
+    <div class="lp-note">单文件超过 100MB 或需要处理上千帧？<a href="../index.html#/desktop">桌面版</a> 没有大小限制，还支持 GPU 加速与一键导入 Wallpaper Engine。</div>
+
+    <h2>常见问题</h2>
+    <div class="lp-faq">
+      <details open>
+        <summary>GIF 转 PNG 需要注册吗？</summary>
+        <p>不需要。打开工具直接用，没有账号体系、没有广告、没有次数限制。</p>
+      </details>
+      <details>
+        <summary>文件会上传到服务器吗？</summary>
+        <p>不会。解析、渲染、打包全部发生在你的浏览器进程里，网络请求只用于加载页面与开源依赖库。</p>
+      </details>
+      <details>
+        <summary>支持多大的 GIF？</summary>
+        <p>Web 版单文件 100MB 以内；总像素过高的动图会在开始前被拦截并提示改用桌面版，避免浏览器内存崩溃。</p>
+      </details>
+      <details>
+        <summary>提取出来的 PNG 会压缩画质吗？</summary>
+        <p>不会。PNG 是无损格式，逐帧提取保留原始像素；只有在你主动选择 JPG 等有损格式时才会重新编码。</p>
+      </details>
+    </div>
+  </main>
+  <footer class="lp-foot">
+    <span>© Wallpaper Converter WEB · 文件只在本机处理</span>
+    <span class="lp-foot-links">
+      <a href="../">首页</a>
+      <a href="../gif-to-png/">GIF 转 PNG</a>
+      <a href="../webm-to-mp4/">WebM 转 MP4</a>
+      <a href="../pkg-extract/">PKG 解包</a>
+      <a href="../tex-to-png/">TEX 转 PNG</a>
+      <a href="../index.html#/desktop">桌面版</a>
+    </span>
+  </footer>
+</body>
+</html>

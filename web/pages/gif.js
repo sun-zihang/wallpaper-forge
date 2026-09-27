@@ -13,6 +13,7 @@ import { showToast } from "../lib/toast.js";
 import { loadSettings, saveSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
 import { getRenderToken, setTaskRunning } from "../app.js";
+import { trackEnd, trackFailure, trackStart, trackUpload } from "../lib/track.js";
 import { reportJob } from "../lib/jobcenter.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
@@ -169,14 +170,17 @@ export function mountGif(root) {
   });
 
   function addFiles(files) {
+    let pushed = 0;
     for (const f of files) {
       const check = validateSelection([f], { extensions: IMAGE_EXTS });
       if (!check.ok) {
         $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
         continue;
       }
+      pushed += 1;
       fileEntries.push({ file: f, status: "pending" });
     }
+    if (pushed) trackUpload(pushed);
     renderFileList();
     if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
   }
@@ -337,6 +341,7 @@ export function mountGif(root) {
     }
     running = true;
     setTaskRunning(true);
+    const t0 = trackStart();
     $("start").disabled = true;
     $("zip").disabled = true;
     try {
@@ -376,6 +381,7 @@ export function mountGif(root) {
             renderGallery();
             syncSaveDir();
           } catch (e) {
+            trackFailure(e);
             const msg = friendlyError(e);
             const cancelled = msg.includes("已取消");
             jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
@@ -405,6 +411,7 @@ export function mountGif(root) {
         downloadBlob(blob, filename);
         showToast("合帧完成", "success");
       } catch (e) {
+        trackFailure(e);
         const msg = friendlyError(e);
         const cancelled = msg.includes("已取消");
         jobs.setStatus(0, cancelled ? "cancelled" : "failed", msg);
@@ -413,6 +420,7 @@ export function mountGif(root) {
     } finally {
       running = false;
       setTaskRunning(false);
+      trackEnd(t0);
       if (!stale()) {
         $("start").disabled = false;
         $("zip").disabled = false;

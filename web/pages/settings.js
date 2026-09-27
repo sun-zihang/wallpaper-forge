@@ -1,6 +1,7 @@
 // web/pages/settings.js
 import { setStatus, getRenderToken } from "../app.js";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, applyTheme } from "../lib/settings.js";
+import { clearStats, getStats } from "../lib/track.js";
 
 export function mountSettings(root) {
   const pageToken = getRenderToken();
@@ -83,6 +84,15 @@ export function mountSettings(root) {
         <button type="button" class="btn secondary" id="clearCache">清除所有缓存</button>
       </div>
     </div>
+    <div class="panel">
+      <p class="panel-title">本地使用统计</p>
+      <p class="drop-hint">计数只保存在这台浏览器里，不上传。用于了解功能使用情况与失败原因。</p>
+      <pre class="stats-summary" id="statsSummary">统计中…</pre>
+      <pre class="stats-detail" id="statsDetail"></pre>
+      <div class="row">
+        <button type="button" class="btn secondary" id="clearStats">清除统计</button>
+      </div>
+    </div>
     <pre class="err" id="err"></pre>
   `;
   const $ = (id) => root.querySelector(`#${id}`);
@@ -128,6 +138,38 @@ export function mountSettings(root) {
     }
   }
   refreshUsage();
+
+  function renderStats() {
+    if (pageToken !== getRenderToken()) return;
+    const st = getStats();
+    if (!st.total) {
+      $("statsSummary").textContent = "还没有统计数据。处理几个文件后这里会显示使用情况。";
+      $("statsDetail").textContent = "";
+      return;
+    }
+    const pct = (x) => `${Math.round(x * 100)}%`;
+    const fmt = (obj) =>
+      Object.entries(obj)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `${k} ${n}`)
+        .join("、");
+    $("statsSummary").textContent = [
+      `模块点击：${fmt(st.modules) || "无"}`,
+      `上传未开始率：${pct(st.uploadsNotStarted)}（上传 ${st.added} 次 / 开始 ${st.starts} 次）`,
+      `平均任务耗时：${st.avgMs ? `${(st.avgMs / 1000).toFixed(1)} 秒` : "无"}（${st.runs} 次完成）`,
+      `放弃率：${pct(st.abandonRate)}（任务中离开 ${st.abandoned} 次）`,
+      `失败类型：${fmt(st.failures) || "无"}`,
+      `桌面版下载点击：${st.desktop}`,
+    ].join("\n");
+    $("statsDetail").textContent = JSON.stringify(st.counters, null, 2);
+  }
+  renderStats();
+  $("clearStats").addEventListener("click", () => {
+    if (pageToken !== getRenderToken()) return;
+    clearStats();
+    renderStats();
+    setStatus("统计数据已清除");
+  });
 
   $("clearCache").addEventListener("click", async () => {
     if (pageToken !== getRenderToken()) return;

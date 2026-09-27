@@ -1,0 +1,102 @@
+<!-- web/webm-to-mp4/index.html — static SEO landing page -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebM 转 MP4 在线免费批量转换工具 | Wallpaper Converter</title>
+  <meta name="description" content="在线把 WebM 视频转为通用的 MP4（H.264/AAC）格式：批量转换、可调画质（CRF）、帧率与体积预估。纯浏览器本地转码，文件不上传，无需注册。" />
+  <link rel="canonical" href="https://sun-zihang.github.io/wallpaper-forge/webm-to-mp4/" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#101317" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Wallpaper Converter" />
+  <meta property="og:title" content="WebM 转 MP4 在线免费批量转换工具" />
+  <meta property="og:description" content="WebM 批量转 MP4，可调 CRF 画质与帧率，本地转码不上传。" />
+  <meta property="og:url" content="https://sun-zihang.github.io/wallpaper-forge/webm-to-mp4/" />
+  <meta property="og:image" content="https://sun-zihang.github.io/wallpaper-forge/og-image.png" />
+  <link rel="icon" href="../favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="../styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "WebM 转 MP4 需要安装软件吗？", "acceptedAnswer": { "@type": "Answer", "text": "不需要。转码引擎在浏览器里运行，打开网页即可转换，文件不会上传。" } },
+      { "@type": "Question", "name": "转换会明显降低画质吗？", "acceptedAnswer": { "@type": "Answer", "text": "画质可调（CRF 0-51），默认 23 接近视觉无损；也可以锁定输出体积或帧率。" } },
+      { "@type": "Question", "name": "支持多长的视频？", "acceptedAnswer": { "@type": "Answer", "text": "Web 版单文件不超过 300 秒、100MB；更长更大的视频请使用桌面版，没有限制。" } },
+      { "@type": "Question", "name": "MP4 转 WebM 可以吗？", "acceptedAnswer": { "@type": "Answer", "text": "可以。同一工具支持 MP4 与 WebM 互转，也支持转 GIF、抽帧与片段截取。" } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="lp-head">
+    <a class="lp-brand" href="../">Wallpaper Converter<span>WEB</span></a>
+    <nav>
+      <a href="../index.html#/">首页</a>
+      <a class="btn" href="../index.html#/video">打开视频工具</a>
+    </nav>
+  </header>
+  <main class="lp-main">
+    <h1>WebM 转 MP4：在线免费批量转换</h1>
+    <p class="lp-lead">把 WebM 视频转成兼容性最好的 MP4（H.264 + AAC），批量处理、可调画质与帧率。转码引擎在你的浏览器本地运行，文件不上传。</p>
+    <div class="lp-cta">
+      <a class="btn" href="../index.html#/video">免费开始转换</a>
+      <small>无需注册 · 100% 本地 · 体积预估</small>
+    </div>
+
+    <h2>能做什么</h2>
+    <ul>
+      <li>WebM ⇄ MP4 互转，输出 H.264 + AAC，微信、微博、大多数播放器直接可放；</li>
+      <li>批量转换多个视频，进度按「第几个 / 共几个」显示，完成后打包 ZIP；</li>
+      <li>画质可调：CRF 滑杆（数值越小画质越好）与输出帧率上限，实时预估输出体积与时长；</li>
+      <li>额外能力：视频转 GIF、按间隔抽帧为图片序列、截取片段（设定入点出点）；</li>
+      <li>转换前即校验体积、分辨率与时长上限，超限会用人话提示并建议桌面版。</li>
+    </ul>
+
+    <h2>三步完成转换</h2>
+    <ol class="lp-steps">
+      <li>打开工具，拖入 MP4 / WebM / MOV / MKV 视频文件。</li>
+      <li>选择输出格式（MP4 或 WebM），按需调整 CRF 与帧率，点「开始」。</li>
+      <li>完成后下载单个文件或打包 ZIP；也可以把结果直接保存到本地文件夹。</li>
+    </ol>
+
+    <h2>为什么在浏览器里转码</h2>
+    <p>这里跑的是 FFmpeg 的 WebAssembly 版本：解码、编码、封装都在本机完成，视频内容不会离开你的电脑。没有排队，没有水印，没有账号；打开标签页就能干，处理完关掉即可。</p>
+
+    <div class="lp-note">视频超过 300 秒或需要 GPU 加速、批量自动作业？<a href="../index.html#/desktop">桌面版</a> 无时长与体积限制。</div>
+
+    <h2>常见问题</h2>
+    <div class="lp-faq">
+      <details open>
+        <summary>WebM 转 MP4 需要安装软件吗？</summary>
+        <p>不需要。转码引擎（FFmpeg WebAssembly）在浏览器里运行，打开网页即可转换。</p>
+      </details>
+      <details>
+        <summary>文件会上传吗？</summary>
+        <p>不会。解码与编码都发生在本机浏览器进程中，服务器只负责送达网页本身。</p>
+      </details>
+      <details>
+        <summary>转换会明显降低画质吗？</summary>
+        <p>画质由你控制：CRF 0-51，默认 23 在体积与画质之间接近视觉无损；需要更小体积就调大 CRF 或限制帧率。</p>
+      </details>
+      <details>
+        <summary>支持多长、多大的视频？</summary>
+        <p>Web 版单文件 100MB、300 秒以内，转换前会自动校验并给出人话提示；更长更大的视频请用桌面版。</p>
+      </details>
+    </div>
+  </main>
+  <footer class="lp-foot">
+    <span>© Wallpaper Converter WEB · 文件只在本机处理</span>
+    <span class="lp-foot-links">
+      <a href="../">首页</a>
+      <a href="../gif-to-png/">GIF 转 PNG</a>
+      <a href="../webm-to-mp4/">WebM 转 MP4</a>
+      <a href="../pkg-extract/">PKG 解包</a>
+      <a href="../tex-to-png/">TEX 转 PNG</a>
+      <a href="../index.html#/desktop">桌面版</a>
+    </span>
+  </footer>
+</body>
+</html>

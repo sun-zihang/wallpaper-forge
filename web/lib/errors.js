@@ -57,6 +57,9 @@ export function friendlyError(e) {
     if (c.category === "unknown") {
       return e.detail ? `${e.label}：${e.detail}` : e.label;
     }
+    if (c.category === "limit" && e.detail) {
+      return `${c.message}：${e.detail}`;
+    }
     return c.advice ? `${c.message}：${c.advice}` : c.message;
   }
   if (e && e.name === "AbortError") return "已取消";

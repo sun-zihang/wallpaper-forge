@@ -8,6 +8,7 @@ import { onVisibilityChange } from "./lib/visibility.js";
 import { clearShortcutActions, installGlobalShortcuts } from "./lib/shortcuts.js";
 import { maybeShowOnboarding } from "./lib/onboarding.js";
 import { showErrorModal, installCompatBanner } from "./lib/errors-ui.js";
+import { bump, getStats, trackDesktop, trackModule } from "./lib/track.js";
 
 const routes = {
   "": mountHome,
@@ -54,8 +55,14 @@ function renderFooter() {
     <span class="mono">v${WEB_VERSION}</span>
     <span>文件只在本机浏览器处理，不会上传。</span>
     ${deps}
+    <a href="./gif-to-png/">GIF 转 PNG</a>
+    <a href="./webm-to-mp4/">WebM 转 MP4</a>
+    <a href="./pkg-extract/">PKG 解包</a>
+    <a href="./tex-to-png/">TEX 转 PNG</a>
     <a href="https://github.com/sun-zihang/wallpaper-forge/releases" target="_blank" rel="noopener">桌面版下载</a>
   `;
+  const dl = el.querySelector('a[href*="/releases"]');
+  if (dl) dl.addEventListener("click", () => trackDesktop("footer"));
 }
 
 let renderToken = 0;
@@ -69,10 +76,12 @@ async function render() {
   clearShortcutActions();
   try {
     if (routes[hash]) {
+      trackModule(hash);
       routes[hash](root);
       return;
     }
     if (lazy[hash]) {
+      trackModule(hash);
       let mount;
       try {
         mount = await lazy[hash]();
@@ -108,6 +117,12 @@ window.addEventListener("beforeunload", (e) => {
     e.returnValue = "";
   }
 });
+
+window.addEventListener("pagehide", () => {
+  if (window.__wcRunning) bump("abandoned");
+});
+
+window.__wcStats = getStats;
 
 let memoryWarned = false;
 createMemoryMonitor({

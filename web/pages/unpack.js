@@ -10,6 +10,7 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
+import { trackEnd, trackFailure, trackStart, trackUpload } from "../lib/track.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { reportJob } from "../lib/jobcenter.js";
@@ -127,14 +128,17 @@ export function mountUnpack(root) {
   });
 
   function addFiles(files) {
+    let pushed = 0;
     for (const f of files) {
       const check = validateSelection([f], { extensions: WE_EXTS });
       if (!check.ok) {
         $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
         continue;
       }
+      pushed += 1;
       fileEntries.push({ file: f, status: "pending" });
     }
+    if (pushed) trackUpload(pushed);
     renderFileList();
     if (fileEntries.length && !selectedFile) selectFile(fileEntries[0]);
   }
@@ -293,6 +297,7 @@ export function mountUnpack(root) {
     }
     running = true;
     setTaskRunning(true);
+    const t0 = trackStart();
     $("start").disabled = true;
     $("dl").disabled = true;
     try {
@@ -323,6 +328,7 @@ export function mountUnpack(root) {
           jobs.setStatus(i, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
         } catch (e) {
+          trackFailure(e);
           jobs.setStatus(i, "failed", friendlyError(e));
         }
       }
@@ -339,6 +345,7 @@ export function mountUnpack(root) {
     } finally {
       running = false;
       setTaskRunning(false);
+      trackEnd(t0);
       if (!stale()) {
         $("start").disabled = false;
         $("dl").disabled = false;
