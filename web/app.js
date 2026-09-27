@@ -6,6 +6,7 @@ import { bindDocumentDrop } from "./lib/drop.js";
 import { createMemoryMonitor } from "./lib/memory.js";
 import { onVisibilityChange } from "./lib/visibility.js";
 import { clearShortcutActions, installGlobalShortcuts } from "./lib/shortcuts.js";
+import { maybeShowOnboarding } from "./lib/onboarding.js";
 
 const routes = {
   "": mountHome,
@@ -18,6 +19,7 @@ const lazy = {
   "/video": () => import("./pages/video.js").then((m) => m.mountVideo),
   "/unpack": () => import("./pages/unpack.js").then((m) => m.mountUnpack),
   "/settings": () => import("./pages/settings.js").then((m) => m.mountSettings),
+  "/desktop": () => import("./pages/desktop.js").then((m) => m.mountDesktop),
 };
 
 export function setStatus(text) {
@@ -102,6 +104,8 @@ onVisibilityChange((hidden) => {
     setStatus("就绪");
   }
 });
+
+maybeShowOnboarding();
 
 window.addEventListener("hashchange", render);
 render();

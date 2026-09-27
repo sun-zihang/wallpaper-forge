@@ -26,7 +26,7 @@ export function mountHome(root) {
       <a class="card" href="#/video"><b>视频转换</b><small>互转 / 转 GIF / 截取 / 帧率码率</small></a>
       <a class="card" href="#/unpack"><b>项目解包</b><small>.pkg / .tex / .mpkg，产物打包下载</small></a>
       <a class="card" href="#/settings"><b>设置</b><small>主题 / 默认参数 / 缓存管理</small></a>
-      <a class="card" href="https://github.com/sun-zihang/wallpaper-forge/releases" target="_blank" rel="noopener"><b>桌面版</b><small>无大小限制 / GPU 加速 / 去水印</small></a>
+      <a class="card" href="#/desktop"><b>桌面版</b><small>无大小限制 / GPU 加速 / 去水印</small></a>
     </div>
     <div class="home-trust">
       <div class="trust"><b>100% 本地</b><small>文件不离开浏览器</small></div>
