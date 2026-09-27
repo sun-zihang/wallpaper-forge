@@ -12,7 +12,7 @@ import { detectMobile, mobileScaleArgs, MOBILE_MAX_VIDEO_WIDTH, MOBILE_VIDEO_NOT
 import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, saveSettings } from "../lib/settings.js";
 import { showErrorModal } from "../lib/errors-ui.js";
 import { reportJob } from "../lib/jobcenter.js";
 
@@ -493,6 +493,7 @@ export function mountVideo(root) {
         return;
       }
     }
+    saveSettings({ videoFormat: $("fmt").value, videoCrf: Number($("crf").value) || 23 });
     running = true;
     setTaskRunning(true);
     $("start").disabled = true;
@@ -532,6 +533,7 @@ export function mountVideo(root) {
         }
         jobs.setStatus(i, "running");
         setFileStatus(fileEntries[i], "running");
+        jobs.setBatch(i, files.length, files[i].name);
         try {
           const out = await processOne(files[i], $("mode").value, (p) =>
             jobs.setProgress(batchPct(i, p, files.length))
@@ -577,7 +579,11 @@ export function mountVideo(root) {
       await ensureJszipV();
       const zip = new globalThis.JSZip();
       for (const o of outputs) zip.file(o.filename, o.blob);
-      downloadBlob(await zip.generateAsync({ type: "blob" }), "videos.zip");
+      jobs.setZipProgress(0, "videos.zip");
+      const zipBlob = await zip.generateAsync({ type: "blob" }, (meta) =>
+        jobs.setZipProgress(meta.percent, "videos.zip")
+      );
+      downloadBlob(zipBlob, "videos.zip");
     } catch (e) {
       $("err").textContent = friendlyError(e);
     } finally {

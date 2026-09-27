@@ -188,6 +188,32 @@ label.inline { display: inline-flex; align-items: center; gap: 6px; color: var(-
   color: var(--ink-dim);
   font-variant-numeric: tabular-nums;
 }
+.batch {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.zip-progress { margin-top: -6px; }
+.zip-progress .row { align-items: center; margin-bottom: 6px; }
+.zip-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.zip-pct {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.zip-progress .progress > i { background: var(--ink-dim); }
 @media (prefers-reduced-motion: reduce) {
   .progress > i { transition: none; }
 }
@@ -270,6 +296,16 @@ pre.err { color: var(--fail); white-space: pre-wrap; font-size: 12px; margin: 8p
   background: var(--panel);
 }
 .note a { color: var(--amber); }
+.home-help {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+}
+.home-help a {
+  color: var(--ink-dim);
+  text-decoration: underline dotted;
+}
+.home-help a:hover { color: var(--amber); }
 
 /* ---------- home ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--gap); }

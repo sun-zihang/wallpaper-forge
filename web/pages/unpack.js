@@ -311,6 +311,7 @@ export function mountUnpack(root) {
         }
         jobs.setStatus(i, "running");
         jobs.setProgress(batchPct(i, 0, files.length));
+        jobs.setBatch(i, files.length, f.name);
         try {
           const buf = new Uint8Array(await f.arrayBuffer());
           const base = stem(f.name);
@@ -357,7 +358,11 @@ export function mountUnpack(root) {
       await ensureJszip();
       const zip = new globalThis.JSZip();
       for (const f of allFiles) zip.file(f.name, f.blob);
-      downloadBlob(await zip.generateAsync({ type: "blob" }), "unpacked.zip");
+      jobs.setZipProgress(0, "unpacked.zip");
+      const blob = await zip.generateAsync({ type: "blob" }, (meta) =>
+        jobs.setZipProgress(meta.percent, "unpacked.zip")
+      );
+      downloadBlob(blob, "unpacked.zip");
     } catch (e) {
       $("err").textContent = friendlyError(e);
     } finally {

@@ -12,9 +12,17 @@ export function createJobList(container, { onCancel, onReport } = {}) {
   container.innerHTML = `
     <div class="row">
       <button type="button" class="btn secondary" data-act="cancel" disabled>取消</button>
+      <span class="batch" aria-live="polite"></span>
       <span class="pct">0%</span>
     </div>
     <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="转换进度"><i style="width:0%"></i></div>
+    <div class="zip-progress" hidden>
+      <div class="row">
+        <span class="zip-name">打包</span>
+        <span class="zip-pct" aria-live="polite">0%</span>
+      </div>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="打包进度"><i style="width:0%"></i></div>
+    </div>
     <div class="panel sheet">
       <table class="jobs">
         <thead><tr><th>预览</th><th>文件</th><th>状态</th></tr></thead>
@@ -29,6 +37,12 @@ export function createJobList(container, { onCancel, onReport } = {}) {
   const progressEl = container.querySelector(".progress");
   const pctLabel = container.querySelector(".pct");
   const cancelBtn = container.querySelector('[data-act="cancel"]');
+  const batchEl = container.querySelector(".batch");
+  const zipRow = container.querySelector(".zip-progress");
+  const zipProgressEl = container.querySelector(".zip-progress .progress");
+  const zipBar = container.querySelector(".zip-progress .progress > i");
+  const zipPct = container.querySelector(".zip-pct");
+  const zipName = container.querySelector(".zip-name");
   let cancelled = false;
   const rows = new Map();
   const thumbs = new Set();
@@ -75,6 +89,10 @@ export function createJobList(container, { onCancel, onReport } = {}) {
       rows.clear();
       bar.style.width = "0%";
       if (pctLabel) pctLabel.textContent = "0%";
+      if (batchEl) batchEl.textContent = "";
+      if (zipRow) zipRow.hidden = true;
+      if (zipBar) zipBar.style.width = "0%";
+      if (zipPct) zipPct.textContent = "0%";
       cancelBtn.disabled = true;
       syncEmpty();
     },
@@ -104,6 +122,27 @@ export function createJobList(container, { onCancel, onReport } = {}) {
       bar.style.width = `${v}%`;
       if (progressEl && progressEl.setAttribute) progressEl.setAttribute("aria-valuenow", String(v));
       if (pctLabel) pctLabel.textContent = `${v}%`;
+    },
+    setBatch(current, total, name) {
+      if (!batchEl) return;
+      const t = total | 0;
+      if (!t || !name) {
+        batchEl.textContent = "";
+        return;
+      }
+      const idx = Math.min(Math.max(0, current | 0) + 1, t);
+      const short = name.length > 24 ? `${name.slice(0, 14)}…${name.slice(-7)}` : name;
+      batchEl.textContent = `${idx}/${t} · ${short}`;
+      batchEl.title = name;
+    },
+    setZipProgress(pct, label) {
+      if (!zipRow) return;
+      zipRow.hidden = false;
+      const v = Math.max(0, Math.min(100, pct | 0));
+      if (zipName && label) zipName.textContent = `打包 ${label}`;
+      if (zipBar) zipBar.style.width = `${v}%`;
+      if (zipPct) zipPct.textContent = `${v}%`;
+      if (zipProgressEl && zipProgressEl.setAttribute) zipProgressEl.setAttribute("aria-valuenow", String(v));
     },
     setStatus(id, status, detail) {
       renderStatus(id, status, detail);

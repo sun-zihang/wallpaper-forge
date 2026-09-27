@@ -10,7 +10,7 @@ import { validateImageFile } from "../lib/validate.js";
 import { setStatus } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, saveSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
 import { getRenderToken, setTaskRunning } from "../app.js";
 import { reportJob } from "../lib/jobcenter.js";
@@ -332,6 +332,9 @@ export function mountGif(root) {
       return;
     }
     const accepted = check.files;
+    if ($("mode").value === "split" && Number($("step").value) >= 1) {
+      saveSettings({ gifStep: Number($("step").value) });
+    }
     running = true;
     setTaskRunning(true);
     $("start").disabled = true;
@@ -360,6 +363,7 @@ export function mountGif(root) {
           }
           jobs.setStatus(i, "running");
           jobs.setProgress(batchPct(i, 0, accepted.length));
+          jobs.setBatch(i, accepted.length, accepted[i].name);
           try {
             const { files: parts } = await runJob("gif_split", {
               file: accepted[i],
@@ -426,7 +430,11 @@ export function mountGif(root) {
       await ensureJszipGif();
       const zip = new globalThis.JSZip();
       for (const f of splitFiles) zip.file(f.name, f.blob);
-      downloadBlob(await zip.generateAsync({ type: "blob" }), "frames.zip");
+      jobs.setZipProgress(0, "frames.zip");
+      const blob = await zip.generateAsync({ type: "blob" }, (meta) =>
+        jobs.setZipProgress(meta.percent, "frames.zip")
+      );
+      downloadBlob(blob, "frames.zip");
     } catch (e) {
       $("err").textContent = friendlyError(e);
     }

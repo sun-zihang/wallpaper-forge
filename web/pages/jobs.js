@@ -115,7 +115,10 @@ export function mountJobs(root) {
         const blob = j.blob instanceof Blob ? j.blob : new Blob([j.blob]);
         zip.file(j.filename || j.name, blob);
       }
-      downloadBlob(await zip.generateAsync({ type: "blob" }), "completed.zip");
+      downloadBlob(await zip.generateAsync({ type: "blob" }, (meta) =>
+        setStatus(`打包中 ${meta.percent | 0}%（${done.length} 个）`)
+      ), "completed.zip");
+      setStatus(`已打包 ${done.length} 个文件到 completed.zip`);
     } catch (e) {
       setStatus(`打包失败：${e && e.message ? e.message : e}`);
     }

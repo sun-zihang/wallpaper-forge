@@ -13,7 +13,7 @@ import { validateImageFile } from "../lib/validate.js";
 import { setStatus, getRenderToken, setTaskRunning } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, saveSettings } from "../lib/settings.js";
 import { reportJob } from "../lib/jobcenter.js";
 
 export function mountImage(root) {
@@ -160,6 +160,8 @@ export function mountImage(root) {
     const q = savedQ >= 1 && savedQ <= 100 ? savedQ : settings.imageQuality;
     $("q").value = String(q);
     $("qv").textContent = String(q);
+    const w = Number(settings.imageWidth);
+    if (w >= 16 && w <= 8192) $("sw").value = String(w);
   } catch { /* storage unavailable */ }
 
   $("addFiles").addEventListener("click", () => $("files").click());
@@ -440,6 +442,7 @@ export function mountImage(root) {
     const quality = Number($("q").value);
     const maxWidth = $("scale").checked ? Number($("sw").value) : 0;
     lastBatch = { files: [...files], fmt, quality, maxWidth };
+    saveSettings({ imageFormat: fmt, imageQuality: quality, ...(maxWidth ? { imageWidth: maxWidth } : {}) });
     running = true;
     setTaskRunning(true);
     $("start").disabled = true;
@@ -451,6 +454,7 @@ export function mountImage(root) {
         jobs.setStatus(i, "running");
         setFileStatus(entry, "running");
         jobs.setProgress(batchPct(i, 0, files.length));
+        jobs.setBatch(i, files.length, files[i].name);
         try {
           await runOne(files[i], { format: fmt, quality, maxWidth });
           jobs.setStatus(i, "done");
@@ -502,6 +506,7 @@ export function mountImage(root) {
         const entry = fileEntries[i];
         jobs.setStatus(i, "running");
         setFileStatus(entry, "running");
+        jobs.setBatch(i, lastBatch.files.length, lastBatch.files[i].name);
         try {
           await runOne(lastBatch.files[i], {
             format: lastBatch.fmt,
@@ -540,7 +545,10 @@ export function mountImage(root) {
       await ensureJszip();
       const zip = new globalThis.JSZip();
       for (const o of outputs) zip.file(o.filename, o.blob);
-      const blob = await zip.generateAsync({ type: "blob" });
+      jobs.setZipProgress(0, "images.zip");
+      const blob = await zip.generateAsync({ type: "blob" }, (meta) =>
+        jobs.setZipProgress(meta.percent, "images.zip")
+      );
       downloadBlob(blob, "images.zip");
     } catch (e) {
       err.textContent = friendlyError(e);
@@ -649,6 +657,7 @@ export function mountImage(root) {
         }
         jobs.setStatus(i, "running");
         jobs.setProgress(batchPct(i, 0, files.length));
+        jobs.setBatch(i, files.length, files[i].name);
         try {
           const res = textMode
             ? await runJob("text_watermark", { file: files[i], opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` } })

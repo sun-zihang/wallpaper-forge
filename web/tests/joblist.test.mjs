@@ -70,13 +70,25 @@ function makeContainer() {
     innerHTML: "",
     ...fakeQueryable(),
   };
+  const batchEl = { textContent: "", title: "" };
+  const zipRow = { hidden: true };
+  const zipProgressEl = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+  const zipBar = { style: { width: "0%" } };
+  const zipPct = { textContent: "0%" };
+  const zipName = { textContent: "打包" };
   c._q.set("tbody", tbody);
   c._q.set(".progress > i", bar);
   c._q.set(".progress", progressEl);
   c._q.set(".jobs-empty", emptyEl);
   c._q.set(".pct", pct);
   c._q.set('[data-act="cancel"]', cancelBtn);
-  return { container: c, tbody, bar, progressEl, emptyEl, pct, cancelBtn };
+  c._q.set(".batch", batchEl);
+  c._q.set(".zip-progress", zipRow);
+  c._q.set(".zip-progress .progress", zipProgressEl);
+  c._q.set(".zip-progress .progress > i", zipBar);
+  c._q.set(".zip-pct", zipPct);
+  c._q.set(".zip-name", zipName);
+  return { container: c, tbody, bar, progressEl, emptyEl, pct, cancelBtn, batchEl, zipRow, zipProgressEl, zipBar, zipPct, zipName };
 }
 
 function makeTr() {
@@ -361,6 +373,57 @@ test("setOutputBlob ignores unknown ids", async () => {
   const list = createJobList(container, {});
   list.submit(JOBS());
   list.setOutputBlob(999, { blob: new Blob(["x"]), filename: "z.png" });
+});
+
+test("setBatch shows current/total with filename and clamps", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, batchEl } = makeContainer();
+  const list = createJobList(container, {});
+  list.setBatch(0, 3, "a.png");
+  assert.equal(batchEl.textContent, "1/3 · a.png");
+  assert.equal(batchEl.title, "a.png");
+  list.setBatch(2, 3, "c.png");
+  assert.equal(batchEl.textContent, "3/3 · c.png");
+  list.setBatch(9, 3, "c.png");
+  assert.equal(batchEl.textContent, "3/3 · c.png", "current clamped to total");
+  list.setBatch(0, 0, "x.png");
+  assert.equal(batchEl.textContent, "", "empty total clears the counter");
+  list.setBatch(0, 3, "");
+  assert.equal(batchEl.textContent, "", "missing name clears the counter");
+  list.setBatch(0, 2, "a-very-long-filename-number-one-2026.png");
+  assert.match(batchEl.textContent, /^1\/2 · /);
+  assert.equal(batchEl.title, "a-very-long-filename-number-one-2026.png", "full name kept in title");
+  assert.ok(batchEl.textContent.length < batchEl.title.length, "display name shortened");
+  list.reset();
+  assert.equal(batchEl.textContent, "");
+});
+
+test("zip progress renders on a separate bar without touching processing", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, zipRow, zipBar, zipPct, zipName, zipProgressEl, bar, pct } = makeContainer();
+  const list = createJobList(container, {});
+  assert.equal(zipRow.hidden, true, "zip bar hidden until packing");
+  list.setProgress(100);
+  list.setZipProgress(45, "images.zip");
+  assert.equal(zipRow.hidden, false);
+  assert.equal(zipName.textContent, "打包 images.zip");
+  assert.equal(zipBar.style.width, "45%");
+  assert.equal(zipPct.textContent, "45%");
+  assert.equal(zipProgressEl.attrs["aria-valuenow"], "45");
+  assert.equal(bar.style.width, "100%", "processing bar untouched by zip progress");
+  assert.equal(pct.textContent, "100%", "processing label untouched by zip progress");
+  list.setZipProgress(250, "images.zip");
+  assert.equal(zipPct.textContent, "100%", "clamped to 100");
+  list.setZipProgress(-5, "images.zip");
+  assert.equal(zipPct.textContent, "0%", "clamped to 0");
+  list.setZipProgress(30);
+  assert.equal(zipName.textContent, "打包 images.zip", "label kept when omitted");
+  list.reset();
+  assert.equal(zipRow.hidden, true, "hidden again for the next batch");
+  assert.equal(zipBar.style.width, "0%");
+  assert.equal(zipPct.textContent, "0%");
 });
 
 test("empty state shows when no jobs and hides after submit", async () => {

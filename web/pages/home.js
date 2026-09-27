@@ -34,7 +34,10 @@ export function mountHome(root) {
       <div class="trust"><b>开源引擎</b><small>FFmpeg / gifuct / jszip</small></div>
     </div>
     <div class="note">
-      去水印（图片修复 / 视频 delogo）仅桌面版，请使用上方「桌面版」卡片下载。
+      去水印（图片修复 / 视频 delogo）暂仅桌面版提供，<a href="#/desktop">查看桌面版下载</a>。
+    </div>
+    <div class="home-help">
+      <a href="https://github.com/sun-zihang/wallpaper-forge/issues/new" target="_blank" rel="noopener noreferrer">我遇到了问题？提交 GitHub Issue 反馈</a>
     </div>
   `;
 
