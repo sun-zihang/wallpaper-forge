@@ -68,6 +68,15 @@ body {
   background: var(--panel);
   border-left-color: var(--amber);
 }
+.rail nav .nav-group {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 10px 2px;
+}
+.rail nav .nav-group:first-child { padding-top: 0; }
 .rail .status {
   margin-top: auto;
   font-family: var(--mono);
@@ -524,3 +533,47 @@ table.compare td.no { color: var(--ink-faint); }
 .onboarding-card h2 { margin: 0 0 8px; font-size: 18px; }
 .onboarding-card p { margin: 0 0 18px; color: var(--ink-dim); }
 .onboarding-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ---------- error modal ---------- */
+.error-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.error-modal-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  max-width: 440px;
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.45);
+}
+.error-modal-card h2 { margin: 0 0 10px; font-size: 17px; color: var(--fail); }
+.error-modal-body { color: var(--ink-dim); font-size: 13px; line-height: 1.6; margin-bottom: 18px; }
+.error-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ---------- browser compat banner ---------- */
+.compat-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(210, 153, 34, 0.12);
+  border-bottom: 1px solid var(--amber-line);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 8px 16px;
+}
+.compat-banner span { flex: 1; }
+.compat-close {
+  background: none;
+  border: 0;
+  color: var(--ink-faint);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+}
+.compat-close:hover { color: var(--ink); }

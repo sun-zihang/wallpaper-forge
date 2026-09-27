@@ -13,6 +13,7 @@ import { setStatus } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
+import { showErrorModal } from "../lib/errors-ui.js";
 
 export function mountVideo(root) {
   root.innerHTML = `
@@ -216,7 +217,14 @@ export function mountVideo(root) {
       try {
         await ensureFFmpeg((msg) => setStatus(msg));
       } catch (e) {
-        err.textContent = friendlyError(e);
+        showErrorModal({
+          title: "视频引擎加载失败",
+          body: `${friendlyError(e)}<br><br>请尝试：检查网络连接、使用最新版 Chrome / Edge、清除浏览器缓存后重试。`,
+          actions: [
+            { label: "重试", primary: true, onClick: () => location.reload() },
+            { label: "使用桌面版", onClick: () => (location.hash = "#/desktop") },
+          ],
+        });
         jobs.finish();
         return;
       }

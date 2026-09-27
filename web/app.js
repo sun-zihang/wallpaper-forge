@@ -7,6 +7,7 @@ import { createMemoryMonitor } from "./lib/memory.js";
 import { onVisibilityChange } from "./lib/visibility.js";
 import { clearShortcutActions, installGlobalShortcuts } from "./lib/shortcuts.js";
 import { maybeShowOnboarding } from "./lib/onboarding.js";
+import { showErrorModal, installCompatBanner } from "./lib/errors-ui.js";
 
 const routes = {
   "": mountHome,
@@ -90,9 +91,22 @@ async function render() {
 renderFooter();
 bindDocumentDrop();
 installGlobalShortcuts();
+installCompatBanner();
 
+let memoryWarned = false;
 createMemoryMonitor({
-  onWarning: (mb) => setStatus(`内存使用过高（${Math.round(mb)}MB），建议分批处理`),
+  onWarning: (mb) => {
+    if (memoryWarned) return;
+    memoryWarned = true;
+    showErrorModal({
+      title: "内存使用过高",
+      body: `当前处理任务已占用约 ${Math.round(mb)}MB 内存，接近浏览器安全上限。<br><br>建议：减少同时处理的文件数量、降低输出分辨率、或使用桌面版（无内存限制）。`,
+      actions: [
+        { label: "继续使用", primary: true },
+        { label: "下载桌面版", onClick: () => (location.hash = "#/desktop") },
+      ],
+    });
+  },
 });
 
 const BACKGROUND_TEXT = "标签页在后台，任务继续运行";
