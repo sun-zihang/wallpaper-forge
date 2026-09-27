@@ -9,7 +9,7 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { validateImageFile } from "../lib/validate.js";
-import { setStatus } from "../app.js";
+import { setStatus, getRenderToken } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
@@ -123,6 +123,7 @@ export function mountImage(root) {
   let compareOn = false;
   let originalBitmap = null;
   let processedBitmap = null;
+  const pageToken = getRenderToken();
 
   function syncSaveDir() {
     const btn = $("savedir");
@@ -224,6 +225,7 @@ export function mountImage(root) {
     try {
       if (originalBitmap) originalBitmap.close();
       originalBitmap = await loadImageBitmap(file);
+      if (pageToken !== getRenderToken()) return;
       processedBitmap = null;
       $("previewEmpty").hidden = true;
       drawPreview();
@@ -284,6 +286,7 @@ export function mountImage(root) {
           file: selectedFile.file,
           opts: { format: fmt, quality, maxWidth },
         });
+        if (pageToken !== getRenderToken()) return;
         if (processedBitmap) processedBitmap.close();
         processedBitmap = await loadImageBitmap(blob);
       } catch {

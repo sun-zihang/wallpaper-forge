@@ -9,7 +9,7 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { detectMobile, mobileScaleArgs, MOBILE_MAX_VIDEO_WIDTH, MOBILE_VIDEO_NOTE } from "../lib/mobile.js";
-import { setStatus } from "../app.js";
+import { setStatus, getRenderToken } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
@@ -146,6 +146,7 @@ export function mountVideo(root) {
   const outputs = [];
   let selectedFile = null;
   let videoDuration = 0;
+  const pageToken = getRenderToken();
 
   registerShortcutAction("onOpen", () => $("files").click());
   registerShortcutAction("onStart", () => {
@@ -233,6 +234,7 @@ export function mountVideo(root) {
     video.src = url;
     $("previewEmpty").hidden = true;
     video.addEventListener("loadedmetadata", () => {
+      if (pageToken !== getRenderToken()) return;
       videoDuration = video.duration || 0;
       updateTime();
       if ($("mode").value === "trim") syncTrimMarkers();

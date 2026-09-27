@@ -12,6 +12,7 @@ import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
+import { getRenderToken } from "../app.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 const PLAYER_FPS = 10;
@@ -120,6 +121,7 @@ export function mountGif(root) {
   let playerIdx = 0;
   let playerPlaying = false;
   let playerTimer = null;
+  const pageToken = getRenderToken();
 
   registerShortcutAction("onOpen", () => $("files").click());
   registerShortcutAction("onStart", () => {
@@ -204,9 +206,10 @@ export function mountGif(root) {
     $("gifFrameInfo").textContent = "";
     const split = $("mode").value === "split";
     if (split && entry.file.name.toLowerCase().endsWith(".gif")) {
-      try {
-        const { frames } = await loadGifFrames(entry.file, { token });
-        playerFrames = frames;
+    try {
+      const { frames } = await loadGifFrames(entry.file, { token });
+      if (pageToken !== getRenderToken()) return;
+      playerFrames = frames;
         $("previewEmpty").hidden = true;
         $("playerBar").hidden = false;
         $("gifTimeline").max = String(Math.max(0, frames.length - 1));

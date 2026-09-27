@@ -802,3 +802,74 @@ table.compare td.no { color: var(--ink-faint); }
   border-radius: var(--radius);
 }
 .estimate-line { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+
+/* ---------- unpack info card + file tree ---------- */
+.unpack-main { min-width: 0; }
+.info-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.info-card img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-deep);
+}
+.info-meta { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); line-height: 1.7; }
+.file-tree {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.tree-folder > summary {
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 4px;
+  color: var(--ink-dim);
+  list-style: none;
+}
+.tree-folder > summary:hover { background: var(--panel-hi); }
+.tree-folder > summary::before { content: "▸ "; }
+.tree-folder[open] > summary::before { content: "▾ "; }
+.tree-inner { padding-left: 16px; }
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.tree-file:hover { background: var(--panel-hi); }
+.tree-name { font-family: var(--mono); font-size: 12px; color: var(--ink); flex: 1; word-break: break-all; }
+.tree-size { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.tree-file .btn { padding: 2px 8px; font-size: 11px; }
+.tex-preview {
+  margin-top: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.tex-preview img {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-deep);
+  display: block;
+  margin-bottom: 10px;
+}
+.unpack-params .panel { margin-bottom: 12px; }

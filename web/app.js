@@ -28,6 +28,10 @@ export function setStatus(text) {
   if (el) el.textContent = text;
 }
 
+export function getRenderToken() {
+  return renderToken;
+}
+
 function markActive(hash) {
   for (const a of document.querySelectorAll(".rail nav a")) {
     const href = a.getAttribute("href").replace(/^#/, "") || "/";
