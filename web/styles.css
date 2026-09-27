@@ -718,3 +718,87 @@ table.compare td.no { color: var(--ink-faint); }
 @media (max-width: 1100px) {
   .gif-layout { grid-template-columns: 1fr; }
 }
+
+/* ---------- video player ---------- */
+.video-preview { min-width: 0; }
+.video-preview video {
+  width: 100%;
+  max-height: 320px;
+  background: #000;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+.video-timeline { margin-top: 10px; }
+.timeline-track {
+  position: relative;
+  height: 22px;
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: var(--amber-soft);
+  border-right: 1px solid var(--amber);
+}
+.timeline-playhead {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--amber);
+  left: 0;
+}
+.timeline-marker {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 30px;
+  border-radius: 2px;
+  transform: translateX(-2px);
+  cursor: ew-resize;
+}
+.timeline-marker.in { background: var(--ok); }
+.timeline-marker.out { background: var(--fail); }
+.video-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.engine-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--amber-soft);
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 13px;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.output-estimate {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.estimate-line { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
