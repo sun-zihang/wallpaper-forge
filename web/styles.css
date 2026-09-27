@@ -322,3 +322,121 @@ pre.err { color: var(--fail); white-space: pre-wrap; font-size: 12px; margin: 8p
   border-radius: 6px;
   padding: 8px 10px;
 }
+
+/* ---------- toast notifications ---------- */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-hi);
+  border: 1px solid var(--line);
+  border-left: 3px solid #58a6ff;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-width: 240px;
+  max-width: 380px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  animation: toast-in 0.2s ease-out;
+}
+.toast-success { border-left-color: var(--ok); }
+.toast-error { border-left-color: var(--fail); }
+.toast-warning { border-left-color: #d29922; }
+.toast-info { border-left-color: #58a6ff; }
+.toast-msg { flex: 1; font-size: 13px; }
+.toast-close {
+  background: none;
+  border: 0;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 2px;
+}
+.toast-close:hover { color: var(--ink); }
+.toast.out { opacity: 0; transform: translateX(12px); transition: all 0.25s; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- shortcut help panel ---------- */
+.shortcut-help {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.shortcut-help.open { display: flex; }
+.shortcut-help-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  min-width: 320px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+}
+.shortcut-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.shortcut-help-close {
+  background: none;
+  border: 0;
+  color: var(--ink-faint);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+.shortcut-help-close:hover { color: var(--ink); }
+.shortcut-help-table { width: 100%; border-collapse: collapse; }
+.shortcut-help-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+.shortcut-help-table tr:last-child td { border-bottom: 0; }
+.shortcut-help-table td.mono {
+  font-family: var(--mono);
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+/* ---------- job list empty state ---------- */
+.jobs-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* ---------- settings nav ---------- */
+.rail nav a.nav-settings { margin-top: 8px; color: var(--ink-faint); }
+
+/* ---------- light theme ---------- */
+body.light {
+  --bg: #f6f7f9;
+  --bg-deep: #ffffff;
+  --panel: #ffffff;
+  --panel-hi: #f0f2f5;
+  --line: #d8dde3;
+  --line-soft: #e6eaef;
+  --ink: #1c2128;
+  --ink-dim: #57606a;
+  --ink-faint: #8b949e;
+}

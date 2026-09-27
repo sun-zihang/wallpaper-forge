@@ -11,6 +11,8 @@ import { JSZIP_URLS, loadScriptFirstOnce } from "../lib/cdn.js";
 import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, saveBlobsToDirectory } from "../lib/download.js";
 import { friendlyError, AppError } from "../lib/errors.js";
 import { setStatus } from "../app.js";
+import { registerShortcutAction } from "../lib/shortcuts.js";
+import { showToast } from "../lib/toast.js";
 
 const WE_EXTS = [".pkg", ".tex", ".mpkg"];
 
@@ -50,6 +52,18 @@ export function mountUnpack(root) {
     const btn = $("savedir");
     if (btn) btn.hidden = !supportsFileSystemAccess() || allFiles.length === 0;
   }
+
+  registerShortcutAction("onOpen", () => $("files").click());
+  registerShortcutAction("onStart", () => {
+    if (!running) $("start").click();
+  });
+  registerShortcutAction("onDownload", () => {
+    if (allFiles.length) $("dl").click();
+  });
+  registerShortcutAction("onCancel", () => {
+    const btn = root.querySelector('[data-act="cancel"]');
+    if (btn && !btn.disabled) btn.click();
+  });
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: WE_EXTS,
@@ -107,6 +121,7 @@ export function mountUnpack(root) {
         }
       }
       jobs.finish();
+      if (allFiles.length) showToast(`解包完成，共 ${allFiles.length} 个文件`, "success");
     } finally {
       running = false;
       $("start").disabled = false;

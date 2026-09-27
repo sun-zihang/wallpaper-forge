@@ -11,6 +11,9 @@ import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, save
 import { friendlyError, AppError } from "../lib/errors.js";
 import { validateImageFile } from "../lib/validate.js";
 import { setStatus } from "../app.js";
+import { registerShortcutAction } from "../lib/shortcuts.js";
+import { showToast } from "../lib/toast.js";
+import { loadSettings } from "../lib/settings.js";
 
 export function mountImage(root) {
   root.innerHTML = `
@@ -114,6 +117,18 @@ export function mountImage(root) {
     if (btn) btn.hidden = !supportsFileSystemAccess() || outputs.length === 0;
   }
 
+  registerShortcutAction("onOpen", () => $("files").click());
+  registerShortcutAction("onStart", () => {
+    if (!running) $("start").click();
+  });
+  registerShortcutAction("onDownload", () => {
+    if (outputs.length) $("zip").click();
+  });
+  registerShortcutAction("onCancel", () => {
+    const btn = root.querySelector('[data-act="cancel"]');
+    if (btn && !btn.disabled) btn.click();
+  });
+
   attachDropTarget($("dropzone"), $("files"), {
     extensions: IMAGE_EXTS,
     onRejected: (msg) => {
@@ -122,14 +137,18 @@ export function mountImage(root) {
   });
 
   $("q").addEventListener("input", () => ($("qv").textContent = $("q").value));
+  const settings = loadSettings();
   try {
     const savedFmt = localStorage.getItem("wc.fmt");
-    if (savedFmt && [...$("fmt").options].some((o) => o.value === savedFmt)) $("fmt").value = savedFmt;
+    const fmt =
+      savedFmt && [...$("fmt").options].some((o) => o.value === savedFmt)
+        ? savedFmt
+        : settings.imageFormat;
+    $("fmt").value = fmt;
     const savedQ = Number(localStorage.getItem("wc.q"));
-    if (savedQ >= 1 && savedQ <= 100) {
-      $("q").value = String(savedQ);
-      $("qv").textContent = String(savedQ);
-    }
+    const q = savedQ >= 1 && savedQ <= 100 ? savedQ : settings.imageQuality;
+    $("q").value = String(q);
+    $("qv").textContent = String(q);
   } catch { /* storage unavailable */ }
   $("fmt").addEventListener("change", () => {
     try {
@@ -234,6 +253,7 @@ export function mountImage(root) {
         }
       }
       jobs.finish();
+      if (outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
     } finally {
       running = false;
       $("start").disabled = false;

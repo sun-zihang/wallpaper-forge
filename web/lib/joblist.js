@@ -20,9 +20,11 @@ export function createJobList(container, { onCancel } = {}) {
         <thead><tr><th>预览</th><th>文件</th><th>状态</th></tr></thead>
         <tbody></tbody>
       </table>
+      <div class="jobs-empty">还没有添加文件</div>
     </div>
   `;
   const tbody = container.querySelector("tbody");
+  const emptyEl = container.querySelector(".jobs-empty");
   const bar = container.querySelector(".progress > i");
   const progressEl = container.querySelector(".progress");
   const pctLabel = container.querySelector(".pct");
@@ -55,6 +57,12 @@ export function createJobList(container, { onCancel } = {}) {
     }
   }
 
+  function syncEmpty() {
+    if (emptyEl) emptyEl.hidden = rows.size > 0;
+  }
+
+  syncEmpty();
+
   return {
     get cancelled() {
       return cancelled;
@@ -67,6 +75,7 @@ export function createJobList(container, { onCancel } = {}) {
       bar.style.width = "0%";
       if (pctLabel) pctLabel.textContent = "0%";
       cancelBtn.disabled = true;
+      syncEmpty();
     },
     submit(jobs) {
       this.reset();
@@ -87,6 +96,7 @@ export function createJobList(container, { onCancel } = {}) {
         rows.set(job.id, tr);
         renderStatus(job.id, "pending");
       }
+      syncEmpty();
     },
     setProgress(pct) {
       const v = Math.max(0, Math.min(100, pct | 0));

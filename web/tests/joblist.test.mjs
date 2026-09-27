@@ -53,6 +53,7 @@ function makeContainer() {
   // mirror the state the real template markup would parse to
   const bar = { style: { width: "0%" } };
   const progressEl = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+  const emptyEl = { hidden: true };
   const pct = { textContent: "0%" };
   const cancelBtn = {
     disabled: true, // template ships with the disabled attribute
@@ -72,9 +73,10 @@ function makeContainer() {
   c._q.set("tbody", tbody);
   c._q.set(".progress > i", bar);
   c._q.set(".progress", progressEl);
+  c._q.set(".jobs-empty", emptyEl);
   c._q.set(".pct", pct);
   c._q.set('[data-act="cancel"]', cancelBtn);
-  return { container: c, tbody, bar, progressEl, pct, cancelBtn };
+  return { container: c, tbody, bar, progressEl, emptyEl, pct, cancelBtn };
 }
 
 function makeTr() {
@@ -359,4 +361,16 @@ test("setOutputBlob ignores unknown ids", async () => {
   const list = createJobList(container, {});
   list.submit(JOBS());
   list.setOutputBlob(999, { blob: new Blob(["x"]), filename: "z.png" });
+});
+
+test("empty state shows when no jobs and hides after submit", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, emptyEl } = makeContainer();
+  const list = createJobList(container, {});
+  assert.equal(emptyEl.hidden, false, "empty state visible with no jobs");
+  list.submit(JOBS());
+  assert.equal(emptyEl.hidden, true, "empty state hidden once jobs exist");
+  list.reset();
+  assert.equal(emptyEl.hidden, false, "empty state returns after reset");
 });

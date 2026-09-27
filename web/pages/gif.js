@@ -9,6 +9,9 @@ import { downloadBlob, supportsFileSystemAccess, pickOutputDirectory, saveBlobsT
 import { friendlyError, AppError } from "../lib/errors.js";
 import { validateImageFile } from "../lib/validate.js";
 import { setStatus } from "../app.js";
+import { registerShortcutAction } from "../lib/shortcuts.js";
+import { showToast } from "../lib/toast.js";
+import { loadSettings } from "../lib/settings.js";
 
 const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"];
 
@@ -80,6 +83,21 @@ export function mountGif(root) {
       btn.hidden = !split || !supportsFileSystemAccess() || splitFiles.length === 0;
     }
   }
+
+  registerShortcutAction("onOpen", () => $("files").click());
+  registerShortcutAction("onStart", () => {
+    if (!running) $("start").click();
+  });
+  registerShortcutAction("onDownload", () => {
+    if (splitFiles.length) $("zip").click();
+  });
+  registerShortcutAction("onCancel", () => {
+    const btn = root.querySelector('[data-act="cancel"]');
+    if (btn && !btn.disabled) btn.click();
+  });
+
+  const settings = loadSettings();
+  $("step").value = String(settings.gifStep);
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: IMAGE_EXTS,
@@ -161,6 +179,7 @@ export function mountGif(root) {
           }
         }
         jobs.finish();
+        if (splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
         return;
       }
       // merge

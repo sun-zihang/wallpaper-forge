@@ -5,6 +5,7 @@ import { DEP_VERSIONS } from "./lib/deps.js";
 import { bindDocumentDrop } from "./lib/drop.js";
 import { createMemoryMonitor } from "./lib/memory.js";
 import { onVisibilityChange } from "./lib/visibility.js";
+import { clearShortcutActions, installGlobalShortcuts } from "./lib/shortcuts.js";
 
 const routes = {
   "": mountHome,
@@ -16,6 +17,7 @@ const lazy = {
   "/gif": () => import("./pages/gif.js").then((m) => m.mountGif),
   "/video": () => import("./pages/video.js").then((m) => m.mountVideo),
   "/unpack": () => import("./pages/unpack.js").then((m) => m.mountUnpack),
+  "/settings": () => import("./pages/settings.js").then((m) => m.mountSettings),
 };
 
 export function setStatus(text) {
@@ -52,6 +54,7 @@ async function render() {
   const root = document.getElementById("app");
   markActive(hash);
   root.innerHTML = "";
+  clearShortcutActions();
   try {
     if (routes[hash]) {
       routes[hash](root);
@@ -84,6 +87,7 @@ async function render() {
 
 renderFooter();
 bindDocumentDrop();
+installGlobalShortcuts();
 
 createMemoryMonitor({
   onWarning: (mb) => setStatus(`内存使用过高（${Math.round(mb)}MB），建议分批处理`),

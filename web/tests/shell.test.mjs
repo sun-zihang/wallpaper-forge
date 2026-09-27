@@ -55,6 +55,10 @@ test("index.html nav hash routes cover the four tool pages", () => {
   }
 });
 
+test("index.html nav includes a settings entry", () => {
+  assert.ok(html.includes('href="#/settings"'), "settings route missing from nav");
+});
+
 test("index.html loads no CDN script tags directly (pins live in lib/cdn.js)", () => {
   assert.doesNotMatch(html, /jsdelivr\.net\/npm\//);
   assert.doesNotMatch(html, /unpkg\.com\/[^"']+@/);

@@ -10,6 +10,9 @@ import { downloadBlob, stem, supportsFileSystemAccess, pickOutputDirectory, save
 import { friendlyError, AppError } from "../lib/errors.js";
 import { detectMobile, mobileScaleArgs, MOBILE_MAX_VIDEO_WIDTH, MOBILE_VIDEO_NOTE } from "../lib/mobile.js";
 import { setStatus } from "../app.js";
+import { registerShortcutAction } from "../lib/shortcuts.js";
+import { showToast } from "../lib/toast.js";
+import { loadSettings } from "../lib/settings.js";
 
 export function mountVideo(root) {
   root.innerHTML = `
@@ -110,6 +113,25 @@ export function mountVideo(root) {
     const btn = $("savedir");
     if (btn) btn.hidden = !supportsFileSystemAccess() || outputs.length === 0;
   }
+
+  registerShortcutAction("onOpen", () => $("files").click());
+  registerShortcutAction("onStart", () => {
+    if (!running) $("start").click();
+  });
+  registerShortcutAction("onDownload", () => {
+    if (outputs.length) $("zip").click();
+  });
+  registerShortcutAction("onCancel", () => {
+    const btn = root.querySelector('[data-act="cancel"]');
+    if (btn && !btn.disabled) btn.click();
+  });
+
+  const settings = loadSettings();
+  if ([...$("fmt").options].some((o) => o.value === settings.videoFormat)) {
+    $("fmt").value = settings.videoFormat;
+  }
+  $("crf").value = String(settings.videoCrf);
+  $("crf_v").textContent = String(settings.videoCrf);
 
   attachDropTarget($("dropzone"), $("files"), {
     extensions: [".mp4", ".webm", ".mov", ".mkv"],
@@ -214,6 +236,7 @@ export function mountVideo(root) {
         }
       }
       jobs.finish();
+      if (outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
       $("zip").disabled = outputs.length === 0;
       $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
       if (outputs.length === 1) {
