@@ -212,7 +212,11 @@ def test_download_update_retries_next_mirror_after_sha256_fail(tmp_path, monkeyp
 
         return _Resp()
 
-    monkeypatch.setattr(updater.urllib.request, "urlopen", fake_urlopen)
+    class _FakeOpener:
+        def open(self, req, timeout=None):
+            return fake_urlopen(req, timeout=timeout)
+
+    monkeypatch.setattr(updater, "_OPENER", _FakeOpener())
     dest = tmp_path / "setup.exe"
     got = updater.download_update(
         "https://github.com/o/r/releases/download/v9/x.exe",
