@@ -3,6 +3,7 @@ import { OUT_FORMATS, IMAGE_EXTS, loadImageBitmap } from "../lib/image_ops.js";
 import { assertImageResolution } from "../lib/validate.js";
 import { cropCanvas } from "../lib/annotate.js";
 import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
+import { runLimited } from "../lib/pipeline.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
@@ -454,30 +455,35 @@ export function mountImage(root) {
     $("zip").disabled = true;
     try {
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
-      for (let i = 0; i < files.length; i++) {
-        const entry = fileEntries[i];
-        jobs.setStatus(i, "running");
-        setFileStatus(entry, "running");
-        jobs.setProgress(batchPct(i, 0, files.length));
-        jobs.setBatch(i, files.length, files[i].name);
-        try {
-          await runOne(files[i], { format: fmt, quality, maxWidth });
-          jobs.setStatus(i, "done");
-          setFileStatus(entry, "done");
-          jobs.setProgress(batchPct(i, 100, files.length));
-        } catch (e) {
-          trackFailure(e);
-          const msg = friendlyError(e);
-          const cancelled = msg.includes("已取消");
-          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
-          setFileStatus(entry, cancelled ? "cancelled" : "failed");
-          if (cancelled) {
-            for (let j = i + 1; j < files.length; j++) {
-              jobs.setStatus(j, "cancelled", "已取消");
-              setFileStatus(fileEntries[j], "cancelled");
-            }
-            break;
+      // 2 路流水线:池的两个 worker 同时吃任务;取消后不再派发新文件
+      const results = await runLimited(
+        files.length,
+        async (i) => {
+          const entry = fileEntries[i];
+          jobs.setStatus(i, "running");
+          setFileStatus(entry, "running");
+          jobs.setProgress(batchPct(i, 0, files.length));
+          jobs.setBatch(i, files.length, files[i].name);
+          try {
+            await runOne(files[i], { format: fmt, quality, maxWidth });
+            jobs.setStatus(i, "done");
+            setFileStatus(entry, "done");
+            jobs.setProgress(batchPct(i, 100, files.length));
+          } catch (e) {
+            trackFailure(e);
+            const msg = friendlyError(e);
+            const cancelled = msg.includes("已取消");
+            jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+            setFileStatus(entry, cancelled ? "cancelled" : "failed");
           }
+        },
+        { limit: 2, shouldStop: () => jobs.cancelled },
+      );
+      // 未派发的文件(取消后)标记取消,与串行版 break 行为一致
+      for (let i = 0; i < files.length; i++) {
+        if (!results[i]) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          setFileStatus(fileEntries[i], "cancelled");
         }
       }
       jobs.finish();
