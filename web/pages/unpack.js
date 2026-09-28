@@ -1,8 +1,7 @@
 // web/pages/unpack.js
-import { extractMpkg } from "../lib/we_mpkg.js";
-import { extractPkg } from "../lib/we_pkg.js";
 import { extractTex } from "../lib/we_tex.js";
 import { detectKind } from "../lib/we_detect.js";
+import { runJob } from "../lib/worker_client.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
@@ -321,12 +320,7 @@ export function mountUnpack(root) {
         jobs.setProgress(batchPct(i, 0, files.length));
         jobs.setBatch(i, files.length, f.name);
         try {
-          const buf = new Uint8Array(await f.arrayBuffer());
-          const base = stem(f.name);
-          let result;
-          if (kind === "pkg") result = extractPkg(buf);
-          else if (kind === "tex") result = { files: [extractTex(buf, base)] };
-          else result = extractMpkg(buf);
+          const result = await runJob(`unpack_${kind}`, { file: f });
           for (const item of result.files) allFiles.push(item);
           jobs.setStatus(i, "done");
           jobs.setProgress(batchPct(i, 100, files.length));
@@ -383,12 +377,7 @@ export function mountUnpack(root) {
         jobs.setProgress(batchPct(i, 0, lastBatch.length));
         jobs.setBatch(i, lastBatch.length, f.name);
         try {
-          const buf = new Uint8Array(await f.arrayBuffer());
-          const base = stem(f.name);
-          let result;
-          if (kind === "pkg") result = extractPkg(buf);
-          else if (kind === "tex") result = { files: [extractTex(buf, base)] };
-          else result = extractMpkg(buf);
+          const result = await runJob(`unpack_${kind}`, { file: f });
           for (const item of result.files) allFiles.push(item);
           jobs.setStatus(i, "done");
           jobs.setProgress(batchPct(i, 100, lastBatch.length));

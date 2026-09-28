@@ -183,3 +183,88 @@ test("installHandlers ignores malformed and unknown messages", async () => {
   target.onmessage({ data: { id: 3, kind: "no_such_kind", payload: {} } });
   assert.equal(target.posted.length, 0);
 });
+
+// ---- unpack handlers (P1): same in-memory builders as we_pkg/we_mpkg tests ----
+
+function buildPkgBytes(files, magic = "PKGV0005") {
+  const enc = new TextEncoder();
+  const names = Object.keys(files);
+  const header = enc.encode(magic);
+  const blobs = names.map((n) => files[n]);
+  const parts = [];
+  const pushU32 = (v) => {
+    parts.push(new Uint8Array(new DataView(new ArrayBuffer(4)).buffer));
+    const last = parts.at(-1);
+    new DataView(last.buffer).setUint32(0, v, true);
+  };
+  pushU32(header.length);
+  parts.push(header);
+  pushU32(names.length);
+  let off = 0;
+  names.forEach((n, i) => {
+    const nb = enc.encode(n);
+    pushU32(nb.length);
+    parts.push(nb);
+    pushU32(off);
+    pushU32(blobs[i].length);
+    off += blobs[i].length;
+  });
+  parts.push(...blobs);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const part of parts) {
+    out.set(part, p);
+    p += part.length;
+  }
+  return out;
+}
+
+test("unpack_pkg handler extracts entries into wire files with transfers", async () => {
+  const pkg = buildPkgBytes({
+    "scene.png": new Uint8Array([1, 2, 3, 4]),
+    "sub/dir.mp4": new Uint8Array([5, 6, 7]),
+  });
+  const r = await handlers.unpack_pkg({ file: { buf: pkg.buffer, name: "wp.pkg" } });
+  const names = r.result.files.map((f) => f.name).sort();
+  assert.deepEqual(names, ["scene.png", "sub/dir.mp4"]);
+  assert.equal(r.result.files[0].blob.type, undefined); // hydrate 侧会兜底 octet-stream
+  assert.equal(r.transfers.length, 2);
+  // 每个传输的 buf 都对应一条 wire 记录（hydrate 的输入形态）
+  for (const f of r.result.files) {
+    assert.deepEqual(Object.keys(f.blob).sort(), ["buf", "type"]);
+  }
+});
+
+test("unpack_tex handler derives the base name and passes the payload through", async () => {
+  const raw = new TextEncoder().encode("plain texture bytes");
+  const r = await handlers.unpack_tex({ file: { buf: raw.buffer, name: "wallpaper.tex" } });
+  assert.deepEqual(
+    r.result.files.map((f) => f.name),
+    ["wallpaper.tex"],
+  );
+  const roundtrip = new TextDecoder().decode(r.result.files[0].blob.buf);
+  assert.equal(roundtrip, "plain texture bytes");
+});
+
+test("unpack_mpkg handler carves media from a garbage mpkg", async () => {
+  const enc = new TextEncoder();
+  const data = new Uint8Array(64);
+  data.set(enc.encode("PKGM0019"), 0);
+  data.set(enc.encode("\x89PNG\r\n\x1a\n"), 16);
+  data.set(enc.encode("IEND"), 40);
+  const r = await handlers.unpack_mpkg({ file: { buf: data.buffer, name: "x.mpkg" } });
+  assert.equal(r.result.files.length, 1);
+  assert.match(r.result.files[0].name, /\.png$/);
+});
+
+test("unpack handlers map corrupt inputs to their kind labels", async () => {
+  await assert.rejects(
+    () => handlers.unpack_pkg({ file: { buf: new Uint8Array(2).buffer, name: "bad.pkg" } }),
+    (e) => e.label === "PKG 解包失败",
+  );
+  await assert.rejects(
+    () => handlers.unpack_mpkg({ file: { buf: new Uint8Array(8).buffer, name: "bad.mpkg" } }),
+    (e) => e.label === "MPKG 解包失败",
+  );
+});

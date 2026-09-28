@@ -13,6 +13,9 @@ const KIND_LABELS = {
   image_watermark: "图片处理失败",
   gif_split: "GIF 处理失败",
   gif_merge: "GIF 处理失败",
+  unpack_pkg: "PKG 解包失败",
+  unpack_tex: "TEX 解析失败",
+  unpack_mpkg: "MPKG 解包失败",
 };
 
 let pool = null;

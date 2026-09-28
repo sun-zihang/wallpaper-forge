@@ -244,3 +244,63 @@ test("cancelAllWorkerJobs cancels the in-flight pool job", async (t) => {
     (e) => e instanceof AppError && e.label === "GIF 处理失败" && e.detail === "已取消",
   );
 });
+
+// ---- unpack jobs through runJob (P1) ----
+
+function buildPkgBytes(files, magic = "PKGV0005") {
+  const enc = new TextEncoder();
+  const names = Object.keys(files);
+  const header = enc.encode(magic);
+  const blobs = names.map((n) => files[n]);
+  const parts = [];
+  const pushU32 = (v) => {
+    parts.push(new Uint8Array(new DataView(new ArrayBuffer(4)).buffer));
+    const last = parts.at(-1);
+    new DataView(last.buffer).setUint32(0, v, true);
+  };
+  pushU32(header.length);
+  parts.push(header);
+  pushU32(names.length);
+  let off = 0;
+  names.forEach((n, i) => {
+    const nb = enc.encode(n);
+    pushU32(nb.length);
+    parts.push(nb);
+    pushU32(off);
+    pushU32(blobs[i].length);
+    off += blobs[i].length;
+  });
+  parts.push(...blobs);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const part of parts) {
+    out.set(part, p);
+    p += part.length;
+  }
+  return out;
+}
+
+test("runJob fallback unpacks a pkg and hydrates entries into Blobs", async () => {
+  const pkg = buildPkgBytes({
+    "img/a.png": new Uint8Array([9, 8, 7]),
+    "readme.txt": new TextEncoder().encode("hi"),
+  });
+  const file = new File([pkg], "wallpaper.pkg");
+  const r = await runJob("unpack_pkg", { file });
+  assert.deepEqual(
+    r.files.map((f) => f.name).sort(),
+    ["img/a.png", "readme.txt"],
+  );
+  for (const f of r.files) {
+    assert.ok(f.blob instanceof Blob, "hydrate 把 wire 记录还原成 Blob");
+  }
+});
+
+test("runJob fallback unpack_mpkg garbage maps to the MPKG label", async () => {
+  const file = new File([new Uint8Array(8)], "bad.mpkg");
+  await assert.rejects(
+    () => runJob("unpack_mpkg", { file }),
+    (e) => e instanceof AppError && e.label === "MPKG 解包失败",
+  );
+});

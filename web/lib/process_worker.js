@@ -4,6 +4,9 @@
 import { convertImage } from "./image_ops.js";
 import { splitGif, mergeGif } from "./gif_ops.js";
 import { addTextWatermark, addImageWatermark } from "./annotate.js";
+import { extractPkg } from "./we_pkg.js";
+import { extractTex } from "./we_tex.js";
+import { extractMpkg } from "./we_mpkg.js";
 
 function toFile({ buf, name }) {
   return new File([buf], name || "input");
@@ -15,6 +18,21 @@ function toFile({ buf, name }) {
 async function toWireBlob(blob) {
   const buf = await blob.arrayBuffer();
   return { data: { buf, type: blob.type }, transfers: [buf] };
+}
+
+// Unpack results are { files: [{ name, blob }] } — move every extracted file
+// across the wire the same way. Unpack libs hand out Uint8Array slices (no
+// .arrayBuffer()), Blobs from other ops already have one.
+async function toWireFiles(files) {
+  const out = [];
+  const transfers = [];
+  for (const f of files) {
+    const b = f.blob;
+    const buf = typeof b.arrayBuffer === "function" ? await b.arrayBuffer() : b.slice().buffer;
+    out.push({ name: f.name, blob: { buf, type: b.type } });
+    transfers.push(buf);
+  }
+  return { files: out, transfers };
 }
 
 export const handlers = {
@@ -53,6 +71,22 @@ export const handlers = {
     const r = await mergeGif(p.files.map(toFile), opts);
     const { data, transfers } = await toWireBlob(r.blob);
     return { result: { blob: data, filename: r.filename }, transfers };
+  },
+  async unpack_pkg(p) {
+    const r = extractPkg(new Uint8Array(p.file.buf));
+    const { files, transfers } = await toWireFiles(r.files);
+    return { result: { files }, transfers };
+  },
+  async unpack_tex(p) {
+    const base = (p.file.name || "texture").replace(/\.[^.]+$/, "");
+    const r = extractTex(new Uint8Array(p.file.buf), base);
+    const { files, transfers } = await toWireFiles(r.files ? r.files : [r]);
+    return { result: { files }, transfers };
+  },
+  async unpack_mpkg(p) {
+    const r = extractMpkg(new Uint8Array(p.file.buf));
+    const { files, transfers } = await toWireFiles(r.files);
+    return { result: { files }, transfers };
   },
 };
 
