@@ -9,6 +9,7 @@ import {
   FFMPEG_UTIL_URLS,
   FFMPEG_CORE_JS_URLS,
   FFMPEG_CORE_WASM_URLS,
+  SCRIPT_INTEGRITY,
   jsDelivr,
   unpkg,
   loadScriptFirst,
@@ -120,6 +121,78 @@ test("loadScriptFirstOnce does not cache failures and retries fresh", async () =
   await assert.rejects(() => loadScriptFirstOnce(urls, opts), /all mirrors failed/);
   fail = false;
   assert.equal(await loadScriptFirstOnce(urls, opts), "https://once-retry/x.js");
+});
+
+test("SCRIPT_INTEGRITY covers exactly the script-tag deps, both mirrors, valid format", () => {
+  const pinned = [
+    ...JSZIP_URLS,
+    ...FFMPEG_URLS,
+    ...FFMPEG_WORKER_URLS,
+    ...FFMPEG_UTIL_URLS,
+  ];
+  assert.equal(Object.keys(SCRIPT_INTEGRITY).length, pinned.length, "one SRI pin per script URL");
+  assert.deepEqual(
+    [...Object.keys(SCRIPT_INTEGRITY)].sort(),
+    [...pinned].sort(),
+    "SRI pins must match the script-tag URL set exactly (no stale, no missing)",
+  );
+  for (const [url, integrity] of Object.entries(SCRIPT_INTEGRITY)) {
+    assert.match(integrity, /^sha384-[A-Za-z0-9+/]+={0,2}$/, `bad integrity for ${url}`);
+  }
+  // jsDelivr 与 unpkg 镜像必须共享同一哈希（同一 npm dist 文件字节一致的前提由
+  // scripts/check_cdn.mjs 每次推送在线验证）
+  for (const [primary, twin] of [
+    [JSZIP_URLS[0], JSZIP_URLS[1]],
+    [FFMPEG_URLS[0], FFMPEG_URLS[1]],
+    [FFMPEG_WORKER_URLS[0], FFMPEG_WORKER_URLS[1]],
+    [FFMPEG_UTIL_URLS[0], FFMPEG_UTIL_URLS[1]],
+  ]) {
+    assert.equal(SCRIPT_INTEGRITY[primary], SCRIPT_INTEGRITY[twin], `mirror hash drift: ${primary}`);
+  }
+  // ESM deps loaded via import() have no integrity channel — must stay unpinned
+  for (const url of [...GIFUCT_URLS, ...FFMPEG_CORE_JS_URLS, ...FFMPEG_CORE_WASM_URLS]) {
+    assert.equal(SCRIPT_INTEGRITY[url], undefined, `unexpected SRI pin for import()-loaded ${url}`);
+  }
+});
+
+test("loadScriptFirst attaches integrity + crossOrigin for pinned URLs", async () => {
+  const url = JSZIP_URLS[0];
+  const created = [];
+  const loaded = await loadScriptFirst([url], {
+    createElement() {
+      const el = { onload: null, onerror: null };
+      Object.defineProperty(el, "src", {
+        set() {
+          queueMicrotask(() => el.onload());
+        },
+      });
+      created.push(el);
+      return el;
+    },
+    append() {},
+  });
+  assert.equal(loaded, url);
+  assert.equal(created[0].integrity, SCRIPT_INTEGRITY[url]);
+  assert.equal(created[0].crossOrigin, "anonymous");
+});
+
+test("loadScriptFirst leaves unpinned URLs untouched", async () => {
+  const created = [];
+  const loaded = await loadScriptFirst(["https://unpinned.example/x.js"], {
+    createElement() {
+      const el = { onload: null, onerror: null };
+      Object.defineProperty(el, "src", {
+        set() {
+          queueMicrotask(() => el.onload());
+        },
+      });
+      created.push(el);
+      return el;
+    },
+    append() {},
+  });
+  assert.equal(created[0].integrity, undefined);
+  assert.equal(created[0].crossOrigin, undefined);
 });
 
 test("toBlobUrlFirst returns the first mirror that converts", async () => {

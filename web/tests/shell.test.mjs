@@ -67,9 +67,14 @@ test("index.html loads no CDN script tags directly (pins live in lib/cdn.js)", (
 
 test("index.html ships a CSP allowing CDN scripts, wasm workers and blobs", () => {
   assert.match(html, /http-equiv="Content-Security-Policy"/);
-  assert.match(html, /script-src 'self' https:\/\/cdn\.jsdelivr\.net https:\/\/unpkg\.com https:\/\/esm\.sh 'wasm-unsafe-eval'/);
+  assert.match(html, /script-src 'self' 'wasm-unsafe-eval' blob: https:\/\/cdn\.jsdelivr\.net https:\/\/unpkg\.com https:\/\/esm\.sh/);
   assert.match(html, /worker-src 'self' blob:/);
   assert.match(html, /img-src 'self' blob: data:/);
   assert.match(html, /style-src 'self' 'unsafe-inline'/);
   assert.match(html, /connect-src 'self' https:\/\/cdn\.jsdelivr\.net/);
+  // hardening: no plugins/frames/form targets, no loose base URI
+  assert.match(html, /object-src 'none'/);
+  assert.match(html, /base-uri 'self'/);
+  assert.match(html, /form-action 'self'/);
+  assert.match(html, /frame-ancestors 'none'/);
 });
