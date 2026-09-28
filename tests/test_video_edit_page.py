@@ -308,3 +308,21 @@ def test_play_toggle_changes_label(qapp, tmp_path, monkeypatch):
     finally:
         page.deleteLater()
         qapp.processEvents()
+
+
+def test_video_edit_page_integrated_in_main_window(qapp, tmp_path, monkeypatch):
+    from gui.main_window import MainWindow
+
+    settings_path = tmp_path / "settings.json"
+    settings_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("gui.settings_store._settings_path", lambda: settings_path)
+    win = MainWindow("test")
+    try:
+        nav_labels = [win.nav.item(i).text() for i in range(win.nav.count())]
+        assert "视频编辑" in nav_labels
+        assert win.video_edit_page is not None
+        assert win.video_edit_page in win._processing_pages()
+        assert win.stack.indexOf(win.video_edit_page) >= 0
+    finally:
+        win.deleteLater()
+        qapp.processEvents()

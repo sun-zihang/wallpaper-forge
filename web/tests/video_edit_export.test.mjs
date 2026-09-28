@@ -91,6 +91,14 @@ test("ExportOrchestrator: 导出后清理中间文件", async () => {
   assert.equal(adapter.files.has("output.mp4"), false);
 });
 
+test("ExportOrchestrator: concat.txt 在导出后被清理", async () => {
+  const tl = makeTimeline();
+  const adapter = makeAdapter();
+  const orch = new ExportOrchestrator(tl, {}, adapter);
+  await orch.export(() => {});
+  assert.equal(adapter.files.has("concat.txt"), false);
+});
+
 test("ExportOrchestrator: 单片段无音频时直接复制", async () => {
   const tl = new TimelineModel({ id: "tl1" });
   const track = new Track({ id: "t1", type: "video", name: "视频轨" });

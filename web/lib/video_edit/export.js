@@ -31,7 +31,7 @@ export class ExportOrchestrator {
       if (this.cancelled) throw new Error("已取消");
       onProgress(50, "合成最终视频…");
       const outputName = `output.${this.options.format || "mp4"}`;
-      await this._compose(plan, outputName, (p) => {
+      await this._compose(plan, outputName, intermediates, (p) => {
         onProgress(Math.round(50 + p / 2), "合成最终视频…");
       });
       if (this.cancelled) throw new Error("已取消");
@@ -83,7 +83,7 @@ export class ExportOrchestrator {
     await this.adapter.runFFmpeg(args, outName, (p) => onProgress(p));
   }
 
-  async _compose(plan, outName, onProgress) {
+  async _compose(plan, outName, intermediates, onProgress) {
     const videoClips = plan.clips;
 
     if (videoClips.length === 1) {
@@ -95,6 +95,7 @@ export class ExportOrchestrator {
 
     const concatList = videoClips.map((c) => `file '${c.processedFile || c.sourceFile}'`).join("\n");
     await this.adapter.writeFile("concat.txt", concatList);
+    intermediates.push("concat.txt");
 
     const args = ["-f", "concat", "-safe", "0", "-i", "concat.txt"];
     args.push("-c:v", this.options.videoCodec || "libx264", "-preset", this.options.preset || "veryfast", "-crf", String(this.options.crf ?? 23));
