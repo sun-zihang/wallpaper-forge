@@ -46,7 +46,7 @@ node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --
 node scripts/check_cdn.mjs
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 349 个 Node 测试（`web/lib/**` 行覆盖 99.2%，含路由回退、状态栏行为与 Worker 池/主线程回退双路径）；GitHub Actions 在每次推送上跑桌面（Windows pytest，566 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 385 个 Node 测试（`web/lib/**` 行覆盖 99.2%，含路由回退、状态栏行为与 Worker 池/主线程回退双路径）；GitHub Actions 在每次推送上跑桌面（Windows pytest，625 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
 
 ## 打包
 
@@ -67,21 +67,21 @@ iscc build/installer.iss
 
 ## 下载
 
-最新版：**[v0.8.0](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.8.0)**（更新源白名单加固；网页版质量修复波次：视频引擎虚拟文件全路径清理、裁剪/水印位图泄漏修复、水印越界钳位、取消防抖、页面加载失败可见提示；桌面测试弃用警告清零；566 个桌面测试覆盖率 99.6%，网页版 173 个 Node 测试）
+最新版：**[v0.9.0](https://github.com/sun-zihang/wallpaper-forge/releases/tag/v0.9.0)**（视频剪辑时间线编辑器：多轨拆分/速度/画面变换/滤镜调色/文字叠加；网页版处理管线 Worker 化提速、解包文件树+TEX 预览、批量任务中心；CDN 脚本 SRI 钉装+CSP 加固、SEO 落地页；625 个桌面测试、网页版 385 个 Node 测试）
 
 国内若 GitHub 较慢，优先用镜像直链（任选其一，粘贴到浏览器）：
 
 | 来源 | 直链 |
 |------|------|
-| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.8.0/WallpaperConverter-Setup-0.8.0.exe |
-| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.8.0/WallpaperConverter-Setup-0.8.0.exe |
-| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.8.0/WallpaperConverter-Setup-0.8.0.exe |
-| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.8.0/WallpaperConverter-Setup-0.8.0.exe |
-| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.8.0/WallpaperConverter-Setup-0.8.0.exe |
+| ghproxy.net | https://ghproxy.net/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.9.0/WallpaperConverter-Setup-0.9.0.exe |
+| gh-proxy.com | https://gh-proxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.9.0/WallpaperConverter-Setup-0.9.0.exe |
+| mirror.ghproxy.com | https://mirror.ghproxy.com/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.9.0/WallpaperConverter-Setup-0.9.0.exe |
+| ghfast.top | https://ghfast.top/https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.9.0/WallpaperConverter-Setup-0.9.0.exe |
+| GitHub 官方 | https://github.com/sun-zihang/wallpaper-forge/releases/download/v0.9.0/WallpaperConverter-Setup-0.9.0.exe |
 
 应用内「检查更新 → 立即更新」同样按上表顺序优先走镜像；全部失败时会在提示框里列出可复制的镜像链接。
 
-校验下载完整性：每个 Release 均附 `SHA256SUMS.txt`，本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.8.0.exe -Algorithm SHA256` 对比其中哈希即可。
+校验下载完整性：每个 Release 均附 `SHA256SUMS.txt`，本地执行 `Get-FileHash .\WallpaperConverter-Setup-0.9.0.exe -Algorithm SHA256` 对比其中哈希即可。
 
 发布页（含历史版本）：https://github.com/sun-zihang/wallpaper-forge/releases
 
