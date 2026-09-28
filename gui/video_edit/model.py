@@ -154,6 +154,9 @@ class TimelineModel:
                     max_end = end
         return max_end
 
+    def duration_sec(self, minimum: float = 0.0) -> float:
+        return max(self.duration, minimum)
+
     def add_track(self, track: Track) -> None:
         self.tracks.append(track)
 
