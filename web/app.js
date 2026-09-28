@@ -19,6 +19,7 @@ const lazy = {
   "/image": () => import("./pages/image.js").then((m) => m.mountImage),
   "/gif": () => import("./pages/gif.js").then((m) => m.mountGif),
   "/video": () => import("./pages/video.js").then((m) => m.mountVideo),
+  "/video-edit": () => import("./pages/video_edit.js").then((m) => m.mountVideoEdit),
   "/unpack": () => import("./pages/unpack.js").then((m) => m.mountUnpack),
   "/settings": () => import("./pages/settings.js").then((m) => m.mountSettings),
   "/desktop": () => import("./pages/desktop.js").then((m) => m.mountDesktop),
