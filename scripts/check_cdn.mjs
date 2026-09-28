@@ -2,6 +2,7 @@
 // and byte-verify the SRI pins in SCRIPT_INTEGRITY by hashing the real payload.
 // Single source of truth: the lists come from the app itself, so a pin change or a
 // dead mirror fails here instead of silently breaking the deployed web version.
+import { createHash } from "node:crypto";
 import {
   JSZIP_URLS,
   GIFUCT_URLS,
@@ -47,7 +48,9 @@ for (const [url, integrity] of Object.entries(SCRIPT_INTEGRITY)) {
       bad.push(`SRI: ${res.status} ${url}`);
       continue;
     }
-    const digest = `sha384-${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+    const digest = `sha384-${createHash("sha384")
+      .update(new Uint8Array(await res.arrayBuffer()))
+      .digest("base64")}`;
     if (digest !== integrity) {
       bad.push(`SRI mismatch: ${url}\n  expected ${integrity}\n  actual   ${digest}`);
     }

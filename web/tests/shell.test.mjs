@@ -72,9 +72,18 @@ test("index.html ships a CSP allowing CDN scripts, wasm workers and blobs", () =
   assert.match(html, /img-src 'self' blob: data:/);
   assert.match(html, /style-src 'self' 'unsafe-inline'/);
   assert.match(html, /connect-src 'self' https:\/\/cdn\.jsdelivr\.net/);
-  // hardening: no plugins/frames/form targets, no loose base URI
+  // hardening: no plugins/form targets, no loose base URI
   assert.match(html, /object-src 'none'/);
   assert.match(html, /base-uri 'self'/);
   assert.match(html, /form-action 'self'/);
-  assert.match(html, /frame-ancestors 'none'/);
+  // frame-ancestors is header-only — a meta-tag copy would log a console
+  // error in every browser; it lives in web/_headers instead
+  assert.doesNotMatch(html, /frame-ancestors/);
+});
+
+test("_headers mirrors the CSP and carries the header-only directives", async () => {
+  const headers = await readFile(new URL("../_headers", import.meta.url), "utf8");
+  assert.match(headers, /Content-Security-Policy: [^\n]*frame-ancestors 'none'/);
+  assert.match(headers, /script-src 'self' 'wasm-unsafe-eval' blob:/);
+  assert.match(headers, /Permissions-Policy: camera=\(\), microphone=\(\), geolocation=\(\)/);
 });
