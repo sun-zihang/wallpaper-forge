@@ -1,0 +1,105 @@
+<!-- web/en/tex-to-png/index.html — static SEO landing page (English) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TEX to PNG Converter Online — Wallpaper Engine Texture Preview | Wallpaper Converter</title>
+  <meta name="description" content="Convert Wallpaper Engine .tex texture files into standard PNG images online: preview textures in the browser, extract in bulk, download as ZIP. Parsed locally — no uploads, no sign-up." />
+  <link rel="canonical" href="https://sun-zihang.github.io/wallpaper-forge/en/tex-to-png/" />
+  <link rel="alternate" hreflang="en" href="https://sun-zihang.github.io/wallpaper-forge/en/tex-to-png/" />
+  <link rel="alternate" hreflang="zh-Hans" href="https://sun-zihang.github.io/wallpaper-forge/tex-to-png/" />
+  <link rel="alternate" hreflang="x-default" href="https://sun-zihang.github.io/wallpaper-forge/tex-to-png/" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#101317" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Wallpaper Converter" />
+  <meta property="og:title" content="TEX to PNG Converter Online — Wallpaper Engine Texture Extract" />
+  <meta property="og:description" content="Extract .tex textures to PNG and preview them online. Parsed locally — nothing is uploaded." />
+  <meta property="og:url" content="https://sun-zihang.github.io/wallpaper-forge/en/tex-to-png/" />
+  <meta property="og:image" content="https://sun-zihang.github.io/wallpaper-forge/og-image.png" />
+  <link rel="icon" href="../../favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What is a TEX file?", "acceptedAnswer": { "@type": "Answer", "text": "TEX is the texture container format used by Wallpaper Engine. It usually wraps PNG or compressed texture data that browsers and image viewers cannot open directly." } },
+      { "@type": "Question", "name": "Does converting to PNG lose quality?", "acceptedAnswer": { "@type": "Answer", "text": "No. TEX to PNG is an extraction, not a re-encode: pixels are copied out as-is into a lossless PNG." } },
+      { "@type": "Question", "name": "Are my files uploaded?", "acceptedAnswer": { "@type": "Answer", "text": "No. Parsing and conversion both happen in your local browser; files never leave your computer." } },
+      { "@type": "Question", "name": "Can I convert TEX files packed inside an mpkg?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Open the .pkg / .mpkg with the unpack tool first — its .tex files can be previewed and exported to PNG too." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="lp-head">
+    <a class="lp-brand" href="../../">Wallpaper Converter<span>WEB</span></a>
+    <nav>
+      <a href="../../index.html#/">Home</a>
+      <a class="btn" href="../../index.html#/unpack">Open the unpack tool</a>
+    </nav>
+  </header>
+  <main class="lp-main">
+    <h1>TEX to PNG: Preview &amp; Extract Wallpaper Engine Textures</h1>
+    <p class="lp-lead">Turn Wallpaper Engine .tex texture files into universal PNG images: preview the texture first, then batch-convert and download as a ZIP. Parsing runs locally in your browser — nothing is uploaded.</p>
+    <div class="lp-cta">
+      <a class="btn" href="../../index.html#/unpack">Start converting free</a>
+      <small>No sign-up · 100% local · Lossless extraction</small>
+    </div>
+
+    <h2>What it does</h2>
+    <ul>
+      <li>Parse the .tex container, extract the embedded image data and write it out as a standard PNG;</li>
+      <li>Preview textures online before converting, so you download only what you actually need;</li>
+      <li>.tex files inside .pkg / .mpkg work too — unpack once, then preview and export them all;</li>
+      <li>Batch-process multiple files with per-file progress, bundled into a ZIP;</li>
+      <li>Lossless extraction: pixels are preserved exactly — no re-compression, no watermark.</li>
+    </ul>
+
+    <h2>Three steps to convert</h2>
+    <ol class="lp-steps">
+      <li>Open the tool and drop .tex files (or .pkg / .mpkg packages containing tex) into the file area.</li>
+      <li>Press Start and let it parse; preview textures in the info card and file tree.</li>
+      <li>Download the ZIP, or drag individual PNGs out to save them locally.</li>
+    </ol>
+
+    <h2>Why this tool exists</h2>
+    <p>Workshop wallpapers wrap their assets in .tex for faster loading, which regular image viewers can't open. This tool cracks the container and lifts the pixels out untouched, so you can inspect and reuse the textures — all inside your browser, with the assets never passing through any server.</p>
+
+    <div class="lp-note">Processing whole project packages, or sending results back to Wallpaper Engine? The <a href="../../index.html#/desktop">desktop version</a> adds batch jobs and WE import.</div>
+
+    <h2>FAQ</h2>
+    <div class="lp-faq">
+      <details open>
+        <summary>What is a TEX file?</summary>
+        <p>TEX is the texture container Wallpaper Engine uses. It usually wraps PNG or compressed texture data that browsers and normal image viewers cannot open.</p>
+      </details>
+      <details>
+        <summary>Does converting to PNG lose quality?</summary>
+        <p>No. This is extraction rather than re-encoding: pixels are written into a lossless PNG file exactly as they were.</p>
+      </details>
+      <details>
+        <summary>Are my files uploaded?</summary>
+        <p>No. Parsing the container and writing the PNG both happen in your local browser; files never leave your computer.</p>
+      </details>
+      <details>
+        <summary>Can I convert TEX packed inside pkg / mpkg?</summary>
+        <p>Yes. Open the <a href="../pkg-extract/">.pkg / .mpkg</a> with the same tool — its .tex files appear in the file tree, ready to preview and export to PNG.</p>
+      </details>
+    </div>
+  </main>
+  <footer class="lp-foot">
+    <span>© Wallpaper Converter WEB · Files processed on your device</span>
+    <span class="lp-foot-links">
+      <a href="../../">Home</a>
+      <a href="../gif-to-png/">GIF to PNG</a>
+      <a href="../webm-to-mp4/">WebM to MP4</a>
+      <a href="../pkg-extract/">Extract PKG</a>
+      <a href="../tex-to-png/">TEX to PNG</a>
+      <a href="../../index.html#/desktop">Desktop</a>
+    </span>
+  </footer>
+</body>
+</html>

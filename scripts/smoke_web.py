@@ -141,6 +141,17 @@ with sync_playwright() as p:
         "footer lists dependency versions",
     )
 
+    # 1b. home language toggle (zh <-> en)
+    page.click("#langToggle")
+    page.wait_for_function(
+        "() => { const h = document.querySelector('#app h1'); return h && /browser/i.test(h.textContent); }",
+        timeout=5000,
+        polling=100,
+    )
+    check(True, "home switches to English")
+    page.click("#langToggle")
+    check("处理壁纸" in page.content(), "home switches back to Chinese")
+
     # 2. image — convert queues, ZIP button downloads
     page.click('nav a[href="#/image"]')
     page.wait_for_selector("#q")
@@ -327,11 +338,31 @@ with sync_playwright() as p:
             f"landing {slug} FAQ block present",
         )
         check(page.locator(".lp-foot a").count() >= 6, f"landing {slug} footer cross-links")
+        check(f"/en/{slug}/" in page.content(), f"landing {slug} hreflang links to en")
+        resp = page.goto(f"{BASE}/en/{slug}/", wait_until="domcontentloaded")
+        check(resp is not None and resp.ok, f"landing en /en/{slug}/ responds 200")
+        etitle = page.title()
+        check(kw in etitle, f"landing en {slug} title has keyword ({etitle[:60]})")
+        eh1 = page.locator("h1").first.inner_text()
+        check(kw in eh1, f"landing en {slug} h1 has keyword ({eh1[:60]})")
+        check(
+            page.locator(".lp-faq details").count() >= 3,
+            f"landing en {slug} FAQ block present",
+        )
+        check(
+            page.locator(".lp-foot a").count() >= 6,
+            f"landing en {slug} footer cross-links",
+        )
+        check(
+            page.locator('link[rel="canonical"][href*="/en/"]').count() == 1,
+            f"landing en {slug} canonical points at /en/",
+        )
     sm = page.request.get(f"{BASE}/sitemap.xml")
     check(sm.ok, "sitemap.xml responds")
     smt = sm.text()
     for slug in ("gif-to-png", "webm-to-mp4", "pkg-extract", "tex-to-png"):
         check(slug in smt, f"sitemap lists {slug}")
+        check(f"/en/{slug}/" in smt, f"sitemap lists en/{slug}")
     rb = page.request.get(f"{BASE}/robots.txt")
     check(rb.ok and "sitemap.xml" in rb.text(), "robots.txt points at sitemap")
 
