@@ -21,7 +21,8 @@
 - **自动更新**：启动时静默检查 GitHub Release（可关），设置页可手动检查；安装包下载与 README 直链均优先国内镜像，失败回退官方源；下载完成后按 Release 资产摘要校验 SHA256，通过才启动安装
 - **专有格式解包**：`.pkg` 解包、`.tex` 抽取内嵌 PNG/JPG/WebP/MP4、`.mpkg` 提取 MP4（纯 Python 实现，每个源文件输出到 `converted/<文件名>/`）
 - **去水印**：图片框选区域内容修复（OpenCV inpaint）；视频框选区域整段 FFmpeg delogo 去除，输出 `*_clean` 文件
-- **网页版**（[GitHub Pages](https://sun-zihang.github.io/wallpaper-forge/)，纯静态、文件不离开浏览器）：图片/GIF/视频/解包四页，支持拖拽投放、整批进度百分比、GIF 拆帧按 delta/disposal 正确合成、合帧编码提速约 47 倍且可随时取消
+- **视频编辑**：多段合并、速度调整、画面变换（旋转/翻转/裁剪/缩放）、音频处理（音量/淡入淡出）、文字叠加、滤镜调色；网页版支持时间线编辑，桌面版支持多轨道预览
+- **网页版**（[GitHub Pages](https://sun-zihang.github.io/wallpaper-forge/)，纯静态、文件不离开浏览器）：图片/GIF/视频/解包/视频编辑五页，支持拖拽投放、整批进度百分比、GIF 拆帧按 delta/disposal 正确合成、合帧编码提速约 47 倍且可随时取消
 
 ## 环境要求
 
@@ -45,7 +46,7 @@ node --test --experimental-test-coverage --test-coverage-include='web/lib/**' --
 node scripts/check_cdn.mjs
 ```
 
-覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 242 个 Node 测试（`web/lib/**` 行覆盖 99.2%，含路由回退、状态栏行为与 Worker 池/主线程回退双路径）；GitHub Actions 在每次推送上跑桌面（Windows pytest，566 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
+覆盖 `core/` 纯逻辑（路径规则、图片/GIF/视频操作）与 `gui/` 的 offscreen 测试（设置持久化、覆盖确认、输出定位、全选/反选、失败重试、GIF 动画预览），网页版另有 349 个 Node 测试（`web/lib/**` 行覆盖 99.2%，含路由回退、状态栏行为与 Worker 池/主线程回退双路径）；GitHub Actions 在每次推送上跑桌面（Windows pytest，566 个测试，覆盖率门禁 ≥98%）、网页（Ubuntu Node，`web/lib` 覆盖率门禁 ≥98% + JS 语法检查）、ruff 静态检查、mypy 类型检查与 CDN 钉版可达性四道检查，Pages 工作流自动部署网页版并联动 Live smoke 对线上站点巡检（每周亦定时执行）。README 截图由 `python scripts/make_screenshots.py` 生成（需在有桌面会话的 Windows 上运行）。
 
 ## 打包
 
