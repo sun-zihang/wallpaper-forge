@@ -100,6 +100,7 @@ export function mountGif(root) {
     </div>
     <div class="img-actionbar">
       <button type="button" class="btn" id="start">开始</button>
+      <button type="button" class="btn secondary" id="retry" hidden>重试失败</button>
       <button type="button" class="btn secondary" id="zip" hidden>打包下载 ZIP</button>
       <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       <span class="actionbar-pct" id="actionbarPct"></span>
@@ -116,6 +117,7 @@ export function mountGif(root) {
     onReport: (job) => reportJob({ ...job, id: `gif:${job.id}`, page: "GIF" }),
   });
   let splitFiles = [];
+  let lastSplit = null;
   let running = false;
   let zipping = false;
   let saving = false;
@@ -290,6 +292,7 @@ export function mountGif(root) {
     $("zip").hidden = !split;
     $("start").textContent = split ? "开始拆帧" : "开始合帧";
     $("files").accept = split ? ".gif,image/gif" : "image/*,.gif";
+    $("retry").hidden = true;
     if (selectedFile) selectFile(selectedFile);
   }
   $("mode").addEventListener("change", syncMode);
@@ -360,6 +363,7 @@ export function mountGif(root) {
         }
         jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
         splitFiles = [];
+        lastSplit = accepted;
         for (let i = 0; i < accepted.length; i++) {
           if (stale()) return;
           if (jobs.cancelled) {
@@ -389,7 +393,10 @@ export function mountGif(root) {
           }
         }
         jobs.finish();
-        if (!stale() && splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
+        if (!stale()) {
+          $("retry").hidden = jobs.failedIndices().length === 0;
+          if (splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
+        }
         return;
       }
       // merge
@@ -424,6 +431,63 @@ export function mountGif(root) {
       if (!stale()) {
         $("start").disabled = false;
         $("zip").disabled = false;
+      }
+    }
+  });
+
+  $("retry").addEventListener("click", async () => {
+    if (!lastSplit || running || zipping) return;
+    const failedIdx = jobs.failedIndices();
+    if (!failedIdx.length) return;
+    token.cancelled = false;
+    running = true;
+    setTaskRunning(true);
+    const t0 = trackStart();
+    $("start").disabled = true;
+    $("zip").disabled = true;
+    $("retry").disabled = true;
+    try {
+      for (const i of failedIdx) {
+        if (stale()) return;
+        if (jobs.cancelled) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          continue;
+        }
+        jobs.setStatus(i, "running");
+        jobs.setProgress(batchPct(i, 0, lastSplit.length));
+        jobs.setBatch(i, lastSplit.length, lastSplit[i].name);
+        try {
+          const { files: parts } = await runJob("gif_split", {
+            file: lastSplit[i],
+            opts: { step: Number($("step").value) },
+          });
+          if (stale()) return;
+          splitFiles.push(...parts);
+          jobs.setStatus(i, "done");
+          jobs.setProgress(batchPct(i, 100, lastSplit.length));
+          renderGallery();
+          syncSaveDir();
+        } catch (e) {
+          trackFailure(e);
+          const msg = friendlyError(e);
+          const cancelled = msg.includes("已取消");
+          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+          if (cancelled) continue;
+        }
+      }
+      jobs.finish();
+      if (!stale()) {
+        $("retry").hidden = jobs.failedIndices().length === 0;
+        if (splitFiles.length) showToast(`拆帧完成，共 ${splitFiles.length} 帧`, "success");
+      }
+    } finally {
+      running = false;
+      setTaskRunning(false);
+      trackEnd(t0);
+      if (!stale()) {
+        $("start").disabled = false;
+        $("zip").disabled = false;
+        $("retry").disabled = false;
       }
     }
   });

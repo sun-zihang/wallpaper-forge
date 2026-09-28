@@ -195,6 +195,40 @@ with sync_playwright() as p:
     check(d.suggested_filename == "frames.zip", f"gif split zip: {d.suggested_filename}")
     check(Path(d.path()).stat().st_size > 0, "frames zip non-empty")
 
+    # 3a. gif retry — corrupt gif fails, #retry appears and re-runs only failures
+    bad_gif = FIX / "bad.gif"
+    bad_gif.write_bytes(b"GIF89a" + b"\x00" * 64)
+    page.set_input_files("#files", str(bad_gif))
+    page.click("#start")
+    try:
+        page.wait_for_function(
+            "() => document.querySelector('#start').disabled", timeout=5000, polling=100
+        )
+    except Exception:
+        print("GIF START STATE err:", page.locator("#err").inner_text()[:200])
+        print("GIF START STATE rows:", page.locator(".jobs tbody").inner_text()[:200])
+        print("GIF START STATE console:", console_errors[-8:])
+        raise
+    page.wait_for_function(
+        "() => !document.querySelector('#start').disabled", timeout=90000, polling=100
+    )
+    check(page.locator("td.st-failed").count() >= 1, "gif corrupt file failed")
+    check(page.locator("#retry").is_visible(), "gif retry button shows on failure")
+    page.click("#retry")
+    page.wait_for_function(
+        "() => document.querySelector('#start').disabled", timeout=5000, polling=100
+    )
+    page.wait_for_function(
+        "() => !document.querySelector('#start').disabled", timeout=90000, polling=100
+    )
+    check(page.locator("td.st-failed").count() >= 1, "gif retry re-ran failed job")
+    check(page.locator("#retry").is_visible(), "gif retry stays visible after failed retry")
+
+    # reset gif page state so the merge section starts with a clean file list
+    page.click('nav a[href="#/unpack"]')
+    page.click('nav a[href="#/gif"]')
+    page.wait_for_selector("#step")
+
     # 3b. gif merge — auto download
     page.select_option("#mode", "merge")
     page.set_input_files("#files", [str(png_path), str(img2_path)])
@@ -212,9 +246,33 @@ with sync_playwright() as p:
     check(d.suggested_filename == "unpacked.zip", f"unpack zip: {d.suggested_filename}")
     check(Path(d.path()).stat().st_size > 0, "unpacked zip non-empty")
 
+    # 4b. unpack retry — corrupt pkg fails, #retry appears and re-runs failures
+    bad_pkg = FIX / "bad.pkg"
+    bad_pkg.write_bytes(b"NOTAPKG" + b"\x00" * 64)
+    page.set_input_files("#files", str(bad_pkg))
+    page.click("#start")
+    page.wait_for_function(
+        "() => document.querySelector('#start').disabled", timeout=5000, polling=100
+    )
+    page.wait_for_function(
+        "() => !document.querySelector('#start').disabled", timeout=30000, polling=100
+    )
+    check(page.locator("td.st-failed").count() >= 1, "unpack corrupt pkg failed")
+    check(page.locator("#retry").is_visible(), "unpack retry button shows on failure")
+    page.click("#retry")
+    page.wait_for_function(
+        "() => document.querySelector('#start').disabled", timeout=5000, polling=100
+    )
+    page.wait_for_function(
+        "() => !document.querySelector('#start').disabled", timeout=30000, polling=100
+    )
+    check(page.locator("td.st-failed").count() >= 1, "unpack retry re-ran failed job")
+    check(page.locator("#retry").is_visible(), "unpack retry stays visible after failed retry")
+
     # 5. video — oversize rejected at drop time, never queued for the engine
     page.click('nav a[href="#/video"]')
     page.wait_for_selector("#mode", state="attached")
+    check(page.locator("#retry").count() == 1, "video retry button in DOM")
     page.set_input_files("#files", str(big_path))
     page.wait_for_timeout(300)
     err = page.locator("#err").inner_text()

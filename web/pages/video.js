@@ -132,6 +132,7 @@ export function mountVideo(root) {
     </div>
     <div class="img-actionbar">
       <button type="button" class="btn" id="start">开始转换</button>
+      <button type="button" class="btn secondary" id="retry" hidden>重试失败</button>
       <button type="button" class="btn secondary" id="zip" disabled>打包下载 ZIP</button>
       <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       <span class="actionbar-pct" id="actionbarPct"></span>
@@ -564,6 +565,7 @@ export function mountVideo(root) {
       jobs.finish();
       if (!stale() && outputs.length) showToast(`转换完成，共 ${outputs.length} 个文件`, "success");
       if (!stale()) {
+        $("retry").hidden = jobs.failedIndices().length === 0;
         $("zip").disabled = outputs.length === 0;
         $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
         syncSaveDir();
@@ -574,6 +576,66 @@ export function mountVideo(root) {
       trackEnd(t0);
       if (!stale()) {
         $("start").disabled = false;
+      }
+    }
+  });
+
+  $("retry").addEventListener("click", async () => {
+    if (running) return;
+    const failedIdx = jobs.failedIndices();
+    if (!failedIdx.length) return;
+    token.cancelled = false;
+    running = true;
+    setTaskRunning(true);
+    const t0 = trackStart();
+    $("start").disabled = true;
+    $("retry").disabled = true;
+    try {
+      for (const i of failedIdx) {
+        if (stale() || token.cancelled || jobs.cancelled) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          setFileStatus(fileEntries[i], "cancelled");
+          continue;
+        }
+        jobs.setStatus(i, "running");
+        setFileStatus(fileEntries[i], "running");
+        jobs.setBatch(i, fileEntries.length, fileEntries[i].file.name);
+        try {
+          const out = await processOne(fileEntries[i].file, $("mode").value, (p) =>
+            jobs.setProgress(batchPct(i, p, fileEntries.length))
+          );
+          if (stale()) return;
+          if (out) {
+            outputs.push(out);
+            jobs.setStatus(i, "done");
+            setFileStatus(fileEntries[i], "done");
+          } else {
+            jobs.setStatus(i, "failed", "没有产出文件");
+            setFileStatus(fileEntries[i], "failed");
+          }
+        } catch (e) {
+          trackFailure(e);
+          const msg = friendlyError(e);
+          const cancelled = msg.includes("已取消");
+          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+          setFileStatus(fileEntries[i], cancelled ? "cancelled" : "failed");
+          if (cancelled) continue;
+        }
+      }
+      jobs.finish();
+      if (!stale()) {
+        $("retry").hidden = jobs.failedIndices().length === 0;
+        $("zip").disabled = outputs.length === 0;
+        $("zip").textContent = outputs.length > 1 ? `打包下载 ZIP（${outputs.length}）` : "打包下载 ZIP";
+        syncSaveDir();
+      }
+    } finally {
+      running = false;
+      setTaskRunning(false);
+      trackEnd(t0);
+      if (!stale()) {
+        $("start").disabled = false;
+        $("retry").disabled = false;
       }
     }
   });

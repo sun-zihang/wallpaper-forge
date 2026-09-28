@@ -45,6 +45,7 @@ export function createJobList(container, { onCancel, onReport } = {}) {
   const zipName = container.querySelector(".zip-name");
   let cancelled = false;
   const rows = new Map();
+  const statusById = new Map();
   const thumbs = new Set();
 
   function releaseThumbs() {
@@ -60,6 +61,7 @@ export function createJobList(container, { onCancel, onReport } = {}) {
   });
 
   function renderStatus(id, status, detail = "") {
+    statusById.set(id, status);
     const tr = rows.get(id);
     if (!tr) return;
     const td = tr.querySelector("td.status");
@@ -87,6 +89,7 @@ export function createJobList(container, { onCancel, onReport } = {}) {
       releaseThumbs();
       tbody.innerHTML = "";
       rows.clear();
+      statusById.clear();
       bar.style.width = "0%";
       if (pctLabel) pctLabel.textContent = "0%";
       if (batchEl) batchEl.textContent = "";
@@ -147,6 +150,13 @@ export function createJobList(container, { onCancel, onReport } = {}) {
     setStatus(id, status, detail) {
       renderStatus(id, status, detail);
     },
+    failedIndices() {
+      const out = [];
+      for (const [id, s] of statusById) {
+        if (s === "failed") out.push(id);
+      }
+      return out;
+    },
     setOutputBlob(id, { blob, filename }) {
       const tr = rows.get(id);
       if (!tr || !tr.cells || !tr.cells[0]) return;
@@ -154,6 +164,7 @@ export function createJobList(container, { onCancel, onReport } = {}) {
     },
     finish() {
       cancelBtn.disabled = true;
+      cancelled = false;
     },
   };
 }

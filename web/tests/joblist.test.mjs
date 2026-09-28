@@ -437,3 +437,39 @@ test("empty state shows when no jobs and hides after submit", async () => {
   list.reset();
   assert.equal(emptyEl.hidden, false, "empty state returns after reset");
 });
+
+test("failedIndices tracks failed jobs across batches", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container } = makeContainer();
+  const list = createJobList(container, {});
+  assert.deepEqual(list.failedIndices(), [], "empty list has no failures");
+  list.submit([
+    { id: 0, name: "a.png" },
+    { id: 1, name: "b.png" },
+    { id: 2, name: "c.png" },
+  ]);
+  assert.deepEqual(list.failedIndices(), [], "all pending");
+  list.setStatus(1, "failed", "boom");
+  list.setStatus(2, "done");
+  assert.deepEqual(list.failedIndices(), [1], "only failed id");
+  list.setStatus(2, "failed", "again");
+  assert.deepEqual(list.failedIndices(), [1, 2], "insertion order preserved");
+  list.setStatus(1, "done");
+  assert.deepEqual(list.failedIndices(), [2], "recovered job leaves the list");
+  list.submit([{ id: 0, name: "fresh.png" }]);
+  assert.deepEqual(list.failedIndices(), [], "new batch clears history");
+});
+
+test("finish clears the cancel latch so a retry can start", async () => {
+  installDom();
+  const { createJobList } = await import("../lib/joblist.js");
+  const { container, cancelBtn } = makeContainer();
+  const list = createJobList(container, {});
+  list.submit(JOBS());
+  cancelBtn.click();
+  assert.equal(list.cancelled, true);
+  list.finish();
+  assert.equal(list.cancelled, false, "finish re-arms cancelled for the next run");
+  assert.equal(cancelBtn.disabled, true);
+});

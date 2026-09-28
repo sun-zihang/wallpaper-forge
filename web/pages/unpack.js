@@ -68,6 +68,7 @@ export function mountUnpack(root) {
     </div>
     <div class="img-actionbar">
       <button type="button" class="btn" id="start">开始解包</button>
+      <button type="button" class="btn secondary" id="retry" hidden>重试失败</button>
       <button type="button" class="btn secondary" id="dl">打包下载 ZIP</button>
       <button type="button" class="btn secondary" id="savedir" hidden>保存到文件夹</button>
       <span class="actionbar-pct" id="actionbarPct"></span>
@@ -81,6 +82,7 @@ export function mountUnpack(root) {
     onReport: (job) => reportJob({ ...job, id: `unpack:${job.id}`, page: "解包" }),
   });
   let allFiles = [];
+  let lastBatch = null;
   let running = false;
   let zipping = false;
   let saving = false;
@@ -295,6 +297,7 @@ export function mountUnpack(root) {
       $("err").textContent = check.errors.map((e) => `${e.name}：${e.reason}`).join("\n");
       return;
     }
+    lastBatch = files;
     running = true;
     setTaskRunning(true);
     const t0 = trackStart();
@@ -334,6 +337,7 @@ export function mountUnpack(root) {
       }
       jobs.finish();
       if (!stale()) {
+        $("retry").hidden = jobs.failedIndices().length === 0;
         const tree = buildTree(allFiles);
         const treeEl = $("fileTree");
         treeEl.innerHTML = "";
@@ -349,6 +353,68 @@ export function mountUnpack(root) {
       if (!stale()) {
         $("start").disabled = false;
         $("dl").disabled = false;
+      }
+    }
+  });
+
+  $("retry").addEventListener("click", async () => {
+    if (!lastBatch || running || zipping) return;
+    const failedIdx = jobs.failedIndices();
+    if (!failedIdx.length) return;
+    running = true;
+    setTaskRunning(true);
+    const t0 = trackStart();
+    $("start").disabled = true;
+    $("dl").disabled = true;
+    $("retry").disabled = true;
+    try {
+      for (const i of failedIdx) {
+        if (jobs.cancelled) {
+          jobs.setStatus(i, "cancelled", "已取消");
+          continue;
+        }
+        const f = lastBatch[i];
+        const kind = detectKind(f.name);
+        if (!kind) {
+          jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
+          continue;
+        }
+        jobs.setStatus(i, "running");
+        jobs.setProgress(batchPct(i, 0, lastBatch.length));
+        jobs.setBatch(i, lastBatch.length, f.name);
+        try {
+          const buf = new Uint8Array(await f.arrayBuffer());
+          const base = stem(f.name);
+          let result;
+          if (kind === "pkg") result = extractPkg(buf);
+          else if (kind === "tex") result = { files: [extractTex(buf, base)] };
+          else result = extractMpkg(buf);
+          for (const item of result.files) allFiles.push(item);
+          jobs.setStatus(i, "done");
+          jobs.setProgress(batchPct(i, 100, lastBatch.length));
+        } catch (e) {
+          trackFailure(e);
+          jobs.setStatus(i, "failed", friendlyError(e));
+        }
+      }
+      jobs.finish();
+      if (!stale()) {
+        $("retry").hidden = jobs.failedIndices().length === 0;
+        const tree = buildTree(allFiles);
+        const treeEl = $("fileTree");
+        treeEl.innerHTML = "";
+        renderTree(tree, treeEl, 0);
+        showInfoCard();
+        syncSaveDir();
+      }
+    } finally {
+      running = false;
+      setTaskRunning(false);
+      trackEnd(t0);
+      if (!stale()) {
+        $("start").disabled = false;
+        $("dl").disabled = false;
+        $("retry").disabled = false;
       }
     }
   });
