@@ -1,4 +1,5 @@
 import threading
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -28,10 +29,12 @@ def make_fake_ffmpeg(recorded):
     def fake_run_ffmpeg(args, **kwargs):
         recorded["calls"].append(list(args))
         if "-f" in args and args[args.index("-f") + 1] == "concat":
-            with open(args[args.index("-i") + 1], encoding="utf-8") as f:
-                recorded["concat"] = f.read()
-        with open(args[-1], "wb") as f:
-            f.write(b"fake-video-bytes")
+            concat_path = Path(args[args.index("-i") + 1])
+            recorded["concat"] = concat_path.read_text(encoding="utf-8")
+        # 桩 ffmpeg 只「写」导出器临时目录里的产物（最后一个参数）
+        out = Path(args[-1])
+        assert out.suffix in {".mp4", ".webm"}
+        out.write_bytes(b"fake-video-bytes")
 
     return fake_run_ffmpeg
 
@@ -134,8 +137,12 @@ def test_single_processed_clip_compose_uses_processed_file():
 def test_progress_cb_arity_with_processing():
     tl = TimelineModel(id="tl1", name="测试")
     t1 = Track(id="t1", type="video", name="视频轨")
-    t1.add_clip(Clip(id="c1", source_file="a.mp4", timeline_in=0, source_in=0, source_out=5, speed=2.0))
-    t1.add_clip(Clip(id="c2", source_file="b.mp4", timeline_in=5, source_in=1, source_out=4, speed=2.0))
+    t1.add_clip(
+        Clip(id="c1", source_file="a.mp4", timeline_in=0, source_in=0, source_out=5, speed=2.0)
+    )
+    t1.add_clip(
+        Clip(id="c2", source_file="b.mp4", timeline_in=5, source_in=1, source_out=4, speed=2.0)
+    )
     tl.add_track(t1)
     progress = []
 
@@ -144,8 +151,9 @@ def test_progress_cb_arity_with_processing():
         if cb:
             cb(40)
             cb(100)
-        with open(args[-1], "wb") as f:
-            f.write(b"fake-video-bytes")
+        out = Path(args[-1])
+        assert out.suffix in {".mp4", ".webm"}
+        out.write_bytes(b"fake-video-bytes")
 
     exporter = NativeExporter()
     with mock.patch("gui.video_edit.exporter.run_ffmpeg", side_effect=fake_run_ffmpeg):

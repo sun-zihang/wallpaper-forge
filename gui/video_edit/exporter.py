@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import os
 import tempfile
+from pathlib import Path
 
 from core.video_ops import VideoOpError, run_ffmpeg
 from gui.video_edit.filters import needs_processing
@@ -90,10 +91,12 @@ class NativeExporter:
             src = clips[0].get("processed_file") or clips[0]["source_file"]
             run_ffmpeg(["-i", src, "-c", "copy", out_path], cancel_event=cancel_event)
             return
-        concat_file = os.path.join(os.path.dirname(out_path), "concat.txt")
-        with open(concat_file, "w") as f:
-            for c in clips:
-                f.write(f"file '{c.get('processed_file') or c['source_file']}'\n")
+        # concat 清单与最终产物同目录（导出器内部的临时目录），随 finally 清理
+        concat_file = Path(out_path).with_name("concat.txt")
+        lines = []
+        for c in clips:
+            lines.append(f"file '{c.get('processed_file') or c['source_file']}'\n")
+        concat_file.write_text("".join(lines), encoding="utf-8")
         args = ["-f", "concat", "-safe", "0", "-i", concat_file]
         args += ["-c:v", settings.get("video_codec", "libx264")]
         args += ["-preset", settings.get("preset", "veryfast")]
@@ -104,7 +107,9 @@ class NativeExporter:
         run_ffmpeg(
             args,
             cancel_event=cancel_event,
-            progress_cb=lambda p: on_progress(50 + int(p / 2), "合成最终视频…") if on_progress else None,
+            progress_cb=lambda p: (
+                on_progress(50 + int(p / 2), "合成最终视频…") if on_progress else None
+            ),
         )
 
     def _build_filter(self, clip) -> str:

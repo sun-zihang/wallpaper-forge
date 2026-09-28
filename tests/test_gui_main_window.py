@@ -152,7 +152,7 @@ def test_shortcut_add_files_and_dirs_dispatch_to_current_page(qapp, tmp_path, mo
 def test_shortcut_helpers_are_noop_on_settings_page(qapp, tmp_path, monkeypatch):
     win = _window(qapp, tmp_path, monkeypatch)
     try:
-        win.stack.setCurrentIndex(5)
+        win.stack.setCurrentWidget(win.settings_page)
         assert win._current_page() is win.settings_page
         assert win._drop_table() is None
         assert win._current_table() is None
@@ -216,7 +216,7 @@ def test_drop_ignored_on_settings_page(qapp, tmp_path, monkeypatch):
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(image))])
     try:
-        win.stack.setCurrentIndex(5)
+        win.stack.setCurrentWidget(win.settings_page)
         enter = QDragEnterEvent(
             QPoint(1, 1),
             Qt.CopyAction,

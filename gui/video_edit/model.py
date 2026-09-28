@@ -119,7 +119,7 @@ class Track:
         idx = next((i for i, c in enumerate(self.clips) if c.id == old_id), -1)
         if idx == -1:
             return
-        self.clips[idx:idx + 1] = new_clips
+        self.clips[idx : idx + 1] = new_clips
         self.clips.sort(key=lambda c: c.timeline_in)
 
     def to_dict(self) -> dict:

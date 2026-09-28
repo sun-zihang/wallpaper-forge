@@ -256,13 +256,14 @@ def test_main_window_smoke_all_processing_pages_have_key_widgets(
     pages = [
         (win.image_page, ("table", "start_btn", "add_files_btn")),
         (win.video_page, ("table", "mode", "frame_mode", "at_seconds_edit")),
+        (win.video_edit_page, ("table", "start_btn")),
         (win.gif_page, ("table", "mode", "start_btn")),
         (win.unpack_page, ("table", "start_btn")),
         (win.rewatermark_page, ("table", "select_btn", "start_btn")),
     ]
     try:
-        for index, (page, names) in enumerate(pages):
-            win.stack.setCurrentIndex(index)
+        for page, names in pages:
+            win.stack.setCurrentWidget(page)
             qapp.processEvents()
             assert page is win.stack.currentWidget()
             for name in names:

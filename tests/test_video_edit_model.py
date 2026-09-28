@@ -1,5 +1,5 @@
-import pytest
-from gui.video_edit.model import TimelineModel, Track, Clip, create_default_params
+from gui.video_edit.model import Clip, TimelineModel, Track, create_default_params
+
 
 def make_clip(**overrides):
     defaults = dict(
@@ -14,9 +14,11 @@ def make_clip(**overrides):
     defaults.update(overrides)
     return Clip(**defaults)
 
+
 def test_clip_duration():
     clip = make_clip(source_in=0, source_out=10, speed=2.0)
     assert clip.duration == 5.0
+
 
 def test_clip_split_at():
     clip = make_clip(source_in=0, source_out=10, speed=1.0)
@@ -24,6 +26,7 @@ def test_clip_split_at():
     assert c1.source_out == 4
     assert c2.source_in == 4
     assert c1.duration + c2.duration == clip.duration
+
 
 def test_track_add_remove_clip():
     track = Track(id="t1", type="video", name="视频轨")
@@ -33,6 +36,7 @@ def test_track_add_remove_clip():
     track.remove_clip("c1")
     assert len(track.clips) == 0
 
+
 def test_timeline_duration():
     tl = TimelineModel(id="tl1", name="测试")
     track = Track(id="t1", type="video", name="视频轨")
@@ -40,6 +44,7 @@ def test_timeline_duration():
     track.add_clip(make_clip(id="c2", timeline_in=5, source_in=0, source_out=8))
     tl.add_track(track)
     assert tl.duration == 13
+
 
 def test_timeline_find_clip():
     tl = TimelineModel(id="tl1")
@@ -52,6 +57,7 @@ def test_timeline_find_clip():
     assert tl.find_clip("c2").id == "c2"
     assert tl.get_clip_track("c2").id == "t2"
 
+
 def test_serialization():
     tl = TimelineModel(id="tl1", name="测试")
     track = Track(id="t1", type="video", name="视频轨")
@@ -62,6 +68,7 @@ def test_serialization():
     assert tl2.duration == tl.duration
     assert tl2.find_clip("c1").source_in == 1
     assert tl2.find_clip("c1").speed == 1.5
+
 
 def test_create_default_params():
     p = create_default_params()
