@@ -1,0 +1,9 @@
+{
+  "name": "wallpaper-convert-telemetry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Receives opt-in anonymous aggregate counters from Wallpaper Convert web",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.16.0"
+  }
+}

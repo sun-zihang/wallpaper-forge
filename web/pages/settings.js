@@ -2,6 +2,7 @@
 import { setStatus, getRenderToken } from "../app.js";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, applyTheme } from "../lib/settings.js";
 import { clearStats, getStats } from "../lib/track.js";
+import { isEnabled, setEnabled, getEndpoint, flush } from "../lib/telemetry.js";
 
 export function mountSettings(root) {
   const pageToken = getRenderToken();
@@ -86,11 +87,20 @@ export function mountSettings(root) {
     </div>
     <div class="panel">
       <p class="panel-title">本地使用统计</p>
-      <p class="drop-hint">计数只保存在这台浏览器里，不上传。用于了解功能使用情况与失败原因。</p>
+      <p class="drop-hint">计数默认只保存在这台浏览器里，不上传。用于了解功能使用情况与失败原因；如愿意，可在下方选择开启匿名统计。</p>
       <pre class="stats-summary" id="statsSummary">统计中…</pre>
       <pre class="stats-detail" id="statsDetail"></pre>
       <div class="row">
         <button type="button" class="btn secondary" id="clearStats">清除统计</button>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="panel-title">匿名统计（可选，默认关闭）</p>
+      <p class="drop-hint">开启后，仅在页面关闭时发送上面的聚合计数：不含文件名、不含事件明细、不含任何文件内容。</p>
+      <div class="row">
+        <label class="drop-hint"><input type="checkbox" id="telemetryOptIn" /> 发送匿名聚合计数</label>
+        <span class="drop-hint" id="telemetryStatus"></span>
+        <button type="button" class="btn secondary" id="telemetrySend">立即发送</button>
       </div>
     </div>
     <pre class="err" id="err"></pre>
@@ -169,6 +179,27 @@ export function mountSettings(root) {
     clearStats();
     renderStats();
     setStatus("统计数据已清除");
+  });
+
+  const opt = $("telemetryOptIn");
+  opt.checked = isEnabled();
+  const renderTelemetry = () => {
+    $("telemetryStatus").textContent = getEndpoint()
+      ? isEnabled()
+        ? "已开启 · 端点已配置"
+        : "已关闭 · 端点已配置"
+      : "端点未配置：开启后暂不会发送";
+  };
+  renderTelemetry();
+  opt.addEventListener("change", () => {
+    setEnabled(opt.checked);
+    renderTelemetry();
+    setStatus(opt.checked ? "已开启匿名统计" : "已关闭匿名统计");
+  });
+  $("telemetrySend").addEventListener("click", async () => {
+    if (pageToken !== getRenderToken()) return;
+    const r = await flush({ force: true });
+    setStatus(r.sent ? "匿名统计已发送" : `未发送（${r.reason}）`);
   });
 
   $("clearCache").addEventListener("click", async () => {

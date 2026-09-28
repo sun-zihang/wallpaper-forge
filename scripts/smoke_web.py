@@ -386,6 +386,21 @@ with sync_playwright() as p:
             page.context.set_offline(False)
     except Exception as e:
         check(False, f"service worker offline shell: {str(e)[:160]}")
+
+    # 7. settings: telemetry opt-in defaults to off and reports endpoint state
+    page.goto(BASE + "/index.html#/settings", wait_until="domcontentloaded")
+    try:
+        page.wait_for_selector("#telemetryOptIn", timeout=15000)
+        check(not page.locator("#telemetryOptIn").is_checked(), "telemetry opt-in defaults off")
+        page.locator("#telemetryOptIn").check()
+        check(
+            "端点未配置" in page.locator("#telemetryStatus").inner_text(),
+            "telemetry status explains missing endpoint",
+        )
+        page.locator("#telemetryOptIn").uncheck()
+        check(not page.locator("#telemetryOptIn").is_checked(), "telemetry opt-in toggles off")
+    except Exception as e:
+        check(False, f"settings telemetry panel: {str(e)[:160]}")
     browser.close()
 
 print()

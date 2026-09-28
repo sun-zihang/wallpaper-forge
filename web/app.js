@@ -9,6 +9,7 @@ import { clearShortcutActions, installGlobalShortcuts } from "./lib/shortcuts.js
 import { maybeShowOnboarding } from "./lib/onboarding.js";
 import { showErrorModal, installCompatBanner } from "./lib/errors-ui.js";
 import { bump, getStats, trackDesktop, trackModule } from "./lib/track.js";
+import { flush } from "./lib/telemetry.js";
 
 const routes = {
   "": mountHome,
@@ -121,6 +122,7 @@ window.addEventListener("beforeunload", (e) => {
 
 window.addEventListener("pagehide", () => {
   if (window.__wcRunning) bump("abandoned");
+  flush();
 });
 
 window.__wcStats = getStats;
