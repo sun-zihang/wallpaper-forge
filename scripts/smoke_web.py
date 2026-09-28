@@ -334,6 +334,27 @@ with sync_playwright() as p:
         check(slug in smt, f"sitemap lists {slug}")
     rb = page.request.get(f"{BASE}/robots.txt")
     check(rb.ok and "sitemap.xml" in rb.text(), "robots.txt points at sitemap")
+
+    # 6. service worker: controls the page and serves the shell offline
+    page.goto(BASE + "/", wait_until="domcontentloaded")
+    try:
+        page.wait_for_function(
+            "() => navigator.serviceWorker && navigator.serviceWorker.controller",
+            timeout=15000,
+            polling=100,
+        )
+        check(True, "service worker controls the page")
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector(".rail nav a", timeout=15000)
+        page.context.set_offline(True)
+        try:
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".rail nav a", timeout=15000)
+            check(True, "offline reload serves cached app shell")
+        finally:
+            page.context.set_offline(False)
+    except Exception as e:
+        check(False, f"service worker offline shell: {str(e)[:160]}")
     browser.close()
 
 print()
