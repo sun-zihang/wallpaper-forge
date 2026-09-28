@@ -51,8 +51,12 @@ export const handlers = {
     const { data, transfers } = await toWireBlob(r.blob);
     return { result: { blob: data, filename: r.filename }, transfers };
   },
-  async gif_split(p) {
-    const r = await splitGif(toFile(p.file), p.opts || {});
+  async gif_split(p, send) {
+    const opts = { ...(p.opts || {}) };
+    if (send) {
+      opts.onProgress = (done, total) => send({ type: "progress", done, total });
+    }
+    const r = await splitGif(toFile(p.file), opts);
     const files = [];
     const transfers = [];
     for (const f of r.files) {

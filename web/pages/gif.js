@@ -374,10 +374,19 @@ export function mountGif(root) {
           jobs.setProgress(batchPct(i, 0, accepted.length));
           jobs.setBatch(i, accepted.length, accepted[i].name);
           try {
-            const { files: parts } = await runJob("gif_split", {
-              file: accepted[i],
-              opts: { step: Number($("step").value) },
-            });
+            const { files: parts } = await runJob(
+              "gif_split",
+              {
+                file: accepted[i],
+                opts: { step: Number($("step").value) },
+              },
+              {
+                onProgress: (done, total) =>
+                  jobs.setProgress(
+                    batchPct(i, total ? (done / total) * 100 : 0, accepted.length)
+                  ),
+              },
+            );
             if (stale()) return;
             splitFiles.push(...parts);
             jobs.setStatus(i, "done");
@@ -457,10 +466,19 @@ export function mountGif(root) {
         jobs.setProgress(batchPct(i, 0, lastSplit.length));
         jobs.setBatch(i, lastSplit.length, lastSplit[i].name);
         try {
-          const { files: parts } = await runJob("gif_split", {
-            file: lastSplit[i],
-            opts: { step: Number($("step").value) },
-          });
+          const { files: parts } = await runJob(
+            "gif_split",
+            {
+              file: lastSplit[i],
+              opts: { step: Number($("step").value) },
+            },
+            {
+              onProgress: (done, total) =>
+                jobs.setProgress(
+                  batchPct(i, total ? (done / total) * 100 : 0, lastSplit.length)
+                ),
+            },
+          );
           if (stale()) return;
           splitFiles.push(...parts);
           jobs.setStatus(i, "done");

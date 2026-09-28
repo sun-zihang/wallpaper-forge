@@ -304,3 +304,34 @@ test("runJob fallback unpack_mpkg garbage maps to the MPKG label", async () => {
     (e) => e instanceof AppError && e.label === "MPKG 解包失败",
   );
 });
+
+function makeFakeGifuct(frameCount = 2) {
+  const frames = [];
+  for (let i = 0; i < frameCount; i++) {
+    frames.push({
+      dims: { top: 0, left: 0, width: 4, height: 4 },
+      patch: new Uint8ClampedArray(64).fill(255),
+    });
+  }
+  return {
+    parseGIF() {
+      return { lsd: { width: 4, height: 4 }, gct: {}, frames };
+    },
+    decompressFrame(frame) {
+      return { patch: frame.patch, dims: frame.dims, disposalType: 0 };
+    },
+  };
+}
+
+test("runJob fallback forwards per-frame progress from gif_split", async (t) => {
+  installCanvasStubs(t);
+  const seen = [];
+  const out = await runJob(
+    "gif_split",
+    { file: fakeFile("anim.gif"), opts: { step: 1, gifuct: makeFakeGifuct() } },
+    { onProgress: (done, total) => seen.push([done, total]) },
+  );
+  assert.ok(Array.isArray(out.files) && out.files.length >= 1);
+  assert.ok(seen.length >= 1, "splitGif 逐帧进度经 send 中继到 onProgress");
+  assert.equal(seen.at(-1)[0], seen.at(-1)[1], "最后一帧 done === total");
+});

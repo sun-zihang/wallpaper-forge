@@ -146,10 +146,11 @@ function canvasFromBuffer(buffer, width, height) {
   return canvas;
 }
 
-export async function splitGif(file, { step = 1, token, gifuct } = {}) {
+export async function splitGif(file, { step = 1, token, gifuct, onProgress } = {}) {
   if (step < 1) throw new AppError("GIF 处理失败", "抽稀步长至少为 1");
   const { frames } = await loadGifFrames(file, { token, gifuct });
   const base = (file.name || "a.gif").replace(/\.gif$/i, "");
+  const total = Math.ceil(frames.length / step);
   const files = [];
   let kept = 0;
   for (let i = 0; i < frames.length; i++) {
@@ -158,6 +159,7 @@ export async function splitGif(file, { step = 1, token, gifuct } = {}) {
     kept += 1;
     const blob = await encodeCanvas(frames[i], "image/png", undefined, "GIF 处理失败");
     files.push({ name: `${base}/frame_${String(kept).padStart(4, "0")}.png`, blob });
+    if (onProgress) onProgress(kept, total);
   }
   if (!files.length) throw new AppError("GIF 处理失败", "GIF 中没有可导出的帧");
   return { files };

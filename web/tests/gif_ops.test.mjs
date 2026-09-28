@@ -555,3 +555,35 @@ test("gifSplitTooLarge flags huge GIFs", () => {
 });
 
 
+
+test("splitGif reports per-frame progress (kept, total) when onProgress is given", async (t) => {
+  installGifEnv(t);
+  const seen = [];
+  const { files } = await splitGif(gifFile("walk.GIF"), {
+    step: 2,
+    gifuct: makeGifuct({
+      frames: [
+        { dims: { top: 0, left: 0, width: 4, height: 4 }, patch: new Uint8ClampedArray(64).fill(255) },
+        { dims: { top: 0, left: 0, width: 4, height: 4 }, patch: new Uint8ClampedArray(64).fill(128) },
+        { dims: { top: 0, left: 0, width: 4, height: 4 }, patch: new Uint8ClampedArray(64).fill(64) },
+        { dims: { top: 0, left: 0, width: 4, height: 4 }, patch: new Uint8ClampedArray(64).fill(32) },
+      ],
+    }),
+    onProgress: (kept, total) => seen.push([kept, total]),
+  });
+  assert.equal(files.length, 2);
+  // step 2 × 4 帧 → 保留 2 帧,总数按 ceil(4/2) 计
+  assert.deepEqual(seen, [[1, 2], [2, 2]]);
+});
+
+test("splitGif: no onProgress → 零开销(不传不炸)", async (t) => {
+  installGifEnv(t);
+  const { files } = await splitGif(gifFile("a.GIF"), {
+    gifuct: makeGifuct({
+      frames: [
+        { dims: { top: 0, left: 0, width: 4, height: 4 }, patch: new Uint8ClampedArray(64).fill(255) },
+      ],
+    }),
+  });
+  assert.equal(files.length, 1);
+});
