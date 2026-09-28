@@ -97,7 +97,7 @@ class NativeExporter:
         for c in clips:
             lines.append(f"file '{c.get('processed_file') or c['source_file']}'\n")
         concat_file.write_text("".join(lines), encoding="utf-8")
-        args = ["-f", "concat", "-safe", "0", "-i", concat_file]
+        args = ["-f", "concat", "-safe", "0", "-i", str(concat_file)]
         args += ["-c:v", settings.get("video_codec", "libx264")]
         args += ["-preset", settings.get("preset", "veryfast")]
         args += ["-crf", str(settings.get("crf", 23))]
