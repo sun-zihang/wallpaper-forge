@@ -136,10 +136,16 @@ export function mountVideoEdit(root, deps = {}) {
 
   function afterEdit(refreshParams = false) {
     if (stale()) return;
-    renderTimeline();
-    updateTimeInfo();
-    schedulePreview();
-    if (refreshParams) renderParamsPanel();
+    if (state.editQueued) return;
+    state.editQueued = true;
+    raf(() => {
+      state.editQueued = false;
+      if (stale()) return;
+      renderTimeline();
+      updateTimeInfo();
+      schedulePreview();
+      if (refreshParams) renderParamsPanel();
+    });
   }
 
   function schedulePreview() {
@@ -215,6 +221,14 @@ export function mountVideoEdit(root, deps = {}) {
         renderFileList();
       });
     }
+  }
+
+  function removeFileEntry(index) {
+    const entry = state.fileEntries[index];
+    if (!entry) return;
+    if (entry.url) URL.revokeObjectURL(entry.url);
+    state.fileEntries.splice(index, 1);
+    renderFileList();
   }
 
   function addClipFromFile(entry) {
@@ -339,7 +353,7 @@ export function mountVideoEdit(root, deps = {}) {
     });
     el.addEventListener("contextmenu", (ev) => {
       ev.preventDefault?.();
-      showClipMenu(clip);
+      showClipMenu(clip, ev);
     });
     el.addEventListener("pointerdown", (ev) => {
       if (ev.target !== el) return;
@@ -447,7 +461,7 @@ export function mountVideoEdit(root, deps = {}) {
   }
 
   let clipMenu = null;
-  function showClipMenu(clip) {
+  function showClipMenu(clip, ev) {
     closeClipMenu();
     clipMenu = document.createElement("div");
     clipMenu.className = "clip-menu";
@@ -468,11 +482,21 @@ export function mountVideoEdit(root, deps = {}) {
     clipMenu.appendChild(splitItem);
     clipMenu.appendChild(delItem);
     document.body.appendChild(clipMenu);
+    const x = Math.min(ev.clientX, window.innerWidth - 120);
+    const y = Math.min(ev.clientY, window.innerHeight - 80);
+    clipMenu.style.left = `${x}px`;
+    clipMenu.style.top = `${y}px`;
+    document.addEventListener("click", dismissClipMenu, true);
   }
 
   function closeClipMenu() {
     if (clipMenu && clipMenu.parentNode) clipMenu.parentNode.removeChild(clipMenu);
     clipMenu = null;
+    document.removeEventListener("click", dismissClipMenu, true);
+  }
+
+  function dismissClipMenu(ev) {
+    if (clipMenu && !clipMenu.contains(ev.target)) closeClipMenu();
   }
 
   function sectionTitle(text) {

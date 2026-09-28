@@ -53,12 +53,22 @@ export function buildClipFilter(clip, inputIndex, outputIndex) {
     filters.push(`${current}copy[v${outputIndex}]`);
   }
 
+  const audio = clip.params.audio;
+  const audioFilters = [];
+  if (audio.volume !== 1.0) audioFilters.push(`volume=${audio.volume}`);
+  if (audio.fadeIn > 0) audioFilters.push(`afade=t=in:st=0:d=${audio.fadeIn}`);
+  if (audio.fadeOut > 0) audioFilters.push(`afade=t=out:st=${clip.duration - audio.fadeOut}:d=${audio.fadeOut}`);
+  if (clip.speed !== 1.0) audioFilters.push(`atempo=${clip.speed}`);
+  if (audioFilters.length) {
+    filters.push(`[${inputIndex}:a]${audioFilters.join(",")}[a${outputIndex}]`);
+  }
+
   if (clip.params.overlay && clip.params.overlay.type === "text") {
     const ov = clip.params.overlay;
-    const text = ov.text.replace(/'/g, "'\\''");
+    const text = ov.text.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/%/g, "\\%").replace(/'/g, "'\\''");
     const x = `(w-text_w)*${ov.position.x / 100}`;
     const y = `(h-text_h)*${ov.position.y / 100}`;
-    filters.push(`[v${outputIndex}]drawtext=text=${text}:fontsize=${ov.fontSize}:fontcolor=${ov.fontColor}@${ov.opacity}:x=${x}:y=${y}[ov${outputIndex}]`);
+    filters.push(`[v${outputIndex}]drawtext=text='${text}':fontsize=${ov.fontSize}:fontcolor=${ov.fontColor}@${ov.opacity}:x=${x}:y=${y}[ov${outputIndex}]`);
     current = `[ov${outputIndex}]`;
   }
 
@@ -83,6 +93,9 @@ export function needsProcessing(clip) {
     p.filters.sepia ||
     p.filters.blur > 0 ||
     p.filters.sharpen > 0 ||
+    p.audio.volume !== 1.0 ||
+    p.audio.fadeIn > 0 ||
+    p.audio.fadeOut > 0 ||
     p.overlay !== null
   );
 }

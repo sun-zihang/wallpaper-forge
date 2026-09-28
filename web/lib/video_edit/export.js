@@ -9,6 +9,14 @@ export class ExportOrchestrator {
   }
 
   async export(onProgress) {
+    const format = this.options.format || "mp4";
+    const codec = this.options.videoCodec || "libx264";
+    if (format === "webm" && (codec === "libx264" || codec === "libx265")) {
+      throw new Error("WebM 格式不支持 H.264/H.265 编码器，请选择 VP9");
+    }
+    if (format === "mp4" && codec === "libvpx-vp9") {
+      throw new Error("MP4 格式不支持 VP9 编码器，请选择 H.264 或 H.265");
+    }
     const plan = this._buildPlan();
     const intermediates = [];
 

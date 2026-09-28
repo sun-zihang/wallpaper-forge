@@ -269,6 +269,7 @@ function dropFileOnTimeline(els, index) {
   const dt = { data: {}, setData(t, v) { this.data[t] = v; }, effectAllowed: "" };
   els.fileList.children[index].fire("dragstart", { dataTransfer: dt });
   els.timeline.fire("drop", { dataTransfer: { files: [] } });
+  runRaf(0);
   return dt;
 }
 
@@ -338,6 +339,7 @@ test("参数调整通过 AdjustParamsCommand 更新模型", async () => {
   const speedInput = els.paramsBody.querySelector("#speed");
   speedInput.value = "2";
   speedInput.fire("input");
+  runRaf(0);
   assert.equal(clip.speed, 2);
   assert.equal(handle.engine.undoStack.length, 1);
   assert.equal(firstClipEl(els).style.width, "50%");
@@ -372,6 +374,7 @@ test("Delete 键删除选中片段", async () => {
   await addFileViaInput(els, fakeFile("a.mp4"));
   dropFileOnTimeline(els, 0);
   documentFake.fireDoc("keydown", { key: "Delete", target: { tagName: "DIV" } });
+  runRaf(0);
   assert.equal(handle.timeline.tracks[0].clips.length, 0);
   assert.equal(handle.state.selectedClipId, null);
   assert.equal(els.paramsBody.children[0].textContent, "选择时间线上的片段");
@@ -381,7 +384,7 @@ test("右键菜单删除片段", async () => {
   const { handle, els } = await setupEditor();
   await addFileViaInput(els, fakeFile("a.mp4"));
   dropFileOnTimeline(els, 0);
-  firstClipEl(els).fire("contextmenu", {});
+  firstClipEl(els).fire("contextmenu", { clientX: 100, clientY: 100 });
   const menu = bodyEl.querySelector(".clip-menu");
   assert.ok(menu);
   assert.equal(menu.children.length, 2);
@@ -481,9 +484,11 @@ test("裁剪通过 TrimClipCommand 提交且可撤销重做", async () => {
   assert.equal(clip.sourceOut, 9);
   assert.equal(handle.engine.undoStack.length, 1);
   els.undoBtn.fire("click");
+  runRaf(0);
   assert.equal(clip.sourceOut, 10);
   assert.equal(firstClipEl(els).style.width, "100%");
   els.redoBtn.fire("click");
+  runRaf(0);
   assert.equal(clip.sourceOut, 9);
 });
 

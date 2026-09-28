@@ -79,7 +79,7 @@ test("buildClipFilter: 文字叠加", () => {
   const clip = new Clip({ sourceFile: "a.mp4", params });
   const f = buildClipFilter(clip, 0, 0);
   assert.match(f, /drawtext/);
-  assert.match(f, /text=Hello/);
+  assert.match(f, /text='Hello'/);
 });
 
 test("buildClipFilter: 模糊", () => {
