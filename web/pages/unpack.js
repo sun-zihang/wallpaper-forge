@@ -1,7 +1,7 @@
 // web/pages/unpack.js
 import { extractTex } from "../lib/we_tex.js";
 import { detectKind } from "../lib/we_detect.js";
-import { runJob } from "../lib/worker_client.js";
+import { runJob, poolConcurrency } from "../lib/worker_client.js";
 import { runLimited } from "../lib/pipeline.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
@@ -332,7 +332,7 @@ export function mountUnpack(root) {
             jobs.setStatus(i, "failed", friendlyError(e));
           }
         },
-        { limit: 2, shouldStop: () => jobs.cancelled },
+        { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
       );
       jobs.finish();
       if (!stale()) {
@@ -394,7 +394,7 @@ export function mountUnpack(root) {
             jobs.setStatus(i, "failed", friendlyError(e));
           }
         },
-        { limit: 2, shouldStop: () => jobs.cancelled },
+        { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
       );
       jobs.finish();
       if (!stale()) {

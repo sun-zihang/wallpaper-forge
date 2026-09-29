@@ -11,7 +11,7 @@ import { setStatus } from "../app.js";
 import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings, saveSettings } from "../lib/settings.js";
-import { runJob } from "../lib/worker_client.js";
+import { runJob, poolConcurrency } from "../lib/worker_client.js";
 import { runLimited } from "../lib/pipeline.js";
 import { getRenderToken, setTaskRunning } from "../app.js";
 import { trackEnd, trackFailure, trackStart, trackUpload } from "../lib/track.js";
@@ -403,7 +403,7 @@ export function mountGif(root) {
               jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
             }
           },
-          { limit: 2, shouldStop: () => jobs.cancelled },
+          { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
         );
         for (let i = 0; i < accepted.length; i++) {
           if (!results[i]) jobs.setStatus(i, "cancelled", "已取消");
@@ -502,7 +502,7 @@ export function mountGif(root) {
             jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
           }
         },
-        { limit: 2, shouldStop: () => jobs.cancelled },
+        { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
       );
       jobs.finish();
       if (!stale()) {

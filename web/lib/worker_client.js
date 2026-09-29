@@ -34,6 +34,14 @@ function ensurePool() {
   return pool;
 }
 
+/** Effective batch concurrency: 2 when the worker pool is available
+ *  (matches pool size), 1 when the main-thread fallback is in play — a
+ *  concurrent fallback decode would jank the UI (the exact problem the
+ *  workerization solves), so batch pages must clamp their pipeline width. */
+export function poolConcurrency() {
+  return ensurePool() ? 2 : 1;
+}
+
 // Replaces wire blob records ({ buf, type } — exactly those two keys) with
 // real Blobs, recursively. Anything else passes through untouched.
 export function hydrate(value) {

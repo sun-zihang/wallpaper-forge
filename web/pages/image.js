@@ -2,7 +2,7 @@
 import { OUT_FORMATS, IMAGE_EXTS, loadImageBitmap } from "../lib/image_ops.js";
 import { assertImageResolution } from "../lib/validate.js";
 import { cropCanvas } from "../lib/annotate.js";
-import { cancelAllWorkerJobs, runJob } from "../lib/worker_client.js";
+import { cancelAllWorkerJobs, runJob, poolConcurrency } from "../lib/worker_client.js";
 import { runLimited } from "../lib/pipeline.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
@@ -477,7 +477,7 @@ export function mountImage(root) {
             setFileStatus(entry, cancelled ? "cancelled" : "failed");
           }
         },
-        { limit: 2, shouldStop: () => jobs.cancelled },
+        { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
       );
       // 未派发的文件(取消后)标记取消,与串行版 break 行为一致
       for (let i = 0; i < files.length; i++) {
@@ -689,7 +689,7 @@ export function mountImage(root) {
             jobs.setStatus(i, msg.includes("已取消") ? "cancelled" : "failed", msg);
           }
         },
-        { limit: 2, shouldStop: () => jobs.cancelled },
+        { limit: poolConcurrency(), shouldStop: () => jobs.cancelled },
       );
       for (let i = 0; i < files.length; i++) {
         if (!results[i]) jobs.setStatus(i, "cancelled", "已取消");
