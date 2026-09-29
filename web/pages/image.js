@@ -666,26 +666,33 @@ export function mountImage(root) {
     try {
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
       const produced = [];
+      const results = await runLimited(
+        files.length,
+        async (i) => {
+          if (jobs.cancelled) {
+            jobs.setStatus(i, "cancelled", "已取消");
+            return;
+          }
+          jobs.setStatus(i, "running");
+          jobs.setProgress(batchPct(i, 0, files.length));
+          jobs.setBatch(i, files.length, files[i].name);
+          try {
+            const res = textMode
+              ? await runJob("text_watermark", { file: files[i], opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` } })
+              : await runJob("image_watermark", { file: files[i], mark, opts: { scale, opacity, position } });
+            addOutput(res.blob, res.filename);
+            produced.push({ blob: res.blob, filename: res.filename });
+            jobs.setStatus(i, "done");
+            jobs.setProgress(batchPct(i, 100, files.length));
+          } catch (e) {
+            const msg = friendlyError(e);
+            jobs.setStatus(i, msg.includes("已取消") ? "cancelled" : "failed", msg);
+          }
+        },
+        { limit: 2, shouldStop: () => jobs.cancelled },
+      );
       for (let i = 0; i < files.length; i++) {
-        if (jobs.cancelled) {
-          jobs.setStatus(i, "cancelled", "已取消");
-          continue;
-        }
-        jobs.setStatus(i, "running");
-        jobs.setProgress(batchPct(i, 0, files.length));
-        jobs.setBatch(i, files.length, files[i].name);
-        try {
-          const res = textMode
-            ? await runJob("text_watermark", { file: files[i], opts: { text, fontSize, position, color: `rgba(255,255,255,${opacity})` } })
-            : await runJob("image_watermark", { file: files[i], mark, opts: { scale, opacity, position } });
-          addOutput(res.blob, res.filename);
-          produced.push({ blob: res.blob, filename: res.filename });
-          jobs.setStatus(i, "done");
-          jobs.setProgress(batchPct(i, 100, files.length));
-        } catch (e) {
-          const msg = friendlyError(e);
-          jobs.setStatus(i, msg.includes("已取消") ? "cancelled" : "failed", msg);
-        }
+        if (!results[i]) jobs.setStatus(i, "cancelled", "已取消");
       }
       jobs.finish();
       if (!stale() && produced.length === 1) {

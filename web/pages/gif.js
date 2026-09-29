@@ -12,6 +12,7 @@ import { registerShortcutAction } from "../lib/shortcuts.js";
 import { showToast } from "../lib/toast.js";
 import { loadSettings, saveSettings } from "../lib/settings.js";
 import { runJob } from "../lib/worker_client.js";
+import { runLimited } from "../lib/pipeline.js";
 import { getRenderToken, setTaskRunning } from "../app.js";
 import { trackEnd, trackFailure, trackStart, trackUpload } from "../lib/track.js";
 import { reportJob } from "../lib/jobcenter.js";
@@ -364,42 +365,48 @@ export function mountGif(root) {
         jobs.submit(accepted.map((f, i) => ({ id: i, name: f.name, thumb: URL.createObjectURL(f) })));
         splitFiles = [];
         lastSplit = accepted;
-        for (let i = 0; i < accepted.length; i++) {
-          if (stale()) return;
-          if (jobs.cancelled) {
-            jobs.setStatus(i, "cancelled", "已取消");
-            continue;
-          }
-          jobs.setStatus(i, "running");
-          jobs.setProgress(batchPct(i, 0, accepted.length));
-          jobs.setBatch(i, accepted.length, accepted[i].name);
-          try {
-            const { files: parts } = await runJob(
-              "gif_split",
-              {
-                file: accepted[i],
-                opts: { step: Number($("step").value) },
-              },
-              {
-                onProgress: (done, total) =>
-                  jobs.setProgress(
-                    batchPct(i, total ? (done / total) * 100 : 0, accepted.length)
-                  ),
-              },
-            );
+        const results = await runLimited(
+          accepted.length,
+          async (i) => {
             if (stale()) return;
-            splitFiles.push(...parts);
-            jobs.setStatus(i, "done");
-            jobs.setProgress(batchPct(i, 100, accepted.length));
-            renderGallery();
-            syncSaveDir();
-          } catch (e) {
-            trackFailure(e);
-            const msg = friendlyError(e);
-            const cancelled = msg.includes("已取消");
-            jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
-            if (cancelled) continue;
-          }
+            if (jobs.cancelled) {
+              jobs.setStatus(i, "cancelled", "已取消");
+              return;
+            }
+            jobs.setStatus(i, "running");
+            jobs.setProgress(batchPct(i, 0, accepted.length));
+            jobs.setBatch(i, accepted.length, accepted[i].name);
+            try {
+              const { files: parts } = await runJob(
+                "gif_split",
+                {
+                  file: accepted[i],
+                  opts: { step: Number($("step").value) },
+                },
+                {
+                  onProgress: (done, total) =>
+                    jobs.setProgress(
+                      batchPct(i, total ? (done / total) * 100 : 0, accepted.length)
+                    ),
+                },
+              );
+              if (stale()) return;
+              splitFiles.push(...parts);
+              jobs.setStatus(i, "done");
+              jobs.setProgress(batchPct(i, 100, accepted.length));
+              renderGallery();
+              syncSaveDir();
+            } catch (e) {
+              trackFailure(e);
+              const msg = friendlyError(e);
+              const cancelled = msg.includes("已取消");
+              jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+            }
+          },
+          { limit: 2, shouldStop: () => jobs.cancelled },
+        );
+        for (let i = 0; i < accepted.length; i++) {
+          if (!results[i]) jobs.setStatus(i, "cancelled", "已取消");
         }
         jobs.finish();
         if (!stale()) {
@@ -456,43 +463,47 @@ export function mountGif(root) {
     $("zip").disabled = true;
     $("retry").disabled = true;
     try {
-      for (const i of failedIdx) {
-        if (stale()) return;
-        if (jobs.cancelled) {
-          jobs.setStatus(i, "cancelled", "已取消");
-          continue;
-        }
-        jobs.setStatus(i, "running");
-        jobs.setProgress(batchPct(i, 0, lastSplit.length));
-        jobs.setBatch(i, lastSplit.length, lastSplit[i].name);
-        try {
-          const { files: parts } = await runJob(
-            "gif_split",
-            {
-              file: lastSplit[i],
-              opts: { step: Number($("step").value) },
-            },
-            {
-              onProgress: (done, total) =>
-                jobs.setProgress(
-                  batchPct(i, total ? (done / total) * 100 : 0, lastSplit.length)
-                ),
-            },
-          );
+      const retryResults = await runLimited(
+        failedIdx.length,
+        async (k) => {
+          const i = failedIdx[k];
           if (stale()) return;
-          splitFiles.push(...parts);
-          jobs.setStatus(i, "done");
-          jobs.setProgress(batchPct(i, 100, lastSplit.length));
-          renderGallery();
-          syncSaveDir();
-        } catch (e) {
-          trackFailure(e);
-          const msg = friendlyError(e);
-          const cancelled = msg.includes("已取消");
-          jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
-          if (cancelled) continue;
-        }
-      }
+          if (jobs.cancelled) {
+            jobs.setStatus(i, "cancelled", "已取消");
+            return;
+          }
+          jobs.setStatus(i, "running");
+          jobs.setProgress(batchPct(i, 0, lastSplit.length));
+          jobs.setBatch(i, lastSplit.length, lastSplit[i].name);
+          try {
+            const { files: parts } = await runJob(
+              "gif_split",
+              {
+                file: lastSplit[i],
+                opts: { step: Number($("step").value) },
+              },
+              {
+                onProgress: (done, total) =>
+                  jobs.setProgress(
+                    batchPct(i, total ? (done / total) * 100 : 0, lastSplit.length)
+                  ),
+              },
+            );
+            if (stale()) return;
+            splitFiles.push(...parts);
+            jobs.setStatus(i, "done");
+            jobs.setProgress(batchPct(i, 100, lastSplit.length));
+            renderGallery();
+            syncSaveDir();
+          } catch (e) {
+            trackFailure(e);
+            const msg = friendlyError(e);
+            const cancelled = msg.includes("已取消");
+            jobs.setStatus(i, cancelled ? "cancelled" : "failed", msg);
+          }
+        },
+        { limit: 2, shouldStop: () => jobs.cancelled },
+      );
       jobs.finish();
       if (!stale()) {
         $("retry").hidden = jobs.failedIndices().length === 0;

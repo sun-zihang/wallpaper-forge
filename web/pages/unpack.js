@@ -2,6 +2,7 @@
 import { extractTex } from "../lib/we_tex.js";
 import { detectKind } from "../lib/we_detect.js";
 import { runJob } from "../lib/worker_client.js";
+import { runLimited } from "../lib/pipeline.js";
 import { createJobList } from "../lib/joblist.js";
 import { batchPct } from "../lib/progress.js";
 import { validateSelection } from "../lib/selection.js";
@@ -305,30 +306,34 @@ export function mountUnpack(root) {
     try {
       jobs.submit(files.map((f, i) => ({ id: i, name: f.name })));
       allFiles = [];
-      for (let i = 0; i < files.length; i++) {
-        if (jobs.cancelled) {
-          jobs.setStatus(i, "cancelled", "已取消");
-          continue;
-        }
-        const f = files[i];
-        const kind = detectKind(f.name);
-        if (!kind) {
-          jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
-          continue;
-        }
-        jobs.setStatus(i, "running");
-        jobs.setProgress(batchPct(i, 0, files.length));
-        jobs.setBatch(i, files.length, f.name);
-        try {
-          const result = await runJob(`unpack_${kind}`, { file: f });
-          for (const item of result.files) allFiles.push(item);
-          jobs.setStatus(i, "done");
-          jobs.setProgress(batchPct(i, 100, files.length));
-        } catch (e) {
-          trackFailure(e);
-          jobs.setStatus(i, "failed", friendlyError(e));
-        }
-      }
+      await runLimited(
+        files.length,
+        async (i) => {
+          if (jobs.cancelled) {
+            jobs.setStatus(i, "cancelled", "已取消");
+            return;
+          }
+          const f = files[i];
+          const kind = detectKind(f.name);
+          if (!kind) {
+            jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
+            return;
+          }
+          jobs.setStatus(i, "running");
+          jobs.setProgress(batchPct(i, 0, files.length));
+          jobs.setBatch(i, files.length, f.name);
+          try {
+            const result = await runJob(`unpack_${kind}`, { file: f });
+            for (const item of result.files) allFiles.push(item);
+            jobs.setStatus(i, "done");
+            jobs.setProgress(batchPct(i, 100, files.length));
+          } catch (e) {
+            trackFailure(e);
+            jobs.setStatus(i, "failed", friendlyError(e));
+          }
+        },
+        { limit: 2, shouldStop: () => jobs.cancelled },
+      );
       jobs.finish();
       if (!stale()) {
         $("retry").hidden = jobs.failedIndices().length === 0;
@@ -362,30 +367,35 @@ export function mountUnpack(root) {
     $("dl").disabled = true;
     $("retry").disabled = true;
     try {
-      for (const i of failedIdx) {
-        if (jobs.cancelled) {
-          jobs.setStatus(i, "cancelled", "已取消");
-          continue;
-        }
-        const f = lastBatch[i];
-        const kind = detectKind(f.name);
-        if (!kind) {
-          jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
-          continue;
-        }
-        jobs.setStatus(i, "running");
-        jobs.setProgress(batchPct(i, 0, lastBatch.length));
-        jobs.setBatch(i, lastBatch.length, f.name);
-        try {
-          const result = await runJob(`unpack_${kind}`, { file: f });
-          for (const item of result.files) allFiles.push(item);
-          jobs.setStatus(i, "done");
-          jobs.setProgress(batchPct(i, 100, lastBatch.length));
-        } catch (e) {
-          trackFailure(e);
-          jobs.setStatus(i, "failed", friendlyError(e));
-        }
-      }
+      await runLimited(
+        failedIdx.length,
+        async (k) => {
+          const i = failedIdx[k];
+          if (jobs.cancelled) {
+            jobs.setStatus(i, "cancelled", "已取消");
+            return;
+          }
+          const f = lastBatch[i];
+          const kind = detectKind(f.name);
+          if (!kind) {
+            jobs.setStatus(i, "failed", "不支持的文件类型，该变体请用桌面版");
+            return;
+          }
+          jobs.setStatus(i, "running");
+          jobs.setProgress(batchPct(i, 0, lastBatch.length));
+          jobs.setBatch(i, lastBatch.length, f.name);
+          try {
+            const result = await runJob(`unpack_${kind}`, { file: f });
+            for (const item of result.files) allFiles.push(item);
+            jobs.setStatus(i, "done");
+            jobs.setProgress(batchPct(i, 100, lastBatch.length));
+          } catch (e) {
+            trackFailure(e);
+            jobs.setStatus(i, "failed", friendlyError(e));
+          }
+        },
+        { limit: 2, shouldStop: () => jobs.cancelled },
+      );
       jobs.finish();
       if (!stale()) {
         $("retry").hidden = jobs.failedIndices().length === 0;
